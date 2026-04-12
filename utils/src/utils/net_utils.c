@@ -118,11 +118,11 @@ void *buffer_receive (int *size, int client_socket) {
 	return buffer;
 }
 
-void message_receive (int client_socket) {
+char *message_receive (int client_socket) {
 	int size;
 	char *buffer = buffer_receive(&size, client_socket);
 	log_info(logger, "Received message: %s", buffer);
-	free(buffer);
+	return buffer;
 }
 
 void message_send (char *message, int client_socket) {
