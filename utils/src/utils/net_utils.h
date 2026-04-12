@@ -1,6 +1,6 @@
 #ifndef UTILS_NET_UTILS_H_
 #define UTILS_NET_UTILS_H_
-#include <utils/net_utils.h>
+
 #include<stdio.h>
 #include<stdlib.h>
 #include<sys/socket.h>
@@ -15,8 +15,18 @@
 
 typedef enum {
 	MESSAGE,
-	PACKAGE
+	PACKAGE,
+    HANDSHAKE
 } op_code;
+
+typedef enum {
+    MODULE_KERNEL_SCHEDULER,
+    MODULE_CPU,
+    MODULE_IO,
+    MODULE_SWAP,
+    MODULE_MEMORY_STICK
+} t_module_id;
+
 
 typedef struct {
 	int size;
