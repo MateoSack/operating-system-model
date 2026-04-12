@@ -1,5 +1,5 @@
 #include <utils/net_utils.h>
-#include <netdb.h>
+
 
 t_log *logger;
 
@@ -130,9 +130,9 @@ void message_send (char *message, int client_socket) {
 
 	package->op_code = MESSAGE;
 	package->buffer = malloc(sizeof(t_buffer));
-	package->buffer->size = strlen(mensaje) + 1;
+	package->buffer->size = strlen(message) + 1;
 	package->buffer->stream = malloc(package->buffer->size);
-	memcpy(package->buffer->stream, mensaje, package->buffer->size);
+	memcpy(package->buffer->stream, message, package->buffer->size);
 
 	int bytes = package->buffer->size + 2 * sizeof(int);
 
@@ -154,7 +154,7 @@ void buffer_create (t_package *package)
 t_package *package_create (void)
 {
 	t_package *package = malloc(sizeof(t_package));
-	package->codigo_operacion = package;
+	package->op_code = PACKAGE;
 	crear_buffer(package);
 	return package;
 }
@@ -254,7 +254,7 @@ void *package_serialize(t_package *package, int bytes)
 	void *buffer = malloc(bytes);
 	int offset = 0;
 
-	memcpy(buffer + offset, &(package->codigo_operacion), sizeof(int));
+	memcpy(buffer + offset, &(package->op_code), sizeof(int));
 	offset += sizeof(int);
 	memcpy(buffer + offset, &(package->buffer->size), sizeof(int));
 	offset += sizeof(int);

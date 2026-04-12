@@ -1,4 +1,4 @@
-#include <utils/hello.h>
+#include <utils/net_utils.h>
 
 int main(int argc, char* argv[]) {
     saludar("memory_stick");

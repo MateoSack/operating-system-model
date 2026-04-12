@@ -1,8 +1,15 @@
-#ifndef UTILS_HELLO_H_
-#define UTILS_HELLO_H_
-
-#include <stdlib.h>
-#include <stdio.h>
+#ifndef UTILS_NET_UTILS_H_
+#define UTILS_NET_UTILS_H_
+#include <utils/net_utils.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<sys/socket.h>
+#include<unistd.h>
+#include<netdb.h>
+#include<commons/log.h>
+#include<commons/collections/list.h>
+#include<string.h>
+#include<assert.h>
 
 #define PORT "4444"
 
@@ -55,7 +62,7 @@ extern t_log* logger;
 
 int server_start (t_log *logger);
 int server_client_wait (int socket_server);
-int connection_create (char *ip, char *PORT, t_log *logger);
+int connection_create (char *ip, char *port, t_log *logger);
 void connection_liberate (int client_socket);
 int operation_receive (int client_socket);
 void *buffer_receive (int *size, int client_socket);
