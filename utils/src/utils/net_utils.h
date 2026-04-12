@@ -19,6 +19,11 @@ typedef enum {
     HANDSHAKE
 } op_code;
 
+typedef struct {
+    int fd;
+    int id;
+} t_client_info;
+
 typedef enum {
     MODULE_KERNEL_SCHEDULER,
     MODULE_CPU,
