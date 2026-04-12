@@ -141,7 +141,7 @@ void message_send (char *message, int client_socket) {
 	send(client_socket, to_send, bytes, 0);
 
 	free(to_send);
-	remove_package(package);
+	package_delete(package);
 }
 
 void buffer_create (t_package *package)
