@@ -120,7 +120,7 @@ void *buffer_receive (int *size, int client_socket) {
 
 void message_receive (int client_socket) {
 	int size;
-	char *buffer = recibir_buffer(&size, client_socket);
+	char *buffer = buffer_receive(&size, client_socket);
 	log_info(logger, "Received message: %s", buffer);
 	free(buffer);
 }
@@ -136,12 +136,12 @@ void message_send (char *message, int client_socket) {
 
 	int bytes = package->buffer->size + 2 * sizeof(int);
 
-	void *to_send = serializar_package(package, bytes);
+	void *to_send = package_serialize(package, bytes);
 
 	send(client_socket, to_send, bytes, 0);
 
 	free(to_send);
-	eliminar_package(package);
+	remove_package(package);
 }
 
 void buffer_create (t_package *package)
@@ -155,7 +155,7 @@ t_package *package_create (void)
 {
 	t_package *package = malloc(sizeof(t_package));
 	package->op_code = PACKAGE;
-	crear_buffer(package);
+	buffer_create(package);
 	return package;
 }
 
@@ -172,7 +172,7 @@ void package_add (t_package *package, void *value, int size)
 void package_send (t_package *package, int client_socket)
 {
 	int bytes = package->buffer->size + 2 * sizeof(int);
-	void *to_send = serializar_package(package, bytes);
+	void *to_send = package_serialize(package, bytes);
 
 	send(client_socket, to_send, bytes, 0);
 
@@ -228,7 +228,7 @@ uint8_t int8_deserialize(void *buffer, int *offset) {
 t_pcb *pcb_receive(int socket_cliente) {
     int size;
     int offset = 0;
-    void *buffer = recibir_buffer(&size, socket_cliente);
+    void *buffer = buffer_receive(&size, socket_cliente);
     t_pcb *pcb = malloc(sizeof(t_pcb));
 
     pcb->pid = int32_deserialize(buffer, &offset);
