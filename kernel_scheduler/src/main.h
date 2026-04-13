@@ -1,5 +1,4 @@
 #include <utils/net_utils.h>
-#include <pthread.h>
 #include <commons/log.h>
 #include <commons/string.h>
 #include <commons/config.h>
