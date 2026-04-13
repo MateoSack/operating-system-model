@@ -1,5 +1,4 @@
-#include <utils/net_utils.h>
-#include <pthread.h>
+#include <utils/server_utils.h>
 #include <commons/collections/list.h>
 
 t_log *logger;
@@ -17,18 +16,7 @@ void *handle_module(void *fd_ptr) {
     int fd_client = *(int *)fd_ptr; //trato fd_ptr como puntero a int y obtengo el valor para fd_client
     free(fd_ptr);
 
-    //HANDSHAKE
-    int cod_op = operation_receive(fd_client);
-    if (cod_op != HANDSHAKE) {
-        log_error(logger, "Expected HANDSHAKE, received: %d", cod_op);
-        close(fd_client);
-        return NULL;
-    }
-
-    int size;
-    t_module_id *module_id_ptr = buffer_receive(&size, fd_client);
-    t_module_id module_id = *module_id_ptr;
-    free(module_id_ptr);
+    t_module_id module_id = handshake_receiver(fd_client);
 
     //Handle de nuevo módulo
     switch (module_id) {
@@ -40,8 +28,8 @@ void *handle_module(void *fd_ptr) {
         case MODULE_CPU: {
         // CPU ya viene con su ID asignado por Scheduler
         // IMPORTANTE: Confirmar si funciona como bloqueante el buffer_receive y efectivamente espera el mensaje de ID del CPU. Sino implementar que si lo espere.
-        int size;
-        int *cpu_id_ptr = buffer_receive(&size, fd_client);
+        
+        int cpu_id = id_receive(fd_client);
 
         t_client_info *cpu = malloc(sizeof(t_client_info));
         cpu->fd = fd_client;
@@ -52,23 +40,15 @@ void *handle_module(void *fd_ptr) {
         log_info(logger, "CPU %d conectada (total: %d)", cpu->id, list_size(list_cpu));
         break;
     }
-
-        case MODULE_IO:
-            fd_io = fd_client;
-            log_info(logger, "IO connected");
-            break;
-
+        
         case MODULE_SWAP:
             fd_swap = fd_client;
             log_info(logger, "Swap connected");
             break;
 
         case MODULE_MEMORY_STICK: {
-            t_client_info *ms = malloc(sizeof(t_client_info));
-            ms->fd = fd_client;
-            ms->id = next_memory_stick_id++;
-
-            list_add(list_memory_stick, ms);
+            int ms_id = id_assigner(&next_memory_stick_id, fd_client);
+            add_client_to_list(list_memory_stick, fd_client, ms_id);
 
             t_package *pkg = package_create();
             package_add(pkg, &ms->id, sizeof(int));

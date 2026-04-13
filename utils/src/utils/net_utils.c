@@ -279,3 +279,12 @@ t_module_id t_module_id_receive (int client_fd) {
     free(buffer);
 	return module_id;
 }
+
+uint32_t id_receive (int client_fd) {
+	int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    uint32_t id = int32_deserialize(buffer, &offset);
+    free(buffer);
+	return id;
+}
