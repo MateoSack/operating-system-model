@@ -7,6 +7,10 @@ void add_client_to_list (t_list *list, int client_fd, int id) {
     list_add(list, client);
 }
 
+void remove_client_from_list (t_list *list, t_client_info *client) {
+    list_remove_element(list, client);
+}
+
 int id_assigner (int *next_client_id, int client_fd) {
 	t_package *pkg = package_create();
     package_add(pkg, next_client_id, sizeof(int));
