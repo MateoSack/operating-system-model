@@ -81,7 +81,7 @@ int connection_create (char *ip, char *port, t_log *logger);
 void connection_liberate (int client_socket);
 int operation_receive (int client_socket);
 void *buffer_receive (int *size, int client_socket);
-void message_receive (int client_socket);
+char *message_receive (int client_socket);
 void message_send (char *message, int client_socket);
 void buffer_create (t_package *package);
 t_package *package_create (void);
@@ -91,6 +91,7 @@ void package_delete (t_package *package);
 void pcb_handle (t_pcb *pcb, int client_socket);
 uint32_t int32_deserialize(void *buffer, int *offset);
 uint8_t int8_deserialize(void *buffer, int *offset);
+t_module_id t_module_id_deserialize(void *buffer, int *offset);
 t_pcb *pcb_receive(int socket_cliente);
 void *package_serialize(t_package *package, int bytes);
 

@@ -225,6 +225,16 @@ uint8_t int8_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
+t_module_id t_module_id_deserialize(void *buffer, int *offset) {
+	int size;
+	uint32_t value;
+	memcpy(&size, buffer + *offset, sizeof(t_module_id));
+	*offset += sizeof(t_module_id);
+	memcpy(&value, buffer + *offset, size);
+	*offset += size;
+	return value;
+}
+
 t_pcb *pcb_receive(int socket_cliente) {
     int size;
     int offset = 0;
