@@ -11,6 +11,8 @@ int fd_swap = -1;
 t_list *list_cpu = NULL;
 t_list *list_memory_stick = NULL;
 
+int next_memory_stick_id = 0;
+
 void *handle_module(void *fd_ptr) {
     int fd_client = *(int *)fd_ptr; //trato fd_ptr como puntero a int y obtengo el valor para fd_client
     free(fd_ptr);
@@ -36,12 +38,20 @@ void *handle_module(void *fd_ptr) {
             break;
 
         case MODULE_CPU: {
-            int *fd_cpu_entry = malloc(sizeof(int));
-            *fd_cpu_entry = fd_client;
-            list_add(list_cpu, fd_cpu_entry);
-            log_info(logger, "CPU connected (total: %d)", list_size(list_cpu));
-            break;
-        }
+        // CPU ya viene con su ID asignado por Scheduler
+        // IMPORTANTE: Confirmar si funciona como bloqueante el buffer_receive y efectivamente espera el mensaje de ID del CPU. Sino implementar que si lo espere.
+        int size;
+        int *cpu_id_ptr = buffer_receive(&size, fd_client);
+
+        t_client_info *cpu = malloc(sizeof(t_client_info));
+        cpu->fd = fd_client;
+        cpu->id = *cpu_id_ptr;
+        free(cpu_id_ptr);
+
+        list_add(list_cpu, cpu);
+        log_info(logger, "CPU %d conectada (total: %d)", cpu->id, list_size(list_cpu));
+        break;
+    }
 
         case MODULE_IO:
             fd_io = fd_client;
@@ -54,12 +64,20 @@ void *handle_module(void *fd_ptr) {
             break;
 
         case MODULE_MEMORY_STICK: {
-            int *fd_memory_stick_entry = malloc(sizeof(int));
-            *fd_memory_stick_entry = fd_client;
-            list_add(list_memory_stick, fd_memory_stick_entry);
-            log_info(logger, "Memory Stick connected (total: %d)", list_size(list_memory_stick));
+            t_client_info *ms = malloc(sizeof(t_client_info));
+            ms->fd = fd_client;
+            ms->id = next_memory_stick_id++;
+
+            list_add(list_memory_stick, ms);
+
+            t_package *pkg = package_create();
+            package_add(pkg, &ms->id, sizeof(int));
+            package_send(pkg, fd_client);
+            package_delete(pkg);
+
+            log_info(logger, "Memory Stick %d conectado (total: %d)", ms->id, list_size(list_memory_stick));
             break;
-        }
+    }
 
         default:
             log_warning(logger, "Unknown module: %d", module_id);
