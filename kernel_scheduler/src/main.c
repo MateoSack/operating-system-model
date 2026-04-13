@@ -62,7 +62,7 @@ int main(void) {
 }
 
 void *client_handler_selector (void *fd_ptr) {
-	int client_fd = *(int *)fd_ptr; //trato fd_ptr como puntero a int y obtengo el valor para fd_client
+	int client_fd = *(int *)fd_ptr; //trato fd_ptr como puntero a int y obtengo el valor para client_fd
 	free(fd_ptr);
 
 	t_module_id module_id = handshake_receiver(client_fd);
@@ -93,26 +93,10 @@ void first_connection_with_kernel_memory (int kernel_memory_fd) {
     package_delete(pkg);
 }
 
-t_module_id handshake_receiver (int fd_client) {
-	int cod_op = operation_receive(fd_client);
-    if (cod_op != HANDSHAKE) {
-        log_error(logger, "Expected HANDSHAKE, received: %d", cod_op);
-        close(fd_client);
-        return -1;
-    }
-
-    int size;
-	int offset = 0;
-    void *buffer = buffer_receive(&size, fd_client);
-    t_module_id module_id = t_module_id_deserialize(buffer, &offset);
-    free(buffer);
-	return module_id;
-}
-
 void cpu_handler (int cpu_fd) {
-	int id = id_assigner(MODULE_CPU, cpu_fd);
+	int id = id_assigner(&next_cpu_id, cpu_fd);
 
-	add_client_to_list(MODULE_CPU, cpu_fd, id);
+	add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
 
 	/*
@@ -123,9 +107,9 @@ void cpu_handler (int cpu_fd) {
 }
 
 void io_handler (int io_fd) {
-	int id = id_assigner(MODULE_IO, io_fd);
+	int id = id_assigner(&next_io_id, io_fd);
 
-	add_client_to_list(MODULE_IO, io_fd, id);
+	add_client_to_list(list_io, io_fd, id);
 	log_info(logger, "IO %d connected (total: %d)", id, list_size(list_io));
 
 	/*
@@ -133,46 +117,4 @@ void io_handler (int io_fd) {
 		//Handle connection with IO
 	}
 	*/
-}
-
-int id_assigner (t_module_id module_type, int client_fd) {
-	t_package *pkg = package_create();
-	switch (module_type) {
-		case MODULE_CPU:
-			package_add(pkg, &next_cpu_id, sizeof(int));
-			next_cpu_id++;
-			package_send(pkg, client_fd);
-    		package_delete(pkg);
-			return next_cpu_id - 1;
-
-		case MODULE_IO:
-			package_add(pkg, &next_io_id, sizeof(int));
-			next_io_id++;
-			package_send(pkg, client_fd);
-    		package_delete(pkg);
-			return next_io_id - 1;
-
-		default:
-			log_error(logger, "Unknown module");
-			return -1;
-	}
-}
-
-void add_client_to_list (t_module_id module_type, int client_fd, int id) {
-	t_client_info *client = malloc(sizeof(t_client_info));
-	client->fd = client_fd;
-	client->id = id;
-
-	switch (module_type) {
-		case MODULE_CPU:
-			list_add(list_cpu, client);
-			break;
-
-		case MODULE_IO:
-			list_add(list_io, client);
-			break;
-
-		default:
-			log_error(logger, "Unknown module");
-	}
 }

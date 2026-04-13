@@ -270,3 +270,12 @@ void *package_serialize(t_package *package, int bytes)
 
 	return buffer;
 }
+
+t_module_id t_module_id_receive (int client_fd) {
+	int size;
+	int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    t_module_id module_id = t_module_id_deserialize(buffer, &offset);
+    free(buffer);
+	return module_id;
+}

@@ -95,5 +95,6 @@ uint8_t int8_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);
 t_pcb *pcb_receive(int socket_cliente);
 void *package_serialize(t_package *package, int bytes);
+t_module_id t_module_id_receive (int client_fd);
 
 #endif
