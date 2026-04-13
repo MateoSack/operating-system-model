@@ -30,14 +30,9 @@ void *handle_module(void *fd_ptr) {
         // IMPORTANTE: Confirmar si funciona como bloqueante el buffer_receive y efectivamente espera el mensaje de ID del CPU. Sino implementar que si lo espere.
         
         int cpu_id = id_receive(fd_client);
+        add_client_to_list(list_cpu, fd_client, cpu_id);
 
-        t_client_info *cpu = malloc(sizeof(t_client_info));
-        cpu->fd = fd_client;
-        cpu->id = *cpu_id_ptr;
-        free(cpu_id_ptr);
-
-        list_add(list_cpu, cpu);
-        log_info(logger, "CPU %d conectada (total: %d)", cpu->id, list_size(list_cpu));
+        log_info(logger, "CPU %d conectada (total: %d)", cpu_id, list_size(list_cpu));
         break;
     }
         
@@ -50,12 +45,7 @@ void *handle_module(void *fd_ptr) {
             int ms_id = id_assigner(&next_memory_stick_id, fd_client);
             add_client_to_list(list_memory_stick, fd_client, ms_id);
 
-            t_package *pkg = package_create();
-            package_add(pkg, &ms->id, sizeof(int));
-            package_send(pkg, fd_client);
-            package_delete(pkg);
-
-            log_info(logger, "Memory Stick %d conectado (total: %d)", ms->id, list_size(list_memory_stick));
+            log_info(logger, "Memory Stick %d conectado (total: %d)", ms_id, list_size(list_memory_stick));
             break;
     }
 
