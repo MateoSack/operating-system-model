@@ -5,7 +5,6 @@ int main(void)
 	char *ip;
 	char *port;
 	int cpu_id;
-	// char *log;
 	int kernel_scheduler_fd;
 	t_log *logger;
 	t_package *pkg = package_create();
@@ -14,7 +13,6 @@ int main(void)
 	ip = config_get_string_value(config, "IP");
 	port = config_get_string_value(config, "PORT");
 
-	// log = config_get_string_value(config, "LOG_LEVEL");
 	logger = log_create("cpu.log", "CPU", true, LOG_LEVEL_INFO);
 	log_info(logger, "CPU started");
 	kernel_scheduler_fd = connection_create(ip, port, logger);
@@ -29,18 +27,7 @@ int main(void)
 	package_send(pkg, kernel_scheduler_fd);
 	package_delete(pkg);
 	operation_receive(kernel_scheduler_fd);
-}
-
-t_package *cpu_id_package(int client_socket)
-{
- //CHEQUEAR CON MATE
-	int size;
-	int desplazamiento = 0;
-	void *buffer = buffer_receive(&size, client_socket);
-	t_package *pkg = malloc(sizeof(t_package));
-	int *cpu_id_ptr = buffer_receive(&size, fd_client);
-	free(buffer);
-	return cpu_id_ptr;
+	cpu_id= id_receive(kernel_scheduler_fd);
 }
 
 /*enviar_mensaje(value, connection);
