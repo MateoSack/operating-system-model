@@ -1,8 +1,5 @@
 #include <utils/net_utils.h>
 
-
-t_log *logger;
-
 int server_start (t_log *logger) {
 	int server_socket;
 	int err = 0;

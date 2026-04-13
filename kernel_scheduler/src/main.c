@@ -12,7 +12,7 @@ int next_io_id = 0;
 
 int main(void) {
 	//t_config *config = config_create("kernel_scheduler.config");
-	t_log *logger = log_create("log.log", "Kernel_Scheduler", 1, LOG_LEVEL_DEBUG);
+	logger = log_create("log.log", "Kernel_Scheduler", 1, LOG_LEVEL_DEBUG);
 
 	list_cpu = list_create();
     list_io = list_create();
@@ -87,7 +87,8 @@ void *client_handler_selector (void *fd_ptr) {
 
 void first_connection_with_kernel_memory (int kernel_memory_fd) {
 	t_package *pkg = package_create();
-	package_add(pkg, MODULE_KERNEL_SCHEDULER, sizeof(t_module_id));
+	t_module_id module = MODULE_KERNEL_SCHEDULER;
+	package_add(pkg, &module, sizeof(t_module_id));
     package_send(pkg, kernel_memory_fd);
     package_delete(pkg);
 }
@@ -138,21 +139,23 @@ int id_assigner (t_module_id module_type, int client_fd) {
 	t_package *pkg = package_create();
 	switch (module_type) {
 		case MODULE_CPU:
-			package_add(pkg, next_cpu_id, sizeof(t_module_id));
+			package_add(pkg, &next_cpu_id, sizeof(int));
 			next_cpu_id++;
-			break;
+			package_send(pkg, client_fd);
+    		package_delete(pkg);
+			return next_cpu_id - 1;
 
 		case MODULE_IO:
-			package_add(pkg, next_io_id, sizeof(t_module_id));
+			package_add(pkg, &next_io_id, sizeof(int));
 			next_io_id++;
-			break;
+			package_send(pkg, client_fd);
+    		package_delete(pkg);
+			return next_io_id - 1;
 
 		default:
-			log_error(logger, "Unknown module")
+			log_error(logger, "Unknown module");
+			return -1;
 	}
-    package_send(pkg, client_fd);
-    package_delete(pkg);
-	return next_cpu_id - 1;
 }
 
 void add_client_to_list (t_module_id module_type, int client_fd, int id) {
@@ -162,11 +165,14 @@ void add_client_to_list (t_module_id module_type, int client_fd, int id) {
 
 	switch (module_type) {
 		case MODULE_CPU:
-			list_add(list_cpu, cpu);
+			list_add(list_cpu, client);
 			break;
 
 		case MODULE_IO:
-			list_add(list_io, cpu);
+			list_add(list_io, client);
 			break;
+
+		default:
+			log_error(logger, "Unknown module");
 	}
 }
