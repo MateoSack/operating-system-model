@@ -76,8 +76,6 @@ typedef struct {
 
 extern t_log* logger;
 
-int server_start (t_log *logger);
-int server_client_wait (int socket_server);
 int connection_create (char *ip, char *port, t_log *logger);
 void connection_liberate (int client_socket);
 int operation_receive (int client_socket);
