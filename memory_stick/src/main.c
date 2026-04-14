@@ -1,13 +1,13 @@
 #include <main.h>
 
+t_log *logger;
+
 int main(void)
 {
 	char *ip;
 	char *port;
 	int mem_stick_id;
 	int kernel_memory_fd;
-	t_log *logger;
-	t_package *pkg = package_create();
 	t_config *config;
 	config = config_create("mem_stick.config");
 	ip = config_get_string_value(config, "IP");
@@ -23,9 +23,7 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-	package_add(pkg, MODULE_MEMORY_STICK, sizeof(int));
-	package_send(pkg, kernel_memory_fd);
-	package_delete(pkg);
-	operation_receive(kernel_memory_fd);
-	mem_stick_id= id_receive(kernel_memory_fd);
+	t_module_id_send(kernel_memory_fd, MODULE_MEMORY_STICK, logger);
+	mem_stick_id = id_receive(kernel_memory_fd);
+	log_info(logger, "Connection successful with Kernel Memory, MEMORY STICK ID: %d", mem_stick_id);
 }

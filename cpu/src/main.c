@@ -1,13 +1,13 @@
 #include <main.h>
 
+t_log *logger;
+
 int main(void)
 {
 	char *ip;
 	char *port;
-	int cpu_id;
+	uint32_t cpu_id;
 	int kernel_scheduler_fd;
-	t_log *logger;
-	t_package *pkg = package_create();
 	t_config *config;
 	config = config_create("cpu.config");
 	ip = config_get_string_value(config, "IP");
@@ -23,11 +23,9 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
-	package_add(pkg, MODULE_CPU, sizeof(int));
-	package_send(pkg, kernel_scheduler_fd);
-	package_delete(pkg);
-	operation_receive(kernel_scheduler_fd);
-	cpu_id= id_receive(kernel_scheduler_fd);
+	t_module_id_send(kernel_scheduler_fd, MODULE_CPU, logger);
+	cpu_id = id_receive(kernel_scheduler_fd);
+	log_info(logger, "Connection successful with Kernel Scheduler, CPU ID: %d", cpu_id);
 }
 
 /*enviar_mensaje(value, connection);

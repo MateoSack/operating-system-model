@@ -4,7 +4,6 @@
 #include <commons/config.h>
 
 void *client_handler_selector(void *fd_ptr);
-void first_connection_with_kernel_memory (int kernel_memory_fd);
 void cpu_handler (int cpu_fd);
 void io_handler (int io_fd);
 t_log *start_logger(t_config *config);

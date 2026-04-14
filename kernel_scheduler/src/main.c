@@ -29,7 +29,7 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
-	first_connection_with_kernel_memory (kernel_memory_fd);
+	t_module_id_send (kernel_memory_fd, MODULE_KERNEL_SCHEDULER, logger);
 
 	log_info(logger, "Connection successful with Kernel Memory");
 	
@@ -87,15 +87,6 @@ void *client_handler_selector (void *fd_ptr) {
 	}
 
 	return NULL;
-}
-
-void first_connection_with_kernel_memory (int kernel_memory_fd) {
-	t_package *pkg = package_create();
-	t_module_id module = MODULE_KERNEL_SCHEDULER;
-	package_add(pkg, &module, sizeof(t_module_id));
-    package_send(pkg, kernel_memory_fd);
-    package_delete(pkg);
-	log_debug(logger, "t_module_id sent to kernel_memory");
 }
 
 void cpu_handler (int cpu_fd) {
