@@ -1,30 +1,36 @@
 #include <utils/net_utils.h>
 #include <commons/config.h>
 
+t_log *logger;
+
 int main(int argc, char* argv[]) {
 
-    t_log *logger;
     t_config *config;
-
+    int swap_fd;
+    char *ip; 
+    char *port;
     config = config_create("swap.config");
 
     if(config == NULL){
         abort();
     }
 
-    char* ip = config_get_string_value(config, "IP");
-    char* port = config_get_string_value(config, "PUERTO");
+    ip = config_get_string_value(config, "IP");
+    port = config_get_string_value(config, "PUERTO");
 
     logger = log_create("swap.log", "SWAP", true, LOG_LEVEL_INFO);
     log_info(logger, "SWAP started");
 
-    int server = server_start(logger);
+    swap_fd = connection_create(ip, port, logger);
 
-    log_info(logger, "SWAP ready to receive connections");
+    if(swap_fd == -1)
+    {
+        log_error(logger, "swap connection failed");
+        return EXIT_FAILURE;
+    }
 
-    int client = server_client_wait(server);
-
-    log_info(logger, "Connected to Kernel Memory");
+    t_module_id_send(swap_fd, MODULE_SWAP, logger);
+    log_info(logger, "Successful connection to kernel memory");
 
     log_destroy(logger);
     config_destroy(config);
