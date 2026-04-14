@@ -11,16 +11,17 @@ int next_cpu_id = 0;
 int next_io_id = 0;
 
 int main(void) {
-	//t_config *config = config_create("kernel_scheduler.config");
-	logger = log_create("log.log", "Kernel_Scheduler", 1, LOG_LEVEL_DEBUG);
+	t_config *config = config_create("kernel_scheduler.config");
+	logger = start_logger(config);
 
 	list_cpu = list_create();
     list_io = list_create();
 
-	char *kernel_memory_ip = "127.0.0.1"; //Hardcoded for now
-	char *kernel_memory_port = "4444";
+	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
+	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	//-------------Connection with Kernel Memory-----------
+	/*-------------------Connection with Kernel Memory-----------------------*/
+	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
@@ -34,8 +35,7 @@ int main(void) {
 	
 	int server_fd = server_start(logger);
 
-	if (server_fd == -1)
-	{
+	if (server_fd == -1) {
 		log_info(logger, "Couldnt start server");
 		return EXIT_FAILURE;
 	}
@@ -49,6 +49,8 @@ int main(void) {
             log_error(logger, "Couldnt accept connection");
             continue;
         }
+
+		log_debug(logger, "New client connected: %d", new_client_fd);
 
         int *fd_for_thread = malloc(sizeof(int));
         *fd_for_thread = new_client_fd;
@@ -69,10 +71,12 @@ void *client_handler_selector (void *fd_ptr) {
 
 	switch (module_id) {
 		case MODULE_CPU:
+			log_debug(logger, "New client is of type CPU");
 			cpu_handler(client_fd);
 			break;
 
 		case MODULE_IO:
+			log_debug(logger, "New client is of type IO");
 			io_handler(client_fd);
 			break;
 
@@ -91,6 +95,7 @@ void first_connection_with_kernel_memory (int kernel_memory_fd) {
 	package_add(pkg, &module, sizeof(t_module_id));
     package_send(pkg, kernel_memory_fd);
     package_delete(pkg);
+	log_debug(logger, "t_module_id sent to kernel_memory");
 }
 
 void cpu_handler (int cpu_fd) {
@@ -117,4 +122,11 @@ void io_handler (int io_fd) {
 		//Handle connection with IO
 	}
 	*/
+}
+
+t_log *start_logger(t_config *config) {
+	char *level_str = config_get_string_value(config, "LOG_LEVEL");
+	t_log_level level = log_level_from_string(level_str);
+	t_log *logger = log_create("log.log", "Kernel_Scheduler", 1, level);
+	return logger;
 }
