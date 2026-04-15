@@ -111,6 +111,7 @@ void cpu_handler (int cpu_fd) {
             log_warning(logger, "CPU %d disconnected", id);
 			close(cpu_fd);
 			remove_client_from_list(list_cpu, cpu);
+			free(cpu);
             break;
         }
 	}
@@ -133,6 +134,7 @@ void io_handler (int io_fd) {
             log_warning(logger, "IO %d disconnected", id);
 			close(io_fd);
 			remove_client_from_list(list_cpu, io);
+			free(io);
             break;
         }
 	}
