@@ -5,5 +5,4 @@
 #include<commons/string.h>
 #include<commons/config.h>
 
-void end_program(int, t_log*, t_config*);
 t_log *start_logger(t_config *config);

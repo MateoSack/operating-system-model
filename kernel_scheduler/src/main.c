@@ -12,6 +12,7 @@ int next_io_id = 0;
 
 int main(void) {
 	t_config *config = config_create("kernel_scheduler.config");
+	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);
 
 	list_cpu = list_create();
