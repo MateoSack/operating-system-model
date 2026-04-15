@@ -148,8 +148,8 @@ void pcb_handle (t_pcb *pcb, int client_socket) {
 uint32_t int32_deserialize(void *buffer, int *offset) {
 	int size;
 	uint32_t value;
-	memcpy(&size, buffer + *offset, sizeof(int));
-	*offset += sizeof(int);
+	memcpy(&size, buffer + *offset, sizeof(uint32_t));
+	*offset += sizeof(uint32_t);
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
@@ -157,9 +157,9 @@ uint32_t int32_deserialize(void *buffer, int *offset) {
 
 uint8_t int8_deserialize(void *buffer, int *offset) {
 	int size;
-	uint32_t value;
-	memcpy(&size, buffer + *offset, sizeof(int));
-	*offset += sizeof(int);
+	uint8_t value;
+	memcpy(&size, buffer + *offset, sizeof(uint8_t));
+	*offset += sizeof(uint8_t);
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
@@ -167,7 +167,7 @@ uint8_t int8_deserialize(void *buffer, int *offset) {
 
 t_module_id t_module_id_deserialize(void *buffer, int *offset) {
 	int size;
-	uint32_t value;
+	t_module_id value;
 	memcpy(&size, buffer + *offset, sizeof(t_module_id));
 	*offset += sizeof(t_module_id);
 	memcpy(&value, buffer + *offset, size);
@@ -233,6 +233,11 @@ t_module_id t_module_id_receive (int client_fd) {
 }
 
 uint32_t id_receive (int client_fd) {
+    int op_code = operation_receive(client_fd);
+    if (op_code != PACKAGE) {
+        return 0;
+    }
+
 	int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);

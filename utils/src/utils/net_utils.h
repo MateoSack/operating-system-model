@@ -12,8 +12,6 @@
 #include<assert.h>
 #include <pthread.h>
 
-#define PORT "4444"
-
 typedef enum {
 	MESSAGE,
 	PACKAGE,
@@ -22,7 +20,7 @@ typedef enum {
 
 typedef struct {
     int fd;
-    int id;
+    uint32_t id;
 } t_client_info;
 
 typedef enum {

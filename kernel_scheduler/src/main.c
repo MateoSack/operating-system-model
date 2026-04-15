@@ -7,8 +7,8 @@ t_list *list_io = NULL;
 
 int kernel_memory_fd = -1;
 
-int next_cpu_id = 0;
-int next_io_id = 0;
+uint32_t next_cpu_id = 0;
+uint32_t next_io_id = 0;
 
 int main(void) {
 	t_config *config = config_create("kernel_scheduler.config");
@@ -21,7 +21,7 @@ int main(void) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	/*-------------------Connection with Kernel Memory-----------------------*/
+	/*-------------------Connection with Kernel Memory-------------------*/
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
@@ -33,8 +33,11 @@ int main(void) {
 	t_module_id_send (kernel_memory_fd, MODULE_KERNEL_SCHEDULER, logger);
 
 	log_info(logger, "Connection successful with Kernel Memory");
+
+	/*-------------------Server setup-------------------*/
+	char *port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 	
-	int server_fd = server_start(logger);
+	int server_fd = server_start(port, logger);
 
 	if (server_fd == -1) {
 		log_info(logger, "Couldnt start server");
@@ -43,6 +46,7 @@ int main(void) {
 
 	log_info(logger, "Kernel Scheduler ready, waiting for connections...");
 
+	/*-------------------Handle connections-------------------*/
 	while(1) {
 		int new_client_fd = server_client_wait(server_fd);
 
@@ -91,16 +95,25 @@ void *client_handler_selector (void *fd_ptr) {
 }
 
 void cpu_handler (int cpu_fd) {
-	int id = id_assigner(&next_cpu_id, cpu_fd);
+	uint32_t id = id_assigner(&next_cpu_id, cpu_fd);
 
 	add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
 
-	/*
+	t_client_info *cpu = malloc(sizeof(t_client_info));
+	cpu->fd = cpu_fd;
+	cpu->id = id;
+
 	while (1) {
 		//Handle connection with CPU
+		int op = operation_receive(cpu_fd);
+        if (op == -1) {
+            log_warning(logger, "CPU %d disconnected", id);
+			close(cpu_fd);
+			remove_client_from_list(list_cpu, cpu);
+            break;
+        }
 	}
-	*/
 }
 
 void io_handler (int io_fd) {
@@ -109,11 +122,20 @@ void io_handler (int io_fd) {
 	add_client_to_list(list_io, io_fd, id);
 	log_info(logger, "IO %d connected (total: %d)", id, list_size(list_io));
 
-	/*
+	t_client_info *io = malloc(sizeof(t_client_info));
+	io->fd = io_fd;
+	io->id = id;
+
 	while (1) {
 		//Handle connection with IO
+		int op = operation_receive(io_fd);
+        if (op == -1) {
+            log_warning(logger, "IO %d disconnected", id);
+			close(io_fd);
+			remove_client_from_list(list_cpu, io);
+            break;
+        }
 	}
-	*/
 }
 
 t_log *start_logger(t_config *config) {

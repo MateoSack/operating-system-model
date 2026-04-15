@@ -1,6 +1,6 @@
 #include <utils/server_utils.h>
 
-void add_client_to_list (t_list *list, int client_fd, int id) {
+void add_client_to_list (t_list *list, int client_fd, uint32_t id) {
 	t_client_info *client = malloc(sizeof(t_client_info));
 	client->fd = client_fd;
 	client->id = id;
@@ -11,7 +11,7 @@ void remove_client_from_list (t_list *list, t_client_info *client) {
     list_remove_element(list, client);
 }
 
-int id_assigner (int *next_client_id, int client_fd) {
+uint32_t id_assigner (uint32_t *next_client_id, int client_fd) {
 	t_package *pkg = package_create();
     package_add(pkg, next_client_id, sizeof(int));
 	(*next_client_id)++;
@@ -32,7 +32,7 @@ t_module_id handshake_receiver (int client_fd) {
 	return module_id;
 }
 
-int server_start (t_log *logger) {
+int server_start (char *port, t_log *logger) {
 	int server_socket;
 	int err = 0;
 
@@ -43,7 +43,7 @@ int server_start (t_log *logger) {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	err = getaddrinfo(NULL, PORT, &hints, &server_info);
+	err = getaddrinfo(NULL, port, &hints, &server_info);
 
 	if (err != 0) {
 		log_error(logger, "Getaddrinfo error");

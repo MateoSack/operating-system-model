@@ -8,7 +8,7 @@ int swap_fd = -1;
 t_list *list_cpu = NULL;
 t_list *list_memory_stick = NULL;
 
-int next_memory_stick_id = 0;
+uint32_t next_memory_stick_id = 0;
 
 int main(void) {
     t_config *config = config_create("kernel_memory.config");
@@ -18,7 +18,10 @@ int main(void) {
     list_cpu          = list_create();
     list_memory_stick = list_create();
 
-    int server_fd = server_start(logger);
+	char *port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
+
+    int server_fd = server_start(port, logger);
+
     if (server_fd == -1) {
         log_error(logger, "Couldn't start server.");
         return EXIT_FAILURE;

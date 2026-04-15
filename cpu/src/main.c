@@ -15,6 +15,7 @@ int main(void)
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
 	log_info(logger, "CPU started");
+	log_debug(logger, "Attempting connection with %s:%s", kernel_scheduler_ip, kernel_scheduler_port);
 	kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
 
 	if (kernel_scheduler_fd == -1)
@@ -23,7 +24,9 @@ int main(void)
 		return EXIT_FAILURE;
 	}
 
+	log_debug(logger, "Attempting to send t_module_id to %d", kernel_scheduler_fd);
 	t_module_id_send(kernel_scheduler_fd, MODULE_CPU, logger);
+
 	cpu_id = id_receive(kernel_scheduler_fd);
 	log_info(logger, "Connection successful with Kernel Scheduler, CPU ID: %d", cpu_id);
 }
