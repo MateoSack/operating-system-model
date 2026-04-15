@@ -215,12 +215,12 @@ void *package_serialize(t_package *package, int bytes)
 }
 
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) {
-	t_package *pkg = package_create();
-	t_module_id module = module_id;
-	package_add(pkg, &module, sizeof(t_module_id));
+    t_package *pkg = package_create();
+    pkg->op_code = HANDSHAKE;  // Set to HANDSHAKE instead of PACKAGE
+    package_add(pkg, &module_id, sizeof(t_module_id));
     package_send(pkg, server_fd);
     package_delete(pkg);
-	log_debug(logger, "t_module_id sent to: %d", server_fd);
+    log_debug(logger, "t_module_id sent to: %d", server_fd);
 }
 
 t_module_id t_module_id_receive (int client_fd) {

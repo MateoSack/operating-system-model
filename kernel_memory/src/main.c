@@ -33,6 +33,8 @@ int main(void) {
             continue;
         }
 
+        log_debug(logger, "New client connected: %d", new_client_fd);
+
         int *thread_fd = malloc(sizeof(int));
         *thread_fd = new_client_fd;
 
