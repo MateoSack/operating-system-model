@@ -18,7 +18,7 @@ int main(void) {
 	list_cpu = list_create();
     list_io = list_create();
 
-	kernel_memory_handler(logger, config);
+	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Server setup-------------------*/
 	char *port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
