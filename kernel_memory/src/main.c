@@ -2,7 +2,7 @@
 
 t_log *logger;
 
-int fd_kernel_scheduler = -1;
+int kernel_memory_fd = -1;
 int swap_fd = -1;
 
 t_list *list_cpu = NULL;
@@ -11,6 +11,7 @@ t_list *list_memory_stick = NULL;
 uint32_t next_memory_stick_id = 0;
 
 int main(void) {
+    /*-------------------Initial Setup-------------------*/
     t_config *config = config_create("kernel_memory.config");
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
@@ -29,6 +30,7 @@ int main(void) {
 
     log_info(logger, "Kernel Memory ready, now waiting...");
 
+/*-------------------Handle connections-------------------*/
     while (1) {
         int new_client_fd = server_client_wait(server_fd);
         if (new_client_fd == -1) {
@@ -55,17 +57,16 @@ void *handle_module(void *fd_ptr) {
 
     t_module_id module_id = handshake_receiver(client_fd);
 
-    //Handle de nuevo módulo
+    /*-------------------Handle new module-------------------*/
     switch (module_id) {
-        case MODULE_KERNEL_SCHEDULER:
-            fd_kernel_scheduler = client_fd;
+        case MODULE_KERNEL_SCHEDULER: {
+            kernel_memory_fd = client_fd;
             log_info(logger, "Kernel Scheduler connected.");
             break;
+        }
 
         case MODULE_CPU: {
         // CPU ya viene con su ID asignado por Scheduler
-        // IMPORTANTE: Confirmar si funciona como bloqueante el buffer_receive y efectivamente espera el mensaje de ID del CPU. Sino implementar que si lo espere.
-        
         int cpu_id = id_receive(client_fd);
         add_client_to_list(list_cpu, client_fd, cpu_id);
 
@@ -73,10 +74,11 @@ void *handle_module(void *fd_ptr) {
         break;
     }
         
-        case MODULE_SWAP:
+        case MODULE_SWAP: {
             swap_fd = client_fd;
             log_info(logger, "Swap connected");
             break;
+        }
 
         case MODULE_MEMORY_STICK: {
             int ms_id = id_assigner(&next_memory_stick_id, client_fd);
@@ -86,10 +88,11 @@ void *handle_module(void *fd_ptr) {
             break;
     }
 
-        default:
+        default: {
             log_warning(logger, "Unknown module: %d", module_id);
             close(client_fd);
             return NULL;
+        }
     }
 
     // --- LOOP DE ATENCIÓN ---
@@ -99,7 +102,7 @@ void *handle_module(void *fd_ptr) {
             log_warning(logger, "Module %d disconnected", module_id);
             break;
         }
-        // TODO: manejar operaciones de cada módulo ///////////// ver de hacer todo esto en otro archivo en vez de main
+        // TODO: manejar operaciones de cada módulo ///////////// ver de hacer todo esto en otro archivo en vez de main (cada modulo con su handler)
     }
 
     close(client_fd);
@@ -108,7 +111,7 @@ void *handle_module(void *fd_ptr) {
 
 t_log *start_logger(t_config *config) {
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
-	t_log_level level = log_level_from_string(level_str);
-	t_log *logger = log_create("kernel_memory.log", "KernelMemory", 1, level);
+	t_log_level log_level = log_level_from_string(level_str);
+	t_log *logger = log_create("kernel_memory.log", "KernelMemory", 1, log_level);
 	return logger;
 }
