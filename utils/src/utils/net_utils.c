@@ -232,7 +232,7 @@ t_module_id t_module_id_receive (int client_fd) {
 	return module_id;
 }
 
-uint32_t id_receive (int client_fd) {
+uint32_t uint32_receive (int client_fd) {
     int op_code = operation_receive(client_fd);
     if (op_code != PACKAGE) {
         return 0;
@@ -241,7 +241,7 @@ uint32_t id_receive (int client_fd) {
 	int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);
-    uint32_t id = int32_deserialize(buffer, &offset);
+    uint32_t value = int32_deserialize(buffer, &offset);
     free(buffer);
-	return id;
+	return value;
 }

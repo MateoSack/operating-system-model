@@ -4,26 +4,24 @@ t_log *logger;
 
 int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
+uint32_t cpu_id;
 
 int main(void)
 {
 	/*-------------------Initial Setup-------------------*/
-	uint32_t cpu_id;	
 	t_config *config = config_create("cpu.config");
 	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);	
 	log_info(logger, "CPU started");
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
-	if(connect_kernel_scheduler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
+	if(connect_kernel_scheduler(logger, config, cpu_id) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Connection with Kernel Memory-------------------*/
-	if(connect_kernel_memory(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
-	
-	
+	if(connect_kernel_memory(logger, config, cpu_id) == EXIT_FAILURE) return EXIT_FAILURE;
 }
 
-int connect_kernel_memory_ (t_log *logger, t_config *config) {
+int connect_kernel_memory (t_log *logger, t_config *config, uint32_t cpu_id) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
@@ -48,7 +46,7 @@ int connect_kernel_memory_ (t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_scheduler(t_log *logger, t_config *config) {
+int connect_kernel_scheduler(t_log *logger, t_config *config, uint32_t cpu_id) {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
@@ -64,7 +62,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config) {
 	log_debug(logger, "Attempting to send t_module_id to %d", kernel_scheduler_fd);
 	t_module_id_send(kernel_scheduler_fd, MODULE_CPU, logger);
 
-	cpu_id = id_receive(kernel_scheduler_fd);
+	cpu_id = uint32_receive(kernel_scheduler_fd);
 	log_info(logger, "Connection successful to Kernel Scheduler, CPU ID: %d", cpu_id);
 
 	pthread_t thread;

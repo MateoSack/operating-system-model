@@ -67,7 +67,7 @@ void *handle_module(void *fd_ptr) {
 
         case MODULE_CPU: {
         // CPU ya viene con su ID asignado por Scheduler
-        int cpu_id = id_receive(client_fd);
+        int cpu_id = uint32_receive(client_fd);
         add_client_to_list(list_cpu, client_fd, cpu_id);
 
         log_info(logger, "CPU %d conectada (total: %d)", cpu_id, list_size(list_cpu));

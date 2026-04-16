@@ -26,7 +26,7 @@ int main(void)
 	}
 
 	t_module_id_send(kernel_scheduler_fd, MODULE_IO, logger);
-	io_id = id_receive(kernel_scheduler_fd);
+	io_id = uint32_receive(kernel_scheduler_fd);
 	log_info(logger, "Connection successful with Kernel Scheduler, IO ID: %d", io_id);
 }
 
