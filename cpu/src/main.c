@@ -2,20 +2,56 @@
 
 t_log *logger;
 
+int kernel_scheduler_fd = -1;
+int kernel_memory_fd = -1;
+
 int main(void)
 {
-	/*-------------------Connection with Kernel Scheduler-------------------*/
-	uint32_t cpu_id;
-	int kernel_scheduler_fd;
-
+	/*-------------------Initial Setup-------------------*/
+	uint32_t cpu_id;	
 	t_config *config = config_create("cpu.config");
 	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);	
+	log_info(logger, "CPU started");
 
+	/*-------------------Connection with Kernel Scheduler-------------------*/
+	if(connect_kernel_scheduler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
+
+	/*-------------------Connection with Kernel Memory-------------------*/
+	if(connect_kernel_memory(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
+	
+	
+}
+
+int connect_kernel_memory_ (t_log *logger, t_config *config) {
+	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
+	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
+
+	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
+	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+
+	if (kernel_memory_fd == -1) {
+		log_info(logger, "Couldnt connect with Kernel Memory");
+		return EXIT_FAILURE;
+	}
+
+	t_module_id_send (kernel_memory_fd, MODULE_CPU, logger);
+
+	log_info(logger, "Connection successful with Kernel Memory");
+
+	pthread_t thread;
+	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
+	pthread_detach(thread);
+
+	free(kernel_memory_ip);
+	free(kernel_memory_port);
+	return EXIT_SUCCESS;
+}
+
+int connect_kernel_scheduler(t_log *logger, t_config *config) {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
-	log_info(logger, "CPU started");
 	log_debug(logger, "Attempting connection with %s:%s", kernel_scheduler_ip, kernel_scheduler_port);
 	kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
 
@@ -30,6 +66,40 @@ int main(void)
 
 	cpu_id = id_receive(kernel_scheduler_fd);
 	log_info(logger, "Connection successful to Kernel Scheduler, CPU ID: %d", cpu_id);
+
+	pthread_t thread;
+	pthread_create(&thread, NULL, kernel_scheduler_thread, NULL);
+	pthread_detach(thread);
+
+	free(kernel_scheduler_ip);
+	free(kernel_scheduler_port);
+	return EXIT_SUCCESS;
+}
+
+void *kernel_memory_thread () {
+	while (1) {
+		//Handle connection with Kernel Memory
+		int op = operation_receive(kernel_memory_fd);
+		if (op == -1) {
+			log_warning(logger, "Kernel Memory disconnected");
+			close(kernel_memory_fd);
+			break;
+		}
+	}
+	return NULL;
+}
+
+void *kernel_scheduler_thread () {
+	while (1) {
+		//Handle connection with Kernel Scheduler
+		int op = operation_receive(kernel_scheduler_fd);
+		if (op == -1) {
+			log_warning(logger, "Kernel Scheduler disconnected");
+			close(kernel_scheduler_fd);
+			break;
+		}
+	}
+	return NULL;
 }
 
 t_log *start_logger(t_config *config) {
