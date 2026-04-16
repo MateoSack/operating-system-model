@@ -4,6 +4,7 @@ t_log *logger;
 
 int main(void)
 {
+	/*-------------------Connection with Kernel Scheduler-------------------*/
 	uint32_t cpu_id;
 	int kernel_scheduler_fd;
 
@@ -20,7 +21,7 @@ int main(void)
 
 	if (kernel_scheduler_fd == -1)
 	{
-		log_error(logger, "kernelscheduler connection failed");
+		log_error(logger, "Connection attempt to Kernel scheduler failed.");
 		return EXIT_FAILURE;
 	}
 
@@ -28,7 +29,7 @@ int main(void)
 	t_module_id_send(kernel_scheduler_fd, MODULE_CPU, logger);
 
 	cpu_id = id_receive(kernel_scheduler_fd);
-	log_info(logger, "Connection successful with Kernel Scheduler, CPU ID: %d", cpu_id);
+	log_info(logger, "Connection successful to Kernel Scheduler, CPU ID: %d", cpu_id);
 }
 
 t_log *start_logger(t_config *config) {

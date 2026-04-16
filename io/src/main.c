@@ -4,6 +4,7 @@ t_log *logger;
 
 int main(void)
 {
+	/*-------------------Connection with Kernel Scheduler-------------------*/
 	uint32_t io_id;
 	int kernel_scheduler_fd;
 
@@ -20,7 +21,7 @@ int main(void)
 
 	if (kernel_scheduler_fd == -1)
 	{
-		log_error(logger, "kernelscheduler connection failed");
+		log_error(logger, "Connection attempt to Kernel scheduler failed.");
 		return EXIT_FAILURE;
 	}
 

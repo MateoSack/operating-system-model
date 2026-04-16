@@ -3,7 +3,7 @@
 t_log *logger;
 
 int main(void) {
-
+    /*-------------------Connection with Kernel Memory-------------------*/
 	int kernel_memory_fd;
 	
 	t_config *config = config_create("swap.config");
@@ -19,7 +19,7 @@ int main(void) {
 
     if(kernel_memory_fd == -1)
     {
-        log_error(logger, "swap connection failed");
+        log_error(logger, "Connection attempt with Kernel memory failed.");
         return EXIT_FAILURE;
     }
 
@@ -28,8 +28,6 @@ int main(void) {
 
     log_destroy(logger);
     config_destroy(config);
-
-    return 0;
 }
 
 t_log *start_logger(t_config *config) {

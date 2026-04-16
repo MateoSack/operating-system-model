@@ -4,6 +4,7 @@ t_log *logger;
 
 int main(void)
 {
+	/*-------------------Connection with Kernel Memory-------------------*/
 	uint32_t mem_stick_id;
 	int kernel_memory_fd;
 	
@@ -19,7 +20,7 @@ int main(void)
 
 	if (kernel_memory_fd == -1)
 	{
-		log_error(logger, "kernelmemory connection failed");
+		log_error(logger, "Connection attempt to Kernel memory failed.");
 		return EXIT_FAILURE;
 	}
 
