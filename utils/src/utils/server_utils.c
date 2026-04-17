@@ -122,3 +122,4 @@ char* get_ip_from_fd (int fd, t_log *logger) {
 
 	return ip;
 }
+
