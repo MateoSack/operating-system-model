@@ -32,6 +32,12 @@ typedef enum {
     MODULE_MEMORY_STICK
 } t_module_id;
 
+typedef struct {
+    char* ip;
+    char* port;
+    int id;
+} t_module_credentials;
+
 
 typedef struct {
 	int size;
