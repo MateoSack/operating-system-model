@@ -58,7 +58,13 @@ void *buffer_receive (int *size, int client_socket) {
 	return buffer;
 }
 
-char *message_receive (int client_socket) {
+char *message_receive (t_log *logger, int client_socket) {
+	int op_code = operation_receive(client_socket);
+    if (op_code != MESSAGE) {
+		log_error(logger, "Error retrieving message");
+        return NULL;
+    }
+
 	int size;
 	char *buffer = buffer_receive(&size, client_socket);
 	log_info(logger, "Received message: %s", buffer);
@@ -246,4 +252,81 @@ uint32_t uint32_receive (int client_fd) {
 	return value;
 }
 
+void send_credentials_list (int fd, t_list *list) {
+	t_package *pkg = package_create();
+	for(int i = 0; i < list_size(list); i++) {
+		t_module_credentials *credentials = list_get(list, i);
+		package_add(pkg, &credentials->ip, sizeof(credentials->ip));
+		package_add(pkg, &credentials->port, sizeof(credentials->port));
+		package_add(pkg, &credentials->id, sizeof(credentials->id));
+	}
 
+	package_send(pkg, fd);
+	package_delete(pkg);
+}
+
+t_list *receive_credentials_list (int socket_cliente) {
+	t_list *list = list_create();
+
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, socket_cliente);
+
+	while (offset < size) {
+		t_module_credentials *cred = malloc(sizeof(t_module_credentials));
+		memcpy(&offset, buffer + size, sizeof(int));
+		size += sizeof(int);
+		char *ip = malloc(offset);
+		memcpy(ip, buffer + size, offset);
+		cred->ip = ip;
+
+		size += offset;
+		memcpy(&offset, buffer + size, sizeof(int));
+		size += sizeof(int);
+		char *port = malloc(offset);
+		memcpy(port, buffer + size, offset);
+		cred->port = port;
+
+		cred->id = int32_deserialize(buffer, &offset);
+
+		list_add(list, cred);
+	}
+
+    free(buffer);
+    return list;
+}
+
+void send_credentials (int fd, t_module_credentials *cred) {
+	t_package *pkg = package_create();
+	pkg->op_code = CREDENTIALS_UPDATE;
+	package_add(pkg, &cred->ip, sizeof(cred->ip));
+	package_add(pkg, &cred->port, sizeof(cred->port));
+	package_add(pkg, &cred->id, sizeof(cred->id));
+	package_send(pkg, fd);
+	package_delete(pkg);
+}
+
+t_module_credentials *receive_credentials (int socket_cliente) {
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, socket_cliente);
+
+	t_module_credentials *cred = malloc(sizeof(t_module_credentials));
+	memcpy(&offset, buffer + size, sizeof(int));
+	size += sizeof(int);
+	char *ip = malloc(offset);
+	memcpy(ip, buffer + size, offset);
+	cred->ip = ip;
+
+	size += offset;
+	memcpy(&offset, buffer + size, sizeof(int));
+	size += sizeof(int);
+	char *port = malloc(offset);
+	memcpy(port, buffer + size, offset);
+	cred->port = port;
+
+	cred->id = int32_deserialize(buffer, &offset);
+
+    free(buffer);
+    return cred;
+}

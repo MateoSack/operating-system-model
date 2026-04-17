@@ -16,7 +16,8 @@
 typedef enum {
 	MESSAGE,
 	PACKAGE,
-    HANDSHAKE
+    HANDSHAKE,
+    CREDENTIALS_UPDATE
 } op_code;
 
 typedef struct {
@@ -33,20 +34,20 @@ typedef enum {
 } t_module_id;
 
 typedef struct {
-    char* ip;
-    char* port;
-    int id;
+    char *ip;
+    char *port;
+    uint32_t id;
 } t_module_credentials;
 
 
 typedef struct {
 	int size;
-	void* stream;
+	void *stream;
 } t_buffer;
 
 typedef struct {
 	op_code op_code;
-	t_buffer* buffer;
+	t_buffer *buffer;
 } t_package;
 
 typedef enum {
@@ -79,13 +80,13 @@ typedef struct {
     t_cpu_context context;
 } t_pcb;
 
-extern t_log* logger;
+extern t_log *logger;
 
 int connection_create (char *ip, char *port, t_log *logger);
 void connection_liberate (int client_socket);
 int operation_receive (int client_socket);
 void *buffer_receive (int *size, int client_socket);
-char *message_receive (int client_socket);
+char *message_receive (t_log *logger, int client_socket);
 void message_send (char *message, int client_socket);
 void buffer_create (t_package *package);
 t_package *package_create (void);
@@ -101,5 +102,9 @@ void *package_serialize(t_package *package, int bytes);
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger);
 t_module_id t_module_id_receive (int client_fd);
 uint32_t uint32_receive (int client_fd);
+void send_credentials_list (int fd, t_list *list);
+t_list *receive_credentials_list (int socket_cliente);
+void send_credentials (int fd, t_module_credentials *cred);
+t_module_credentials *receive_credentials (int socket_cliente);
 
 #endif
