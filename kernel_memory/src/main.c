@@ -83,16 +83,8 @@ void *handle_module(void *fd_ptr) {
         }
 
         case MODULE_MEMORY_STICK: {
-            int ms_id = id_assigner(&next_memory_stick_id, client_fd);
-            add_client_to_list(list_memory_stick, client_fd, ms_id);
-            t_module_credentials *client = malloc(sizeof(t_module_credentials));
-            client->ip = message_receive(logger, client_fd);
-            client->port = message_receive(logger, client_fd);
-            list_add(list_memory_stick_credentials, client);
-            
-            update_cpu_list(list_cpu, list_memory_stick_credentials);
-
-            log_info(logger, "Memory Stick %d conectado (total: %d)", ms_id, list_size(list_memory_stick));
+            t_module_credentials *ms_credentials = memory_stick_protocol(logger, client_fd);
+            memory_stick_handler(logger, client_fd, ms_credentials);
             break;
     }
 
@@ -103,14 +95,13 @@ void *handle_module(void *fd_ptr) {
         }
     }
 
-    // --- LOOP DE ATENCIÓN ---
+    // --- LOOP DE ATENCIÓN --- (Falso, cada case necesita un handler)
     while (1) {
         int op = operation_receive(client_fd);
         if (op == -1) {
             log_warning(logger, "Module %d disconnected", module_id);
             break;
         }
-        // TODO: manejar operaciones de cada módulo ///////////// ver de hacer todo esto en otro archivo en vez de main (cada modulo con su handler)
     }
 
     close(client_fd);
@@ -124,9 +115,43 @@ t_log *start_logger(t_config *config) {
 	return logger;
 }
 
-void update_cpu_list (t_list *list_cpu, t_list *list_memory_stick_credentials){
-    for(int i=0; i < list_size(list_cpu); i++){
-        t_client_info *credentials = list_get(list_cpu, i);
-        send_credentials(credentials->fd, list_memory_stick_credentials);
+void update_cpu_list(t_list *list_cpu, t_module_credentials *new_cred) {
+    for (int i = 0; i < list_size(list_cpu); i++) {
+        t_client_info *cpu = list_get(list_cpu, i);
+        send_credentials(cpu->fd, new_cred);
+    }
+}
+
+t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
+    int ms_id = id_assigner(&next_memory_stick_id, client_fd);
+    add_client_to_list(list_memory_stick, client_fd, ms_id);
+    t_module_credentials *client = malloc(sizeof(t_module_credentials));
+    client->ip = message_receive(logger, client_fd);
+    client->port = message_receive(logger, client_fd);
+    list_add(list_memory_stick_credentials, client);
+
+    update_cpu_list(list_cpu, client);
+
+    log_info(logger, "Memory Stick %d conectado (total: %d)", ms_id, list_size(list_memory_stick));
+    return client;
+}
+
+void memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *client){
+    while (1) {
+        int op = operation_receive(client_fd);
+        if (op == -1) {
+            t_client_info *ms = malloc(sizeof(t_client_info));
+	        ms->fd = client_fd;
+	        ms->id = client->id;
+            remove_client_from_list(list_memory_stick, ms);
+            free(ms);
+            list_remove_element(list_memory_stick_credentials, client);
+            
+            log_error(logger, "Module %d disconnected", client->id);
+
+            free(client);
+            //Llamar función de fallo y shutdown
+            break;
+        }
     }
 }
