@@ -18,6 +18,7 @@ int main(void) {
 	list_cpu = list_create();
     list_io = list_create();
 
+	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Server setup-------------------*/
@@ -25,8 +26,10 @@ int main(void) {
 	
 	int server_fd = server_start(port, logger);
 
+	free(port);
+
 	if (server_fd == -1) {
-		log_info(logger, "Couldnt start server");
+		log_error(logger, "Couldnt start server");
 		return EXIT_FAILURE;
 	}
 
@@ -49,6 +52,7 @@ int main(void) {
         pthread_t thread;
         pthread_create(&thread, NULL, client_handler_selector, (void*)fd_for_thread);
         pthread_detach(thread);
+		free(fd_for_thread);
 	}
 
 	return EXIT_SUCCESS;
@@ -58,12 +62,11 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	/*-------------------Connection with Kernel Memory-------------------*/
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
-		log_info(logger, "Couldnt connect with Kernel Memory");
+		log_error(logger, "Couldnt connect with Kernel Memory");
 		return EXIT_FAILURE;
 	}
 

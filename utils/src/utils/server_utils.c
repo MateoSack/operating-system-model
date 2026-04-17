@@ -88,3 +88,37 @@ int server_client_wait (int socket_server) {
 
 	return client_socket;
 }
+
+char* get_port_from_fd (int fd, t_log *logger) {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+
+    if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
+        log_error(logger, "Couldnt get port");
+        return NULL;
+    }
+
+    int port = ntohs(addr.sin_port);
+
+    char *port_str = malloc(6); // max "65535" + '\0'
+
+    snprintf(port_str, 6, "%d", port);
+
+    return port_str;
+}
+
+char* get_ip_from_fd (int fd, t_log *logger) {
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+
+    if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
+        log_error(logger, "Couldnt get ip");
+        return NULL;
+    }
+
+    char *ip = malloc(INET_ADDRSTRLEN);
+
+    inet_ntop(AF_INET, &addr.sin_addr, ip, INET_ADDRSTRLEN);
+
+	return ip;
+}
