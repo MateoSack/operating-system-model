@@ -290,6 +290,8 @@ t_list *receive_credentials_list (int socket_cliente) {
 		cred->id = int32_deserialize(buffer, &offset);
 
 		list_add(list, cred);
+		free(ip);
+		free(port);
 	}
 
     free(buffer);
@@ -328,5 +330,7 @@ t_module_credentials *receive_credentials (int socket_cliente) {
 	cred->id = int32_deserialize(buffer, &offset);
 
     free(buffer);
+	free(ip);
+	free(port);
     return cred;
 }
