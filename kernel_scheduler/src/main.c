@@ -54,6 +54,8 @@ int main(void) {
         pthread_detach(thread);
 	}
 
+	log_destroy(logger);
+    config_destroy(config);
 	return EXIT_SUCCESS;
 }
 

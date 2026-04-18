@@ -24,6 +24,10 @@ int main(void)
 	if(connect_kernel_memory(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	kernel_scheduler_handler(kernel_scheduler_fd);
+
+	log_destroy(logger);
+    config_destroy(config);
+	return EXIT_SUCCESS;
 }
 
 int connect_kernel_memory (t_log *logger, t_config *config) {
@@ -148,7 +152,7 @@ int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials)
 
 	t_client_info *mem_stick = add_client_to_list(list_memory_stick, memory_stick_fd, credentials->id);
 
-	log_info(logger, "Connection successful with Memory Stick");
+	log_info(logger, "Memory Stick %d connected (total: %d)", credentials->id, list_size(list_memory_stick));
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, memory_stick_handler, mem_stick);

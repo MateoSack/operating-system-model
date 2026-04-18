@@ -26,8 +26,18 @@ int main(void) {
     t_module_id_send(kernel_memory_fd, MODULE_SWAP, logger);
     log_info(logger, "Successful connection to kernel memory");
 
+    while (1) {
+		int op = operation_receive(kernel_memory_fd);
+        if (op == -1) {
+            log_warning(logger, "Kernel Memory disconnected");
+			close(kernel_memory_fd);
+            break;
+        }
+	}
+
     log_destroy(logger);
     config_destroy(config);
+	return EXIT_SUCCESS;
 }
 
 t_log *start_logger(t_config *config) {

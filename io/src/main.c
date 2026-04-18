@@ -28,6 +28,19 @@ int main(void)
 	t_module_id_send(kernel_scheduler_fd, MODULE_IO, logger);
 	io_id = uint32_receive(kernel_scheduler_fd);
 	log_info(logger, "Connection successful with Kernel Scheduler, IO ID: %d", io_id);
+
+	while (1) {
+		int op = operation_receive(kernel_scheduler_fd);
+        if (op == -1) {
+            log_warning(logger, "Kernel Scheduler disconnected");
+			close(kernel_scheduler_fd);
+            break;
+        }
+	}
+
+	log_destroy(logger);
+    config_destroy(config);
+	return EXIT_SUCCESS;
 }
 
 t_log *start_logger(t_config *config) {

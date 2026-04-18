@@ -50,6 +50,8 @@ int main(void) {
         pthread_detach(thread);
     }
 
+    log_destroy(logger);
+    config_destroy(config);
     return EXIT_SUCCESS;
 }
 
@@ -74,7 +76,7 @@ void *handle_module(void *fd_ptr) {
 	        cpu = add_client_to_list(list_cpu, client_fd, cpu_id);
             send_credentials_list(client_fd, list_memory_stick_credentials, logger);
 
-            log_info(logger, "CPU %d conectada (total: %d)", cpu_id, list_size(list_cpu));
+            log_info(logger, "CPU %d conectada (total: %d)", cpu->id, list_size(list_cpu));
             break;
         }
         
@@ -134,10 +136,11 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
 	t_client_info *memory_stick = malloc(sizeof(t_client_info));
 	memory_stick = add_client_to_list(list_memory_stick, client_fd, ms_id);
     
-    log_info(logger, "Memory Stick %d conectado (total: %d)", ms_id, list_size(list_memory_stick));
+    log_info(logger, "Memory Stick %d conectado (total: %d)", memory_stick->id, list_size(list_memory_stick));
     t_module_credentials *client = malloc(sizeof(t_module_credentials));
     client->ip = message_receive(logger, client_fd);
     client->port = message_receive(logger, client_fd);
+    client->id = memory_stick->id;
     list_add(list_memory_stick_credentials, client);
 
     if(list_size(list_cpu) != 0) update_cpu_list(list_cpu, client);

@@ -44,6 +44,10 @@ int main(void)
         pthread_create(&thread, NULL, cpu_handler, (void*)fd_for_thread);
         pthread_detach(thread);
 	}
+
+	log_destroy(logger);
+    config_destroy(config);
+	return EXIT_SUCCESS;
 }
 
 t_log *start_logger(t_config *config) {
