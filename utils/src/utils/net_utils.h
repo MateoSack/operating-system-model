@@ -102,9 +102,13 @@ void *package_serialize(t_package *package, int bytes);
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger);
 t_module_id t_module_id_receive (int client_fd);
 uint32_t uint32_receive (int client_fd);
-void send_credentials_list (int fd, t_list *list);
+void uint32_send (int client_fd, uint32_t value);
+void send_credentials_list (int fd, t_list *list, t_log *logger);
 t_list *receive_credentials_list (int socket_cliente);
-void send_credentials (int fd, t_module_credentials *cred);
+void send_credentials (int fd, t_module_credentials *cred, t_log *logger);
 t_module_credentials *receive_credentials (int socket_cliente);
+void t_module_credentials_destroyer (void *ptr);
+t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
+void remove_client_from_list (t_list *list, t_client_info *client);
 
 #endif

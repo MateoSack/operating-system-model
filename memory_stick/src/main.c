@@ -7,12 +7,11 @@ int kernel_memory_fd;
 
 int main(void)
 {
-	
 	list_cpu = list_create();
 	
 	t_config *config = config_create("mem_stick.config");
 	if(config == NULL) return EXIT_FAILURE;
-	logger = start_logger(config);	
+	logger = start_logger(config);
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
@@ -36,7 +35,7 @@ int main(void)
             continue;
         }
 
-		log_debug(logger, "New client connected: %d", new_client_fd);
+		log_info(logger, "New client connected: %d", new_client_fd);
 
         int *fd_for_thread = malloc(sizeof(int));
         *fd_for_thread = new_client_fd;
@@ -44,7 +43,6 @@ int main(void)
         pthread_t thread;
         pthread_create(&thread, NULL, cpu_handler, (void*)fd_for_thread);
         pthread_detach(thread);
-		free(fd_for_thread);
 	}
 }
 
@@ -111,12 +109,14 @@ void *cpu_handler (void *fd_ptr) {
 	free(fd_ptr);
 
 	t_module_id module_id = handshake_receiver(cpu_fd);
+	log_debug(logger, "Received handshake from CPU, module_id: %d", module_id);
 	if (module_id != MODULE_CPU) {
 		log_error(logger, "Unknown module connected, t_module_id: %d", module_id);
 		return NULL;
 	}
 
 	uint32_t id = uint32_receive(cpu_fd);
+	log_debug(logger, "Received cpu_id: %d", id);
 
 	add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));

@@ -52,7 +52,6 @@ int main(void) {
         pthread_t thread;
         pthread_create(&thread, NULL, client_handler_selector, (void*)fd_for_thread);
         pthread_detach(thread);
-		free(fd_for_thread);
 	}
 
 	return EXIT_SUCCESS;
@@ -123,14 +122,13 @@ void *client_handler_selector (void *fd_ptr) {
 }
 
 void cpu_handler (int cpu_fd) {
-	uint32_t id = id_assigner(&next_cpu_id, cpu_fd);
-
-	add_client_to_list(list_cpu, cpu_fd, id);
-	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
-
+	uint32_t id = next_cpu_id;
+	uint32_send(cpu_fd, id);
+	next_cpu_id++;
+	
 	t_client_info *cpu = malloc(sizeof(t_client_info));
-	cpu->fd = cpu_fd;
-	cpu->id = id;
+	cpu = add_client_to_list(list_cpu, cpu_fd, id);
+	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
 
 	while (1) {
 		//Handle connection with CPU
@@ -146,14 +144,13 @@ void cpu_handler (int cpu_fd) {
 }
 
 void io_handler (int io_fd) {
-	int id = id_assigner(&next_io_id, io_fd);
-
-	add_client_to_list(list_io, io_fd, id);
-	log_info(logger, "IO %d connected (total: %d)", id, list_size(list_io));
+	int id = next_io_id;
+	uint32_send(io_fd, id);
+	next_io_id++;
 
 	t_client_info *io = malloc(sizeof(t_client_info));
-	io->fd = io_fd;
-	io->id = id;
+	io = add_client_to_list(list_io, io_fd, id);
+	log_info(logger, "IO %d connected (total: %d)", id, list_size(list_io));
 
 	while (1) {
 		//Handle connection with IO
@@ -161,7 +158,7 @@ void io_handler (int io_fd) {
         if (op == -1) {
             log_warning(logger, "IO %d disconnected", id);
 			close(io_fd);
-			remove_client_from_list(list_cpu, io);
+			remove_client_from_list(list_io, io);
 			free(io);
             break;
         }
