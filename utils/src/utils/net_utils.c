@@ -241,6 +241,7 @@ t_module_id t_module_id_receive (int client_fd) {
 uint32_t uint32_receive (int client_fd) {
     int op_code = operation_receive(client_fd);
     if (op_code != PACKAGE) {
+        log_error(logger, "uint32_receive: expected PACKAGE, got %d", op_code);
         return 0;
     }
 

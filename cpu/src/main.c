@@ -18,15 +18,15 @@ int main(void)
 	list_memory_stick = list_create();
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
-	if(connect_kernel_scheduler(logger, config, cpu_id) == EXIT_FAILURE) return EXIT_FAILURE;
+	if(connect_kernel_scheduler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Connection with Kernel Memory-------------------*/
-	if(connect_kernel_memory(logger, config, cpu_id) == EXIT_FAILURE) return EXIT_FAILURE;
+	if(connect_kernel_memory(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	kernel_scheduler_handler(kernel_scheduler_fd);
 }
 
-int connect_kernel_memory (t_log *logger, t_config *config, uint32_t cpu_id) {
+int connect_kernel_memory (t_log *logger, t_config *config) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
@@ -61,7 +61,7 @@ int connect_kernel_memory (t_log *logger, t_config *config, uint32_t cpu_id) {
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_scheduler(t_log *logger, t_config *config, uint32_t cpu_id) {
+int connect_kernel_scheduler(t_log *logger, t_config *config) {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
@@ -97,7 +97,7 @@ void *kernel_memory_thread () {
 		} else if (op == CREDENTIALS_UPDATE) {
 			t_module_credentials *credentials = receive_credentials (kernel_memory_fd);
 			log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
-			connect_with_memory_stick(logger, credentials, cpu_id);
+			connect_with_memory_stick(logger, credentials);
 		}
 	}
 	return NULL;
@@ -126,14 +126,14 @@ int iterate_connection_create_with_memory_sticks (t_list *list) {
 	int i;
 	for(i = 0; i < list_size(list); i++) {
 		t_module_credentials *credentials = list_get(list, i);
-		if(connect_with_memory_stick(logger, credentials, cpu_id) == EXIT_FAILURE) return EXIT_FAILURE;
+		if(connect_with_memory_stick(logger, credentials) == EXIT_FAILURE) return EXIT_FAILURE;
 	}
 
 	log_debug(logger, "Finished stablishing connectios with memory sticks, total: %d", i);
 	return EXIT_SUCCESS;
 }
 
-int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials, uint32_t cpu_id) {
+int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials) {
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);
 
@@ -144,7 +144,7 @@ int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials,
 
 	t_module_id_send (memory_stick_fd, MODULE_CPU, logger);
 	uint32_send(memory_stick_fd, cpu_id);
-	log_debug(logger, "Sent MODULE_CPU and cpu_id to Memory Stick");
+	log_debug(logger, "Sent MODULE_CPU and cpu_id = %d to Memory Stick", cpu_id);
 
 	t_client_info *mem_stick = add_client_to_list(list_memory_stick, memory_stick_fd, credentials->id);
 
