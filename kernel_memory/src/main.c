@@ -2,7 +2,7 @@
 
 t_log *logger;
 
-int kernel_memory_fd = -1;
+int kernel_scheduler_fd = -1;
 int swap_fd = -1;
 
 t_list *list_cpu = NULL;
@@ -64,9 +64,9 @@ void *handle_module(void *fd_ptr) {
     /*-------------------Handle new module-------------------*/
     switch (module_id) {
         case MODULE_KERNEL_SCHEDULER: {
-            kernel_memory_fd = client_fd;
+            kernel_scheduler_fd = client_fd;
             log_info(logger, "Kernel Scheduler connected.");
-            break;
+            if(kernel_scheduler_handler(logger, client_fd) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero (tal vez falta el free client_fd)
         }
 
         case MODULE_CPU: {
@@ -77,19 +77,19 @@ void *handle_module(void *fd_ptr) {
             send_credentials_list(client_fd, list_memory_stick_credentials, logger);
 
             log_info(logger, "CPU %d conectada (total: %d)", cpu->id, list_size(list_cpu));
-            break;
+
+            if(cpu_handler(logger, client_fd, cpu_id) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero
         }
         
         case MODULE_SWAP: {
             swap_fd = client_fd;
             log_info(logger, "Swap connected");
-            break;
+            if(swap_handler(logger, swap_fd) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero (tal vez falta el free client_fd)
         }
 
         case MODULE_MEMORY_STICK: {
             t_module_credentials *ms_credentials = memory_stick_protocol(logger, client_fd);
-            memory_stick_handler(logger, client_fd, ms_credentials);
-            break;
+            if(memory_stick_handler(logger, client_fd, ms_credentials) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero, y log de BSOD
         }
 
         default: {
@@ -98,18 +98,6 @@ void *handle_module(void *fd_ptr) {
             return NULL;
         }
     }
-
-    // --- LOOP DE ATENCIÓN --- (Falso, cada case necesita un handler)
-    while (1) {
-        int op = operation_receive(client_fd);
-        if (op == -1) {
-            log_warning(logger, "Module %d disconnected", module_id);
-            break;
-        }
-    }
-
-    close(client_fd);
-    return NULL;
 }
 
 t_log *start_logger(t_config *config) {
@@ -146,24 +134,4 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     if(list_size(list_cpu) != 0) update_cpu_list(list_cpu, client);
 
     return client;
-}
-
-void memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *client){
-    while (1) {
-        int op = operation_receive(client_fd);
-        if (op == -1) {
-            t_client_info *ms = malloc(sizeof(t_client_info));
-	        ms->fd = client_fd;
-	        ms->id = client->id;
-            remove_client_from_list(list_memory_stick, ms);
-            free(ms);
-            list_remove_element(list_memory_stick_credentials, client);
-            
-            log_error(logger, "Module %d disconnected", client->id);
-
-            free(client);
-            //Llamar función de fallo y shutdown
-            break;
-        }
-    }
 }
