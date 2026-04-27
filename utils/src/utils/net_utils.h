@@ -17,7 +17,8 @@ typedef enum {
 	MESSAGE,
 	PACKAGE,
     HANDSHAKE,
-    CREDENTIALS_UPDATE
+    CREDENTIALS_UPDATE,
+    PCB_TRANSFER,
 } op_code;
 
 typedef struct {
@@ -77,6 +78,7 @@ typedef struct {
 typedef struct {
     uint32_t pid;
     t_process_state state;
+    uint8_t priority;
     t_cpu_context context;
 } t_pcb;
 
@@ -93,7 +95,7 @@ t_package *package_create (void);
 void package_add (t_package *package, void *value, int size);
 void package_send (t_package *package, int client_socket);
 void package_delete (t_package *package);
-void pcb_handle (t_pcb *pcb, int client_socket);
+void pcb_send (t_pcb *pcb, int client_socket);
 uint32_t int32_deserialize(void *buffer, int *offset);
 uint8_t int8_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);

@@ -97,7 +97,7 @@ void buffer_create (t_package *package)
 	package->buffer->stream = NULL;
 }
 
-t_package *package_create (void)
+t_package *package_create (void) 
 {
 	t_package *package = malloc(sizeof(t_package));
 	package->op_code = PACKAGE;
@@ -132,10 +132,12 @@ void package_delete (t_package *package)
 	free(package);
 }
 
-void pcb_handle (t_pcb *pcb, int client_socket) {
+void pcb_send (t_pcb *pcb, int client_socket) {
     t_package *package = package_create();
+	package->op_code = PCB_TRANSFER;
     package_add(package, &pcb->pid, sizeof(uint32_t));
-    package_add(package, &pcb->state, sizeof(int));
+	package_add(package, &pcb->priority, sizeof(uint8_t));
+    package_add(package, &pcb->state, sizeof(t_process_state));
     package_add(package, &pcb->context.pc, sizeof(uint32_t));
     package_add(package, &pcb->context.ax, sizeof(uint8_t));
 	package_add(package, &pcb->context.bx, sizeof(uint8_t));
@@ -181,6 +183,16 @@ t_module_id t_module_id_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
+t_process_state t_process_state_deserialize(void *buffer, int *offset) {
+	int size;
+	t_module_id value;
+	memcpy(&size, buffer + *offset, sizeof(t_process_state));
+	*offset += sizeof(t_process_state);
+	memcpy(&value, buffer + *offset, size);
+	*offset += size;
+	return value;
+}
+
 t_pcb *pcb_receive(int socket_cliente) {
     int size;
     int offset = 0;
@@ -188,7 +200,8 @@ t_pcb *pcb_receive(int socket_cliente) {
     t_pcb *pcb = malloc(sizeof(t_pcb));
 
     pcb->pid = int32_deserialize(buffer, &offset);
-    pcb->state = (t_process_state)int32_deserialize(buffer, &offset);
+	pcb->priority = int8_deserialize(buffer, &offset);
+    pcb->state = (t_process_state)t_process_state_deserialize(buffer, &offset);
 	pcb->context.pc = int32_deserialize(buffer, &offset);
 	pcb->context.ax = int8_deserialize(buffer, &offset);
 	pcb->context.bx = int8_deserialize(buffer, &offset);

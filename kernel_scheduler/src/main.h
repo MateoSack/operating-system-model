@@ -1,7 +1,5 @@
-#include <utils/server_utils.h>
-#include <commons/log.h>
-#include <commons/string.h>
-#include <commons/config.h>
+#include <utils.h>
+#include <long_term_scheduler.h>
 
 int kernel_memory_handler (t_log *logger, t_config *config);
 void *kernel_memory_thread ();

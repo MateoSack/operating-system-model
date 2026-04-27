@@ -4,6 +4,7 @@ t_log *logger;
 
 t_list *list_cpu = NULL;
 t_list *list_io = NULL;
+t_list *list_processes = NULL;
 
 int kernel_memory_fd = -1;
 
@@ -17,6 +18,7 @@ int main(void) {
 
 	list_cpu = list_create();
     list_io = list_create();
+	list_processes = list_create();
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
