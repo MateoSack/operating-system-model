@@ -20,7 +20,8 @@ typedef enum {
     HANDSHAKE,
     CREDENTIALS_UPDATE,
     PROCESS_CREATE,
-    PCB_TRANSFER
+    PCB_TRANSFER,
+    STATE_UPDATE,
 } op_code;
 
 typedef struct {
@@ -75,7 +76,6 @@ typedef struct {
     uint32_t edx;
     uint32_t si;
     uint32_t di;
-    t_list *segment_table;
 } t_cpu_context;
 
 typedef struct {
@@ -83,7 +83,6 @@ typedef struct {
     t_process_state state;
     uint8_t priority;
     t_cpu_context context;
-    char *instruction_path;
 } t_pcb;
 
 typedef struct {
@@ -122,5 +121,6 @@ t_module_credentials *receive_credentials (int socket_cliente);
 void t_module_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 void remove_client_from_list (t_list *list, t_client_info *client);
+const char* process_state_to_string(t_process_state state);
 
 #endif

@@ -392,3 +392,16 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) {
 void remove_client_from_list (t_list *list, t_client_info *client) {
     list_remove_element(list, client);
 }
+
+const char* process_state_to_string(t_process_state state) {
+    switch(state) {
+        case NEW: return "NEW";
+        case READY: return "READY";
+        case EXEC: return "EXEC";
+        case BLOCK: return "BLOCK";
+        case SUSP_BLOCK: return "SUSP_BLOCK";
+        case SUSP_READY: return "SUSP_READY";
+        case EXIT: return "EXIT";
+        default: return "UNKNOWN";
+    }
+}
