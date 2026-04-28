@@ -11,5 +11,6 @@ typedef struct {
 } t_pcb;
 
 t_pcb *create_pcb(uint32_t pid, char *path);
+uint32_t pid_decode (int client_fd);
 
 #endif

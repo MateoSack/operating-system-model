@@ -13,8 +13,8 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
         }
 
         switch (op) {
-        case PROCESS_CREATE: {
-            uint32_t pid = uint32_receive(client_fd);
+            case PROCESS_CREATE: {
+            uint32_t pid = pid_decode(client_fd);
             char *relative_path = message_receive(logger, client_fd);
             
             // Construir path completo: base_path + relative_path
@@ -26,7 +26,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             list_add(list_processes, pcb);
             
             break;
-        }
+            }
         }
     }
     return -1;

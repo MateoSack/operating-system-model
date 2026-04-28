@@ -19,3 +19,12 @@ t_pcb *create_pcb(uint32_t pid, char *path) {
 
     return pcb;
 }
+
+uint32_t pid_decode (int client_fd) {
+	int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    uint32_t value = int32_deserialize(buffer, &offset);
+    free(buffer);
+	return value;
+}
