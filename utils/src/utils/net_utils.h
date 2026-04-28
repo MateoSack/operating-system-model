@@ -116,5 +116,6 @@ void t_module_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 void remove_client_from_list (t_list *list, t_client_info *client);
 const char* process_state_to_string(t_process_state state);
+uint32_t uint32_decode (int client_fd);
 
 #endif

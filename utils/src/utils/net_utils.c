@@ -399,3 +399,12 @@ const char* process_state_to_string(t_process_state state) {
         default: return "UNKNOWN";
     }
 }
+
+uint32_t uint32_decode (int client_fd) { //Returns uint32, use only if already did an operation_receive
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    uint32_t value = int32_deserialize(buffer, &offset);
+    free(buffer);
+    return value;
+}

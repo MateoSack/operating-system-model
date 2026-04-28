@@ -1,11 +1,12 @@
 #include <long_term_scheduler.h>
 
-int long_term_scheduler (t_log *logger, t_list *list_processes, uint32_t *current_pid, char *path, uint8_t priority, int kernel_memory_fd) {
-    uint32_t pid = pid_assigner(current_pid);
+int long_term_scheduler (char *path, uint8_t priority) {
+    uint32_t pid = pid_assigner(&current_max_pid);
     t_process *process;
 
     log_info(logger, "## (%d) New process - State: NEW", pid);
     send_process_create_info(pid, path, kernel_memory_fd);
+    free(path);
     
     process = add_process_to_list(list_processes, pid, priority);
     process_set_state(process, READY, logger); //Currently not doing anything
