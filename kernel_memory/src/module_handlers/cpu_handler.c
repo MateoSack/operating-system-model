@@ -19,6 +19,9 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             //Llamar función de fallo y shutdown
             break;
         }
+
+        switch (op) {
+        case CONTEXT_TRANSFER: {
         
     }
     return -1;

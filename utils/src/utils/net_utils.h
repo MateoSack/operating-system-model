@@ -20,7 +20,8 @@ typedef enum {
     HANDSHAKE,
     CREDENTIALS_UPDATE,
     PROCESS_CREATE,
-    PCB_TRANSFER,
+    CONTEXT_TRANSFER,
+    CONTEXT_SEEK,
     STATE_UPDATE,
 } op_code;
 
@@ -79,17 +80,10 @@ typedef struct {
 } t_cpu_context;
 
 typedef struct {
-    uint32_t pid;
-    t_process_state state;
-    uint8_t priority;
-    t_cpu_context context;
-} t_pcb;
-
-typedef struct {
-    int id_segmento;
+    uint32_t segment_id;
     uint32_t base;
-    uint32_t limite;
-} t_segmento;
+    uint32_t limit;
+} t_segment;
 
 extern t_log *logger;
 
