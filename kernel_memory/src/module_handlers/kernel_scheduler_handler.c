@@ -1,5 +1,7 @@
 #include "kernel_scheduler_handler.h"
 
+extern t_list *list_processes;
+
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
     char *base_path = config_get_string_value(config, "SCRIPTS_BASEPATH");
     
@@ -17,12 +19,13 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             
             // Construir path completo: base_path + relative_path
             char *full_path = string_from_format("%s/%s", base_path, relative_path);
+            free(relative_path);
             log_info(logger, "Creando proceso %u con instrucciones en: %s", pid, full_path);
             
             t_pcb *pcb = create_pcb(pid, full_path);
-            free(relative_path);
-
+            list_add(list_processes, pcb);
             pcb_send(pcb, client_fd);
+            
             break;
         }
         }

@@ -10,5 +10,5 @@ extern t_config *config;
 
 void *handle_module(void *fd_ptr);
 t_log *start_logger(t_config *config);
-void update_cpu_list(t_list *list_cpu, t_module_credentials *new_credentials);
+void update_cpu_list(t_module_credentials *new_credentials);
 t_module_credentials *memory_stick_protocol(t_log *logger, int client_fd);

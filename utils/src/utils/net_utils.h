@@ -75,6 +75,7 @@ typedef struct {
     uint32_t edx;
     uint32_t si;
     uint32_t di;
+    t_list *segment_table;
 } t_cpu_context;
 
 typedef struct {
@@ -84,6 +85,12 @@ typedef struct {
     t_cpu_context context;
     char *instruction_path;
 } t_pcb;
+
+typedef struct {
+    int id_segmento;
+    uint32_t base;
+    uint32_t limite;
+} t_segmento;
 
 extern t_log *logger;
 

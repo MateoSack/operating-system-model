@@ -2,6 +2,7 @@
 #include <utils/server_utils.h>
 
 extern t_list *list_cpu;
+extern t_list *list_processes;
 
 int cpu_handler (t_log *logger, int client_fd, int cpu_id){
     while (1) {

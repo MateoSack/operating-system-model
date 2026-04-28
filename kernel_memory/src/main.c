@@ -9,6 +9,7 @@ int swap_fd = -1;
 t_list *list_cpu = NULL;
 t_list *list_memory_stick = NULL;
 t_list *list_memory_stick_credentials = NULL;
+t_list *list_processes = NULL;
 
 uint32_t next_memory_stick_id = 0;
 
@@ -21,6 +22,7 @@ int main(void) {
     list_cpu          = list_create();
     list_memory_stick = list_create();
     list_memory_stick_credentials = list_create();
+    list_processes = list_create();
 
 	char *port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
@@ -53,6 +55,7 @@ int main(void) {
 
     log_destroy(logger);
     config_destroy(config);
+    // Liberar listas y demás cosas
     return EXIT_SUCCESS;
 }
 
@@ -108,7 +111,7 @@ t_log *start_logger(t_config *config) {
 	return logger;
 }
 
-void update_cpu_list(t_list *list_cpu, t_module_credentials *new_cred) {
+void update_cpu_list(t_module_credentials *new_cred) {
     log_debug(logger, "Updating cpu list of credentials");
     for (int i = 0; i < list_size(list_cpu); i++) {
         t_client_info *cpu = list_get(list_cpu, i);
@@ -132,7 +135,7 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     client->id = memory_stick->id;
     list_add(list_memory_stick_credentials, client);
 
-    if(list_size(list_cpu) != 0) update_cpu_list(list_cpu, client);
+    if(list_size(list_cpu) != 0) update_cpu_list(client);
 
     return client;
 }
