@@ -6,6 +6,8 @@
 #include "module_handlers/kernel_scheduler_handler.h"
 #include "module_handlers/swap_handler.h"
 
+extern t_config *config;
+
 void *handle_module(void *fd_ptr);
 t_log *start_logger(t_config *config);
 void update_cpu_list(t_list *list_cpu, t_module_credentials *new_credentials);

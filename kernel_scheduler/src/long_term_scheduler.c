@@ -17,23 +17,6 @@ int long_term_scheduler (t_log *logger, t_list *list_processes, uint32_t *curren
     return EXIT_SUCCESS;
 }
 
-void create_pcb (t_pcb *pcb, uint32_t pid, uint8_t priority) {
-    pcb->pid = pid;
-    pcb->priority = priority;
-    pcb->state = NEW;
-    pcb->context.pc = 0;
-    pcb->context.ax = 0;
-    pcb->context.bx = 0;
-    pcb->context.cx = 0;
-    pcb->context.dx = 0;
-    pcb->context.eax = 0;
-    pcb->context.ebx = 0;
-    pcb->context.ecx = 0;
-    pcb->context.edx = 0;
-    pcb->context.si = 0;
-    pcb->context.di = 0;
-}
-
 uint32_t pid_assigner (uint32_t *current_pid) {
     uint32_t assigned_pid = *current_pid;
     (*current_pid)++;

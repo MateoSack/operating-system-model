@@ -1,6 +1,7 @@
 #include <main.h>
 
 t_log *logger;
+t_config *config = NULL;
 
 int kernel_scheduler_fd = -1;
 int swap_fd = -1;
@@ -13,7 +14,7 @@ uint32_t next_memory_stick_id = 0;
 
 int main(void) {
     /*-------------------Initial Setup-------------------*/
-    t_config *config = config_create("kernel_memory.config");
+    config = config_create("kernel_memory.config");
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
 
@@ -66,7 +67,7 @@ void *handle_module(void *fd_ptr) {
         case MODULE_KERNEL_SCHEDULER: {
             kernel_scheduler_fd = client_fd;
             log_info(logger, "Kernel Scheduler connected.");
-            if(kernel_scheduler_handler(logger, client_fd) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero (tal vez falta el free client_fd)
+            if(kernel_scheduler_handler(logger, client_fd, config) == -1) return NULL;
         }
 
         case MODULE_CPU: {

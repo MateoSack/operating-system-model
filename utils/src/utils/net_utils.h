@@ -8,6 +8,7 @@
 #include<netdb.h>
 #include<commons/log.h>
 #include<commons/collections/list.h>
+#include<commons/string.h>
 #include<string.h>
 #include<assert.h>
 #include<pthread.h>
@@ -18,7 +19,8 @@ typedef enum {
 	PACKAGE,
     HANDSHAKE,
     CREDENTIALS_UPDATE,
-    PCB_TRANSFER,
+    PROCESS_CREATE,
+    PCB_TRANSFER
 } op_code;
 
 typedef struct {
@@ -80,6 +82,7 @@ typedef struct {
     t_process_state state;
     uint8_t priority;
     t_cpu_context context;
+    char *instruction_path;
 } t_pcb;
 
 extern t_log *logger;
