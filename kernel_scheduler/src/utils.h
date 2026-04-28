@@ -12,7 +12,8 @@ typedef struct {
     uint8_t priority;
 } t_process;
 
-void pcb_set_state (t_pcb *pcb, t_process_state state, t_log *logger);
-void add_process_to_list (t_list *list_processes, uint32_t pid, uint8_t priority);
+void process_set_state (t_process *process, t_process_state state, t_log *logger);
+t_process *add_process_to_list (t_list *list_processes, uint32_t pid, uint8_t priority);
+void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd);
 
 #endif

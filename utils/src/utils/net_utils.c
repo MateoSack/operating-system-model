@@ -132,23 +132,20 @@ void package_delete (t_package *package)
 	free(package);
 }
 
-void pcb_send (t_pcb *pcb, int client_socket) {
+void context_send (t_cpu_context *context, int client_socket) {
     t_package *package = package_create();
-	package->op_code = PCB_TRANSFER;
-    package_add(package, &pcb->pid, sizeof(uint32_t));
-	package_add(package, &pcb->priority, sizeof(uint8_t));
-    package_add(package, &pcb->state, sizeof(t_process_state));
-    package_add(package, &pcb->context.pc, sizeof(uint32_t));
-    package_add(package, &pcb->context.ax, sizeof(uint8_t));
-	package_add(package, &pcb->context.bx, sizeof(uint8_t));
-	package_add(package, &pcb->context.cx, sizeof(uint8_t));
-	package_add(package, &pcb->context.dx, sizeof(uint8_t));
-    package_add(package, &pcb->context.eax, sizeof(uint32_t));
-	package_add(package, &pcb->context.ebx, sizeof(uint32_t));
-	package_add(package, &pcb->context.ecx, sizeof(uint32_t));
-	package_add(package, &pcb->context.edx, sizeof(uint32_t));
-    package_add(package, &pcb->context.si, sizeof(uint32_t));
-    package_add(package, &pcb->context.di, sizeof(uint32_t));
+	package->op_code = CONTEXT_TRANSFER;
+    package_add(package, &context->pc, sizeof(uint32_t));
+    package_add(package, &context->ax, sizeof(uint8_t));
+	package_add(package, &context->bx, sizeof(uint8_t));
+	package_add(package, &context->cx, sizeof(uint8_t));
+	package_add(package, &context->dx, sizeof(uint8_t));
+    package_add(package, &context->eax, sizeof(uint32_t));
+	package_add(package, &context->ebx, sizeof(uint32_t));
+	package_add(package, &context->ecx, sizeof(uint32_t));
+	package_add(package, &context->edx, sizeof(uint32_t));
+    package_add(package, &context->si, sizeof(uint32_t));
+    package_add(package, &context->di, sizeof(uint32_t));
     package_send(package, client_socket);
     package_delete(package);
 }
@@ -193,29 +190,26 @@ t_process_state t_process_state_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
-t_pcb *pcb_receive(int socket_cliente) {
+t_cpu_context *context_receive(int client_socket) {
     int size;
     int offset = 0;
-    void *buffer = buffer_receive(&size, socket_cliente);
-    t_pcb *pcb = malloc(sizeof(t_pcb));
+    void *buffer = buffer_receive(&size, client_socket);
+    t_cpu_context *context = malloc(sizeof(t_cpu_context));
 
-    pcb->pid = int32_deserialize(buffer, &offset);
-	pcb->priority = int8_deserialize(buffer, &offset);
-    pcb->state = (t_process_state)t_process_state_deserialize(buffer, &offset);
-	pcb->context.pc = int32_deserialize(buffer, &offset);
-	pcb->context.ax = int8_deserialize(buffer, &offset);
-	pcb->context.bx = int8_deserialize(buffer, &offset);
-	pcb->context.cx = int8_deserialize(buffer, &offset);
-	pcb->context.dx = int8_deserialize(buffer, &offset);
-    pcb->context.eax = int32_deserialize(buffer, &offset);
-    pcb->context.ebx = int32_deserialize(buffer, &offset);
-    pcb->context.ecx = int32_deserialize(buffer, &offset);
-	pcb->context.edx = int32_deserialize(buffer, &offset);
-    pcb->context.si = int32_deserialize(buffer, &offset);
-    pcb->context.di = int32_deserialize(buffer, &offset);
+	context->pc = int32_deserialize(buffer, &offset);
+	context->ax = int8_deserialize(buffer, &offset);
+	context->bx = int8_deserialize(buffer, &offset);
+	context->cx = int8_deserialize(buffer, &offset);
+	context->dx = int8_deserialize(buffer, &offset);
+    context->eax = int32_deserialize(buffer, &offset);
+    context->ebx = int32_deserialize(buffer, &offset);
+    context->ecx = int32_deserialize(buffer, &offset);
+	context->edx = int32_deserialize(buffer, &offset);
+    context->si = int32_deserialize(buffer, &offset);
+    context->di = int32_deserialize(buffer, &offset);
 
     free(buffer);
-    return pcb;
+    return context;
 }
 
 void *package_serialize(t_package *package, int bytes)
@@ -253,7 +247,7 @@ t_module_id t_module_id_receive (int client_fd) {
 
 uint32_t uint32_receive (int client_fd) {
     int op_code = operation_receive(client_fd);
-    if (op_code != PACKAGE) {
+    if (op_code != PACKAGE && op_code != PROCESS_CREATE) {
         log_error(logger, "uint32_receive: expected PACKAGE, got %d", op_code);
         return 0;
     }
