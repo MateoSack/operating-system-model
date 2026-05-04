@@ -14,10 +14,10 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
         switch (op) {
             case PROCESS_CREATE: {
-            uint32_t pid = pid_decode(client_fd);
+            uint32_t pid = uint32_decode(client_fd);
             char *relative_path = message_receive(logger, client_fd);
             
-            // Construir path completo: base_path + relative_path
+            // Build full path and create PCB
             char *full_path = string_from_format("%s/%s", base_path, relative_path);
             free(relative_path);
             log_info(logger, "Creating process %u with instructions in: %s", pid, full_path);
@@ -29,12 +29,12 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case PROCESS_END: {
-                uint32_t pid = pid_decode(client_fd);
+                uint32_t pid = uint32_decode(client_fd);
                 log_info(logger, "Ending process PID:%u", pid);
                 target_pid = pid;
                 t_pcb *pcb_to_remove = list_find(list_processes, find_by_pid);
                 if (pcb_to_remove != NULL) {
-                    // A IMPLEMENTAR: Liberar recursos del proceso (segmentos, etc)
+                    //TODO: Liberar recursos del proceso (segmentos, etc)
                     list_remove_element(list_processes, pcb_to_remove);
                     free(pcb_to_remove);
                     log_info(logger, "Process PID:%u ended correctly", pid);
@@ -44,6 +44,29 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 
                 break;
             }
+
+            case IO_MEMORY_READ: {
+                uint32_t pid = uint32_decode(client_fd);
+                uint32_t logical_address = uint32_decode(client_fd);
+                uint32_t size = uint32_decode(client_fd);
+                //TODO: Implementar traduccion de direccion de logica a fisica y lectura de memoria
+                log_info(logger, "Received IO_MEMORY_READ request for physical address %u with size %u", logical_address, size); // cambiar address
+                message_send("OK", client_fd); 
+                uint32_send(client_fd, 777);
+                break;
+            }
+
+            case IO_MEMORY_WRITE: {
+                uint32_t pid = uint32_decode(client_fd);
+                uint32_t logical_address = uint32_decode(client_fd);
+                uint32_t size = uint32_decode(client_fd);
+                log_info(logger, "Received IO_MEMORY_WRITE request for physical address %u with size %u", logical_address, size); // cambiar address
+                message_send("OK", client_fd);
+                uint32_send(client_fd, 777);
+                break;
+            }
+
+
         }
     }
     return -1;

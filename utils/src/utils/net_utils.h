@@ -26,6 +26,7 @@ typedef enum {
     STATE_UPDATE,
     IO_MEMORY_READ,
     IO_MEMORY_WRITE,
+    INSTRUCTION_FETCH,
 } op_code;
 
 typedef struct {

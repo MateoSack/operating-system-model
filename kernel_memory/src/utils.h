@@ -2,6 +2,7 @@
 #define UTILS_H_
 
 #include <utils/server_utils.h>
+#include <utils/process_utils.h>
 
 typedef struct {
     uint32_t pid;
@@ -13,7 +14,6 @@ typedef struct {
 extern uint32_t target_pid;
 
 t_pcb *create_pcb(uint32_t pid, char *path);
-uint32_t pid_decode (int client_fd);
 bool find_by_pid(void *element);
 
 #endif

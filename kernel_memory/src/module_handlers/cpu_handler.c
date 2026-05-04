@@ -21,7 +21,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
 
         switch (op) {
             case CONTEXT_TRANSFER: {
-                uint32_t pid = pid_decode(client_fd);
+                uint32_t pid = uint32_decode(client_fd);
                 log_info(logger, "Received context transfer request for PID %d from CPU %d", pid, cpu_id);
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
@@ -35,7 +35,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             }
 
             case CONTEXT_SEEK: {
-                uint32_t pid = pid_decode(client_fd);
+                uint32_t pid = uint32_decode(client_fd);
                 log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
@@ -48,9 +48,20 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                 break;
             }
 
+            case INSTRUCTION_FETCH: {
+                uint32_t pid = uint32_decode(client_fd);
+                log_info(logger, "Received instruction fetch request for PID %d from CPU %d", pid, cpu_id);
+                target_pid = pid;
+                t_pcb *pcb = list_find(list_processes, find_by_pid);
+                if (pcb == NULL) {
+                    log_error(logger, "Process with PID %d not found", pid);
+                    break;
+                }
+                // a COMPLETAR
+
+            }
         }
     }
     return -1;
 }
-
 
