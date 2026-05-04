@@ -2,6 +2,7 @@
 #define UTILS_H_
 
 #include <utils/server_utils.h>
+#include <utils/process_utils.h>
 #include <commons/log.h>
 #include <commons/string.h>
 #include <commons/config.h>

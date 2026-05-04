@@ -24,6 +24,8 @@ typedef enum {
     CONTEXT_TRANSFER,
     CONTEXT_SEEK,
     STATE_UPDATE,
+    IO_MEMORY_READ,
+    IO_MEMORY_WRITE,
 } op_code;
 
 typedef struct {
@@ -45,7 +47,6 @@ typedef struct {
     uint32_t id;
 } t_module_credentials;
 
-
 typedef struct {
 	int size;
 	void *stream;
@@ -55,36 +56,6 @@ typedef struct {
 	op_code op_code;
 	t_buffer *buffer;
 } t_package;
-
-typedef enum {
-    NEW,
-    READY,
-    EXEC,
-    BLOCK,
-    SUSP_BLOCK,
-    SUSP_READY,
-    EXIT,
-} t_process_state;
-
-typedef struct {
-    uint32_t pc;
-	uint8_t ax;
-	uint8_t bx;
-    uint8_t cx;
-    uint8_t dx;
-	uint32_t eax;
-	uint32_t ebx;
-    uint32_t ecx;
-    uint32_t edx;
-    uint32_t si;
-    uint32_t di;
-} t_cpu_context;
-
-typedef struct {
-    uint32_t segment_id;
-    uint32_t base;
-    uint32_t limit;
-} t_segment;
 
 extern t_log *logger;
 
@@ -99,11 +70,9 @@ t_package *package_create (void);
 void package_add (t_package *package, void *value, int size);
 void package_send (t_package *package, int client_socket);
 void package_delete (t_package *package);
-void context_send (t_cpu_context *context, int client_socket);
-uint32_t int32_deserialize(void *buffer, int *offset);
-uint8_t int8_deserialize(void *buffer, int *offset);
+uint32_t uint32_deserialize(void *buffer, int *offset);
+uint8_t uint8_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);
-t_cpu_context *context_receive(int client_socket);
 void *package_serialize(t_package *package, int bytes);
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger);
 t_module_id t_module_id_receive (int client_fd);
@@ -116,7 +85,6 @@ t_module_credentials *receive_credentials (int socket_cliente);
 void t_module_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 void remove_client_from_list (t_list *list, t_client_info *client);
-const char* process_state_to_string(t_process_state state);
 uint32_t uint32_decode (int client_fd);
 
 #endif

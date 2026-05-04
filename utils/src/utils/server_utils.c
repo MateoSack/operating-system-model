@@ -1,6 +1,6 @@
 #include <utils/server_utils.h>
 
-t_module_id handshake_receiver (int client_fd) {
+t_module_id handshake_receiver (int client_fd) { // Receives the handshake from the client, returns the module_id of the client or -1 on error
 	int cod_op = operation_receive(client_fd);
     if (cod_op != HANDSHAKE) {
         log_error(logger, "Expected HANDSHAKE, received: %d", cod_op);
@@ -12,7 +12,7 @@ t_module_id handshake_receiver (int client_fd) {
 	return module_id;
 }
 
-int server_start (char *port, t_log *logger) {
+int server_start (char *port, t_log *logger) { // Starts the server, returns the server socket fd or -1 on error
 	int server_socket;
 	int err = 0;
 
@@ -61,7 +61,7 @@ int server_start (char *port, t_log *logger) {
 	return server_socket;
 }
 
-int server_client_wait (int socket_server) {
+int server_client_wait (int socket_server) { // Waits for a client to connect, returns the client socket fd or -1 on error
 	int client_socket = accept(socket_server, NULL, NULL);;
 
 	log_info(logger, "Client connected");
@@ -69,7 +69,7 @@ int server_client_wait (int socket_server) {
 	return client_socket;
 }
 
-char* get_port_from_fd (int fd, t_log *logger) {
+char* get_port_from_fd (int fd, t_log *logger) { // Gets the port of a socket fd, returns it as a string or NULL on error
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
 
@@ -87,7 +87,7 @@ char* get_port_from_fd (int fd, t_log *logger) {
     return port_str;
 }
 
-char* get_ip_from_fd (int fd, t_log *logger) {
+char* get_ip_from_fd (int fd, t_log *logger) { // Gets the ip of a socket fd, returns it as a string or NULL on error
     struct sockaddr_in addr;
     socklen_t len = sizeof(addr);
 

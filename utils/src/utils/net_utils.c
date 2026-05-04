@@ -1,6 +1,6 @@
 #include <utils/net_utils.h>
 
-int connection_create (char *ip, char *port, t_log *logger) {
+int connection_create (char *ip, char *port, t_log *logger) { // Returns client socket fd, or -1 on error
 	struct addrinfo hints;
 	struct addrinfo *server_info;
 
@@ -33,11 +33,11 @@ int connection_create (char *ip, char *port, t_log *logger) {
 	return client_socket;
 }
 
-void connection_liberate (int client_socket) {
+void connection_liberate (int client_socket) { // Closes the connection with the client
 	close(client_socket);
 }
 
-int operation_receive (int client_socket) {
+int operation_receive (int client_socket) { // Receives the operation code of the incoming package, returns -1 on error or disconnection
 	int cod_op;
 	if (recv(client_socket, &cod_op, sizeof(int), MSG_WAITALL) > 0)
 		return cod_op;
@@ -48,7 +48,7 @@ int operation_receive (int client_socket) {
 	}
 }
 
-void *buffer_receive (int *size, int client_socket) {
+void *buffer_receive (int *size, int client_socket) { // Receives a buffer from the client, returns NULL on error or disconnection
 	void *buffer;
 
 	recv(client_socket, size, sizeof(int), MSG_WAITALL);
@@ -58,7 +58,7 @@ void *buffer_receive (int *size, int client_socket) {
 	return buffer;
 }
 
-char *message_receive (t_log *logger, int client_socket) {
+char *message_receive (t_log *logger, int client_socket) { // Receives a message (char*) from the client, returns NULL on error or disconnection
 	int op_code = operation_receive(client_socket);
     if (op_code != MESSAGE) {
 		log_error(logger, "Error retrieving message");
@@ -71,7 +71,7 @@ char *message_receive (t_log *logger, int client_socket) {
 	return buffer;
 }
 
-void message_send (char *message, int client_socket) {
+void message_send (char *message, int client_socket) { // Sends a message (char*) to the client
 	t_package *package = malloc(sizeof(t_package));
 
 	package->op_code = MESSAGE;
@@ -90,8 +90,7 @@ void message_send (char *message, int client_socket) {
 	package_delete(package);
 }
 
-void buffer_create (t_package *package)
-{
+void buffer_create (t_package *package) { // Initializes the buffer of a package
 	package->buffer = malloc(sizeof(t_buffer));
 	package->buffer->size = 0;
 	package->buffer->stream = NULL;
@@ -105,8 +104,7 @@ t_package *package_create (void)
 	return package;
 }
 
-void package_add (t_package *package, void *value, int size)
-{
+void package_add (t_package *package, void *value, int size) { // Adds a value to the buffer of a package
 	package->buffer->stream = realloc(package->buffer->stream, package->buffer->size + size + sizeof(int));
 
 	memcpy(package->buffer->stream + package->buffer->size, &size, sizeof(int));
@@ -115,8 +113,7 @@ void package_add (t_package *package, void *value, int size)
 	package->buffer->size += size + sizeof(int);
 }
 
-void package_send (t_package *package, int client_socket)
-{
+void package_send (t_package *package, int client_socket) { // Sends a package to the client
 	int bytes = package->buffer->size + 2 * sizeof(int);
 	void *to_send = package_serialize(package, bytes);
 
@@ -125,32 +122,13 @@ void package_send (t_package *package, int client_socket)
 	free(to_send);
 }
 
-void package_delete (t_package *package)
-{
+void package_delete (t_package *package) { // Deletes a package and its buffer
 	free(package->buffer->stream);
 	free(package->buffer);
 	free(package);
 }
 
-void context_send (t_cpu_context *context, int client_socket) {
-    t_package *package = package_create();
-	package->op_code = CONTEXT_TRANSFER;
-    package_add(package, &context->pc, sizeof(uint32_t));
-    package_add(package, &context->ax, sizeof(uint8_t));
-	package_add(package, &context->bx, sizeof(uint8_t));
-	package_add(package, &context->cx, sizeof(uint8_t));
-	package_add(package, &context->dx, sizeof(uint8_t));
-    package_add(package, &context->eax, sizeof(uint32_t));
-	package_add(package, &context->ebx, sizeof(uint32_t));
-	package_add(package, &context->ecx, sizeof(uint32_t));
-	package_add(package, &context->edx, sizeof(uint32_t));
-    package_add(package, &context->si, sizeof(uint32_t));
-    package_add(package, &context->di, sizeof(uint32_t));
-    package_send(package, client_socket);
-    package_delete(package);
-}
-
-uint32_t int32_deserialize(void *buffer, int *offset) {
+uint32_t uint32_deserialize(void *buffer, int *offset) { // Deserializes a uint32_t from a buffer, updating the offset
 	int size;
 	uint32_t value;
 	memcpy(&size, buffer + *offset, sizeof(uint32_t));
@@ -160,7 +138,7 @@ uint32_t int32_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
-uint8_t int8_deserialize(void *buffer, int *offset) {
+uint8_t uint8_deserialize(void *buffer, int *offset) { // Deserializes a uint8_t from a buffer, updating the offset
 	int size;
 	uint8_t value;
 	memcpy(&size, buffer + *offset, sizeof(uint8_t));
@@ -170,7 +148,7 @@ uint8_t int8_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
-t_module_id t_module_id_deserialize(void *buffer, int *offset) {
+t_module_id t_module_id_deserialize(void *buffer, int *offset) { // Deserializes a t_module_id from a buffer, updating the offset
 	int size;
 	t_module_id value;
 	memcpy(&size, buffer + *offset, sizeof(t_module_id));
@@ -180,40 +158,7 @@ t_module_id t_module_id_deserialize(void *buffer, int *offset) {
 	return value;
 }
 
-t_process_state t_process_state_deserialize(void *buffer, int *offset) {
-	int size;
-	t_module_id value;
-	memcpy(&size, buffer + *offset, sizeof(t_process_state));
-	*offset += sizeof(t_process_state);
-	memcpy(&value, buffer + *offset, size);
-	*offset += size;
-	return value;
-}
-
-t_cpu_context *context_receive(int client_socket) {
-    int size;
-    int offset = 0;
-    void *buffer = buffer_receive(&size, client_socket);
-    t_cpu_context *context = malloc(sizeof(t_cpu_context));
-
-	context->pc = int32_deserialize(buffer, &offset);
-	context->ax = int8_deserialize(buffer, &offset);
-	context->bx = int8_deserialize(buffer, &offset);
-	context->cx = int8_deserialize(buffer, &offset);
-	context->dx = int8_deserialize(buffer, &offset);
-    context->eax = int32_deserialize(buffer, &offset);
-    context->ebx = int32_deserialize(buffer, &offset);
-    context->ecx = int32_deserialize(buffer, &offset);
-	context->edx = int32_deserialize(buffer, &offset);
-    context->si = int32_deserialize(buffer, &offset);
-    context->di = int32_deserialize(buffer, &offset);
-
-    free(buffer);
-    return context;
-}
-
-void *package_serialize(t_package *package, int bytes)
-{
+void *package_serialize(t_package *package, int bytes) { // Serializes a package into a buffer, returns the buffer
 	void *buffer = malloc(bytes);
 	int offset = 0;
 
@@ -227,7 +172,7 @@ void *package_serialize(t_package *package, int bytes)
 	return buffer;
 }
 
-void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) {
+void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) { // Sends a t_module_id to the server as part of the handshake process
     t_package *pkg = package_create();
     pkg->op_code = HANDSHAKE;  // Set to HANDSHAKE instead of PACKAGE
     package_add(pkg, &module_id, sizeof(t_module_id));
@@ -236,7 +181,12 @@ void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) {
     log_debug(logger, "t_module_id sent to: %d", server_fd);
 }
 
-t_module_id t_module_id_receive (int client_fd) {
+t_module_id t_module_id_receive (int client_fd) { // Receives a t_module_id from the client as part of the handshake process, returns the module_id
+	int op_code = operation_receive(client_fd);
+	if (op_code != HANDSHAKE) {
+		log_error(logger, "t_module_id_receive: expected HANDSHAKE, got %d", op_code);
+		return -1; // Return an invalid module_id on error
+	}
 	int size;
 	int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);
@@ -245,7 +195,7 @@ t_module_id t_module_id_receive (int client_fd) {
 	return module_id;
 }
 
-uint32_t uint32_receive (int client_fd) {
+uint32_t uint32_receive (int client_fd) { // Receives a uint32_t from the client, returns the value
     int op_code = operation_receive(client_fd);
     if (op_code != PACKAGE && op_code != PROCESS_CREATE) {
         log_error(logger, "uint32_receive: expected PACKAGE, got %d", op_code);
@@ -255,19 +205,19 @@ uint32_t uint32_receive (int client_fd) {
 	int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);
-    uint32_t value = int32_deserialize(buffer, &offset);
+    uint32_t value = uint32_deserialize(buffer, &offset);
     free(buffer);
 	return value;
 }
 
-void uint32_send (int client_fd, uint32_t value) {
+void uint32_send (int client_fd, uint32_t value) { // Sends a uint32_t to the client as part of a package
 	t_package *pkg = package_create();
     package_add(pkg, &value, sizeof(uint32_t));
 	package_send(pkg, client_fd);
     package_delete(pkg);
 }
 
-void send_credentials_list (int fd, t_list *list, t_log *logger) {
+void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a list of t_module_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	for(int i = 0; i < list_size(list); i++) {
 		t_module_credentials *credentials = list_get(list, i);
@@ -281,7 +231,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger) {
 	log_debug(logger, "Has sent credentials' package");
 }
 
-t_list *receive_credentials_list (int socket_cliente) {
+t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_module_credentials from the client as part of a package, returns the list
     int op_code = operation_receive(socket_cliente);
     if (op_code != PACKAGE) {
         return NULL;
@@ -324,7 +274,7 @@ t_list *receive_credentials_list (int socket_cliente) {
     return list;
 }
 
-void send_credentials (int fd, t_module_credentials *cred, t_log *logger) {
+void send_credentials (int fd, t_module_credentials *cred, t_log *logger) { // Sends a t_module_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = CREDENTIALS_UPDATE;
 	package_add(pkg, cred->ip, strlen(cred->ip) + 1);
@@ -335,7 +285,7 @@ void send_credentials (int fd, t_module_credentials *cred, t_log *logger) {
 	log_debug(logger, "Has sent credentials to fd: %d", fd);
 }
 
-t_module_credentials *receive_credentials (int socket_cliente) {
+t_module_credentials *receive_credentials (int socket_cliente) { // Receives a t_module_credentials from the client as part of a package, returns the credentials
     int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, socket_cliente);
@@ -367,14 +317,14 @@ t_module_credentials *receive_credentials (int socket_cliente) {
     return cred;
 }
 
-void t_module_credentials_destroyer (void *ptr) {
+void t_module_credentials_destroyer (void *ptr) { // Destroys a t_module_credentials, use as list_destroy_and_destroy_elements destroyer
 	t_module_credentials *credentials = (t_module_credentials *) ptr;
 	free(credentials->ip);
 	free(credentials->port);
 	free(credentials);
 }
 
-t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) {
+t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { // Adds a client to the list of clients, returns the client info
 	t_client_info *client = malloc(sizeof(t_client_info));
 	client->fd = client_fd;
 	client->id = id;
@@ -383,28 +333,15 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) {
 	return client;
 }
 
-void remove_client_from_list (t_list *list, t_client_info *client) {
+void remove_client_from_list (t_list *list, t_client_info *client) { // Removes a client from the list of clients
     list_remove_element(list, client);
 }
 
-const char* process_state_to_string(t_process_state state) {
-    switch(state) {
-        case NEW: return "NEW";
-        case READY: return "READY";
-        case EXEC: return "EXEC";
-        case BLOCK: return "BLOCK";
-        case SUSP_BLOCK: return "SUSP_BLOCK";
-        case SUSP_READY: return "SUSP_READY";
-        case EXIT: return "EXIT";
-        default: return "UNKNOWN";
-    }
-}
-
-uint32_t uint32_decode (int client_fd) { //Returns uint32, use only if already did an operation_receive
+uint32_t uint32_decode (int client_fd) { //Returns uint32 from client, use only if already did an operation_receive
     int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);
-    uint32_t value = int32_deserialize(buffer, &offset);
+    uint32_t value = uint32_deserialize(buffer, &offset);
     free(buffer);
     return value;
 }
