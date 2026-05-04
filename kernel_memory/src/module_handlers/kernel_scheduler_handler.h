@@ -3,6 +3,7 @@
 
 #include <utils.h>
 #include <commons/config.h>
+#include <commons/collections/list.h>
 
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config);
 

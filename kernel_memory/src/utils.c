@@ -1,5 +1,7 @@
 #include <utils.h>
 
+uint32_t target_pid;
+
 t_pcb *create_pcb(uint32_t pid, char *path) {
     t_pcb *pcb = malloc(sizeof(t_pcb));
     
@@ -27,4 +29,9 @@ uint32_t pid_decode (int client_fd) {
     uint32_t value = int32_deserialize(buffer, &offset);
     free(buffer);
 	return value;
+}
+
+bool find_by_pid(void *element) {
+    t_pcb *pcb = (t_pcb *) element;
+    return pcb->pid == target_pid;
 }

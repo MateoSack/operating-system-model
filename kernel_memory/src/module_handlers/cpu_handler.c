@@ -3,8 +3,6 @@
 extern t_list *list_cpu;
 extern t_list *list_processes;
 
-uint32_t pid_buscado;
-
 int cpu_handler (t_log *logger, int client_fd, int cpu_id){
     while (1) {
         int op = operation_receive(client_fd);
@@ -25,7 +23,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             case CONTEXT_TRANSFER: {
                 uint32_t pid = pid_decode(client_fd);
                 log_info(logger, "Received context transfer request for PID %d from CPU %d", pid, cpu_id);
-                pid_buscado = pid;
+                target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
@@ -39,7 +37,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             case CONTEXT_SEEK: {
                 uint32_t pid = pid_decode(client_fd);
                 log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
-                pid_buscado = pid;
+                target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
@@ -55,8 +53,4 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
     return -1;
 }
 
-bool find_by_pid(void *element) {
-    t_pcb *pcb = (t_pcb *) element;
-    return pcb->pid == pid_buscado;
-}
 

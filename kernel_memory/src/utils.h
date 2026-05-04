@@ -10,7 +10,10 @@ typedef struct {
     t_list *segment_table;
 } t_pcb;
 
+extern uint32_t target_pid;
+
 t_pcb *create_pcb(uint32_t pid, char *path);
 uint32_t pid_decode (int client_fd);
+bool find_by_pid(void *element);
 
 #endif

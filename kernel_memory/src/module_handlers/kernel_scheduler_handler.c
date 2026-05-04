@@ -27,6 +27,23 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             
             break;
             }
+
+            case PROCESS_END: {
+                uint32_t pid = pid_decode(client_fd);
+                log_info(logger, "Ending process PID:%u", pid);
+                target_pid = pid;
+                t_pcb *pcb_to_remove = list_find(list_processes, find_by_pid);
+                if (pcb_to_remove != NULL) {
+                    // A IMPLEMENTAR: Liberar recursos del proceso (segmentos, etc)
+                    list_remove_element(list_processes, pcb_to_remove);
+                    free(pcb_to_remove);
+                    log_info(logger, "Process PID:%u ended correctly", pid);
+                } else {
+                    log_warning(logger, "Process PID:%u not found in list", pid);
+                }
+                
+                break;
+            }
         }
     }
     return -1;
