@@ -2,6 +2,8 @@
 
 t_log *logger;
 
+t_scheduler_algorithm scheduler_algorithm;
+
 t_list *list_cpu = NULL;
 t_list *list_io = NULL;
 t_list *list_processes = NULL;
@@ -17,6 +19,8 @@ int main(void) {
 	t_config *config = config_create("kernel_scheduler.config");
 	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);
+
+	scheduler_algorithm = scheduler_algorithm_from_string(config_get_string_value(config, "SCHEDULER_ALGORITHM"));
 
 	list_cpu = list_create();
     list_io = list_create();
