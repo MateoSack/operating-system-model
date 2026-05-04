@@ -13,9 +13,14 @@ t_list *list_processes = NULL;
 
 uint32_t next_memory_stick_id = 0;
 
-int main(void) {
+int main(int argc, char *argv[]) {
     /*-------------------Initial Setup-------------------*/
-    config = config_create("kernel_memory.config");
+    if (argc < 2) {
+        printf("Mode of use: %s <config_file>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    config = config_create(argv[1]);
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
 
