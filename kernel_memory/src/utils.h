@@ -7,7 +7,7 @@
 typedef struct {
     uint32_t pid;
     t_cpu_context context;
-    char *instructions;
+    char **instructions;
     t_list *segment_table;
 } t_pcb;
 
@@ -15,6 +15,6 @@ extern uint32_t target_pid;
 
 t_pcb *create_pcb(uint32_t pid, char *path);
 bool find_by_pid(void *element);
-char *read_file_content(char *path);
+char **get_instructions_from_file(char *path);
 
 #endif

@@ -1,8 +1,8 @@
 #include <utils.h>
 
-uint32_t target_pid;
+uint32_t target_pid; //used only for find_by_pid function
 
-char *read_file_content(char *path) {
+char **get_instructions_from_file(char *path) {
     FILE *file = fopen(path, "r");
     if (file == NULL) {
         return NULL;
@@ -22,7 +22,10 @@ char *read_file_content(char *path) {
     content[file_size] = '\0';
     fclose(file);
     
-    return content;
+    char **instructions = string_split(content, "\n");
+    free(content);
+    
+    return instructions;
 }
 
 t_pcb *create_pcb(uint32_t pid, char *path) {
@@ -40,7 +43,7 @@ t_pcb *create_pcb(uint32_t pid, char *path) {
     pcb->context.edx = 0;
     pcb->context.si = 0;
     pcb->context.di = 0;
-    pcb->instructions = read_file_content(path);
+    pcb->instructions = get_instructions_from_file(path); //MODE OF ACCESS: instructions[pcb->context.pc]
 
     return pcb;
 }

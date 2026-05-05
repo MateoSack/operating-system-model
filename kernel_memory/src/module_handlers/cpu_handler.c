@@ -57,8 +57,10 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                     log_error(logger, "Process with PID %d not found", pid);
                     break;
                 }
-                // a COMPLETAR
-
+                char *instruction = pcb->instructions[pcb->context.pc];
+                message_send(instruction, client_fd);
+                log_info(logger, "Instruction sent correctly for PID %d: %s", pid, instruction);
+                break;
             }
         }
     }
