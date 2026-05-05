@@ -6,7 +6,11 @@ t_scheduler_algorithm scheduler_algorithm;
 
 t_list *list_cpu = NULL;
 t_list *list_io = NULL;
+
 t_list *list_processes = NULL;
+t_list *ready_queue = NULL;
+
+pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int kernel_memory_fd = -1;
 
@@ -18,7 +22,7 @@ uint32_t current_max_pid = 0;
 int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
 	if (argc < 3) {
-        printf("Mode of use: %s <config_file>\n", argv[0]);
+        printf("Mode of use: %s <config_file> <first_process_path>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -31,6 +35,7 @@ int main(int argc, char *argv[]) {
 	list_cpu = list_create();
     list_io = list_create();
 	list_processes = list_create();
+	ready_queue = list_create();
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_connection(logger, config, argv[2]) == EXIT_FAILURE) return EXIT_FAILURE;
@@ -70,6 +75,7 @@ int main(int argc, char *argv[]) {
 
 	log_destroy(logger);
     config_destroy(config);
+	pthread_mutex_destroy(&scheduler_mutex);
 	return EXIT_SUCCESS;
 }
 

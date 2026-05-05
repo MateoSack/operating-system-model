@@ -15,10 +15,7 @@ void cpu_handler (int cpu_fd) {
 		//Handle connection with CPU
 		int op = operation_receive(cpu_fd);
         if (op == -1) {
-            log_warning(logger, "CPU %d disconnected", id);
-			close(cpu_fd);
-			remove_client_from_list(list_cpu, cpu);
-			free(cpu);
+            handle_cpu_disconnection(cpu);
             break;
         }
 
@@ -33,9 +30,51 @@ void cpu_handler (int cpu_fd) {
 			
 			case PROCESS_END:
 				uint32_t pid = uint32_decode(cpu->fd);
-				process_set_state(get_process_from_pid(pid), EXIT, logger);
+
+				pthread_mutex_lock(&scheduler_mutex);
+
+				t_process *process = get_process_from_pid(pid);
+
+				if (process != NULL) {
+					process_set_state(process, EXIT, logger);
+					process_set_cpu(process, NULL);
+				}
+				cpu->is_available = true;
+
+				pthread_mutex_unlock(&scheduler_mutex);
+
+				log_info(logger, "## (%d) Process finished - Motive: EXIT", pid);
+
 				short_term_scheduler();
 				break;
         }
 	}
+}
+
+void handle_cpu_disconnection (t_client_info *cpu) {
+	int cpu_id = cpu->id;
+
+	log_warning(logger, "CPU %d disconnected", cpu_id);
+	close(cpu->fd);
+
+	pthread_mutex_lock(&scheduler_mutex);
+	t_process *process = get_process_by_cpu(cpu);
+	bool had_process = (process != NULL);
+	uint32_t pid = 0;
+
+	if (had_process) {
+		process_set_state(process, READY, logger);
+		process_set_cpu(process, NULL);
+		add_process_to_list(ready_queue, process);
+		pid = process->pid;
+	}
+	remove_client_from_list(list_cpu, cpu);
+	
+	pthread_mutex_unlock(&scheduler_mutex);
+	
+	free(cpu);
+	
+	if (had_process) log_warning(logger, "CPU %d was executing process %d. Returning it to READY state.", cpu_id, pid);
+
+	short_term_scheduler();
 }
