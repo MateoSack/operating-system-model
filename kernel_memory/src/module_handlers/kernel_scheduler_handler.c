@@ -23,6 +23,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             log_info(logger, "Creating process %u with instructions in: %s", pid, full_path);
             
             t_pcb *pcb = create_pcb(pid, full_path);
+            free(full_path);
             list_add(list_processes, pcb);
             
             break;
@@ -65,8 +66,6 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_send(client_fd, 777);
                 break;
             }
-
-
         }
     }
     return -1;

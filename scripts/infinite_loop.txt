@@ -1,0 +1,3 @@
+SET AX 1
+NOOP
+JNZ AX 1

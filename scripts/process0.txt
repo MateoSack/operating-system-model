@@ -1,0 +1,3 @@
+INIT_PROC sum.txt 3
+INIT_PROC sleep.txt 1
+EXIT
