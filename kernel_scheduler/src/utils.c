@@ -38,3 +38,14 @@ t_scheduler_algorithm scheduler_algorithm_from_string(const char *str) {
         return FIFO; // Default to FIFO if unknown
     }
 }
+
+t_process *get_process_from_pid (uint32_t pid) {
+    bool _process_pid_coincides (void *ptr) {
+        t_process *p = (t_process*)ptr;
+        return p->pid == pid;
+    }
+
+    t_process *process = list_find(list_processes, _process_pid_coincides);
+
+    return process;
+}

@@ -7,6 +7,8 @@
 #include <commons/string.h>
 #include <commons/config.h>
 
+extern t_list *list_processes;
+
 typedef struct {
     uint32_t pid;
     t_process_state state;
@@ -20,15 +22,10 @@ typedef enum {
     CMN,
 } t_scheduler_algorithm;
 
-typedef struct {
-    int fd;
-    uint32_t id;
-    bool is_available;
-} t_cpu;
-
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
 t_process *add_process_to_list (t_list *list_processes, uint32_t pid, uint8_t priority);
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd);
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str);
+t_process *get_process_from_pid (uint32_t pid);
 
 #endif

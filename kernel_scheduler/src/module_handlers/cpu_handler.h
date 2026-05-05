@@ -4,6 +4,8 @@
 #include <commons/log.h>
 #include <utils/server_utils.h>
 #include <long_term_scheduler.h>
+#include <short_term_scheduler.h>
+#include <utils.h>
 
 extern t_list *list_cpu;
 extern t_list *list_io;

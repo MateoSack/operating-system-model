@@ -21,6 +21,8 @@ typedef enum {
     CREDENTIALS_UPDATE,
     PROCESS_CREATE,
     PROCESS_END,
+    PROCESS_EXIT,
+    PROCESS_EXECUTE,
     CONTEXT_TRANSFER,
     CONTEXT_SEEK,
     STATE_UPDATE,
@@ -32,6 +34,7 @@ typedef enum {
 typedef struct {
     int fd;
     uint32_t id;
+    bool is_available;
 } t_client_info;
 
 typedef enum {

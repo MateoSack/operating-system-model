@@ -9,6 +9,8 @@ void cpu_handler (int cpu_fd) {
 	cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
 
+	short_term_scheduler();
+
 	while (1) {
 		//Handle connection with CPU
 		int op = operation_receive(cpu_fd);
@@ -28,6 +30,12 @@ void cpu_handler (int cpu_fd) {
             	long_term_scheduler(path, priority);
             
             	break;
+			
+			case PROCESS_END:
+				uint32_t pid = uint32_decode(cpu->fd);
+				process_set_state(get_process_from_pid(pid), EXIT, logger);
+				short_term_scheduler();
+				break;
         }
 	}
 }
