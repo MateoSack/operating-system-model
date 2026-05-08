@@ -5,6 +5,9 @@ t_log *logger;
 int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
 uint32_t cpu_id;
+uint32_t pid;
+
+t_cpu_context context = NULL;
 
 t_list *list_memory_stick;
 
@@ -74,64 +77,40 @@ int connect_kernel_memory(t_log *logger, t_config *config)
 	return EXIT_SUCCESS;
 }
 
-/*---------------------- NOT FINISHED ----------------------------------
 int kernel_memory_handler(t_log *logger, int client_fd)
 {
 	switch (op)
 	{
 	case CONTEXT_TRANSFER:
 	{
-		uint32_t pid = uint32_decode(client_fd);
-		log_info(logger, "Received context transfer request for PID %d from CPU %d", pid, cpu_id);
-		target_pid = pid;
-		t_pcb *pcb = list_find(list_processes, find_by_pid);
-		if (pcb == NULL)
-		{
-			log_error(logger, "Process with PID %d not found", pid);
-			break;
-		}
-		pcb->context = *context_receive(client_fd);
-		log_info(logger, "Context updated correctly for PID %d", pid);
-		break;
+		uint32_send(pid);
+		log_info(logger, "Sent CONTEXT_TRANSFER request to Kernel Memory");
+		context_send(context, client_fd);
+        log_info(logger, "Context sent correctly to Kernel Memory");
+        break;
 	}
 
 	case CONTEXT_SEEK:
 	{
-		uint32_t pid = uint32_decode(client_fd);
-		log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
-		target_pid = pid;
-		t_pcb *pcb = list_find(list_processes, find_by_pid);
-		if (pcb == NULL)
-		{
-			log_error(logger, "Process with PID %d not found", pid);
-			break;
-		}
-		context_send(&pcb->context, client_fd);
-		log_info(logger, "Context sent correctly for PID %d", pid);
+		uint32_send(pid);
+		log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
+		context = *context_receive(client_fd);
+		log_info(logger, "Context updated correctly");
 		break;
 	}
 
 	case INSTRUCTION_FETCH:
 	{
-		uint32_t pid = uint32_decode(client_fd);
-		log_info(logger, "Received instruction fetch request for PID %d from CPU %d", pid, cpu_id);
-		target_pid = pid;
-		t_pcb *pcb = list_find(list_processes, find_by_pid);
-		if (pcb == NULL)
-		{
-			log_error(logger, "Process with PID %d not found", pid);
-			break;
-		}
-		char *instruction = pcb->instructions[pcb->context.pc];
-		message_send(instruction, client_fd);
-		log_info(logger, "Instruction sent correctly for PID %d: %s", pid, instruction);
+		uint32_send(pid);
+		log_info(logger, "Receiving instruction from Kernel Memory");
+		message_receive(logger, client_fd) //a chequear si estan bien los parametros
+		// A COMPLETAR
 		break;
 	}
 	}
-
 	return -1;
-}---------------------- NOT FINISHED ----------------------------------
-*/
+}
+
 int connect_kernel_scheduler(t_log *logger, t_config *config)
 {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
@@ -196,7 +175,7 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 	{
 	case PROCESS_EXECUTE:
 	{
-		uint32_t pid = uint32_decode(kernel_scheduler_fd);
+		pid = uint32_decode(kernel_scheduler_fd);
 		log_info(logger, "Received PID %d from Kernel scheduler", pid);
 		t_package *pkg = package_create();
 		pkg->op_code = CONTEXT_TRANSFER;

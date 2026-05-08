@@ -4,6 +4,7 @@
 #include<commons/log.h>
 #include<commons/string.h>
 #include<commons/config.h>
+#include<utils/process_utils.h>
 
 void end_program(int, t_log*, t_config*);
 t_log *start_logger(t_config *config);
