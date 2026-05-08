@@ -12,49 +12,58 @@ int main(void)
 {
 	/*-------------------Initial Setup-------------------*/
 	t_config *config = config_create("cpu.config");
-	if(config == NULL) return EXIT_FAILURE;
-	logger = start_logger(config);	
+	if (config == NULL)
+		return EXIT_FAILURE;
+	logger = start_logger(config);
 	log_info(logger, "CPU started");
 	list_memory_stick = list_create();
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
-	if(connect_kernel_scheduler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
+	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
+		return EXIT_FAILURE;
 
 	/*-------------------Connection with Kernel Memory-------------------*/
-	if(connect_kernel_memory(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
+	if (connect_kernel_memory(logger, config) == EXIT_FAILURE)
+		return EXIT_FAILURE;
 
-	kernel_scheduler_handler(kernel_scheduler_fd);
+	kernel_scheduler_handler(kernel_scheduler_fd, kernel_memory_fd);
 
 	log_destroy(logger);
-    config_destroy(config);
+	config_destroy(config);
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_memory (t_log *logger, t_config *config) {
+int connect_kernel_memory(t_log *logger, t_config *config)
+{
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
-	if (kernel_memory_fd == -1) {
+	if (kernel_memory_fd == -1)
+	{
 		log_info(logger, "Couldnt connect with Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send (kernel_memory_fd, MODULE_CPU, logger);
+	t_module_id_send(kernel_memory_fd, MODULE_CPU, logger);
 	uint32_send(kernel_memory_fd, cpu_id);
 
 	log_info(logger, "Connection successful with Kernel Memory");
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory_fd);
 	log_debug(logger, "Has received credentials' list");
-	if(list_size(credentials_list) != 0) {
-		if(iterate_connection_create_with_memory_sticks (credentials_list) == EXIT_FAILURE) return EXIT_FAILURE;
-	} else {
+	if (list_size(credentials_list) != 0)
+	{
+		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
+			return EXIT_FAILURE;
+	}
+	else
+	{
 		log_debug(logger, "Credentials' list empty");
 	}
-	//list_destroy_and_destroy_elements(credentials_list, t_module_credentials_destroyer);
+	// list_destroy_and_destroy_elements(credentials_list, t_module_credentials_destroyer);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
@@ -65,7 +74,66 @@ int connect_kernel_memory (t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_scheduler(t_log *logger, t_config *config) {
+/*---------------------- NOT FINISHED ----------------------------------
+int kernel_memory_handler(t_log *logger, int client_fd)
+{
+	switch (op)
+	{
+	case CONTEXT_TRANSFER:
+	{
+		uint32_t pid = uint32_decode(client_fd);
+		log_info(logger, "Received context transfer request for PID %d from CPU %d", pid, cpu_id);
+		target_pid = pid;
+		t_pcb *pcb = list_find(list_processes, find_by_pid);
+		if (pcb == NULL)
+		{
+			log_error(logger, "Process with PID %d not found", pid);
+			break;
+		}
+		pcb->context = *context_receive(client_fd);
+		log_info(logger, "Context updated correctly for PID %d", pid);
+		break;
+	}
+
+	case CONTEXT_SEEK:
+	{
+		uint32_t pid = uint32_decode(client_fd);
+		log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
+		target_pid = pid;
+		t_pcb *pcb = list_find(list_processes, find_by_pid);
+		if (pcb == NULL)
+		{
+			log_error(logger, "Process with PID %d not found", pid);
+			break;
+		}
+		context_send(&pcb->context, client_fd);
+		log_info(logger, "Context sent correctly for PID %d", pid);
+		break;
+	}
+
+	case INSTRUCTION_FETCH:
+	{
+		uint32_t pid = uint32_decode(client_fd);
+		log_info(logger, "Received instruction fetch request for PID %d from CPU %d", pid, cpu_id);
+		target_pid = pid;
+		t_pcb *pcb = list_find(list_processes, find_by_pid);
+		if (pcb == NULL)
+		{
+			log_error(logger, "Process with PID %d not found", pid);
+			break;
+		}
+		char *instruction = pcb->instructions[pcb->context.pc];
+		message_send(instruction, client_fd);
+		log_info(logger, "Instruction sent correctly for PID %d: %s", pid, instruction);
+		break;
+	}
+	}
+
+	return -1;
+}---------------------- NOT FINISHED ----------------------------------
+*/
+int connect_kernel_scheduler(t_log *logger, t_config *config)
+{
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
@@ -89,17 +157,22 @@ int connect_kernel_scheduler(t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-void *kernel_memory_thread () {
-	while (1) {
-		//Handle connection with Kernel Memory
+void *kernel_memory_thread()
+{
+	while (1)
+	{
+		// Handle connection with Kernel Memory
 		int op = operation_receive(kernel_memory_fd);
 		log_debug(logger, "Attending op_code: %d", op);
-		if (op == -1) {
+		if (op == -1)
+		{
 			log_warning(logger, "Kernel Memory disconnected");
 			close(kernel_memory_fd);
 			break;
-		} else if (op == CREDENTIALS_UPDATE) {
-			t_module_credentials *credentials = receive_credentials (kernel_memory_fd);
+		}
+		else if (op == CREDENTIALS_UPDATE)
+		{
+			t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
 			log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
 			connect_with_memory_stick(logger, credentials);
 		}
@@ -107,46 +180,69 @@ void *kernel_memory_thread () {
 	return NULL;
 }
 
-void kernel_scheduler_handler (int kernel_scheduler_fd) {
-	while (1) {
-		//Handle connection with Kernel Scheduler
+void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
+{
+	while (1)
+	{
+		// Handle connection with Kernel Scheduler
 		int op = operation_receive(kernel_scheduler_fd);
-		if (op == -1) {
+		if (op == -1)
+		{
 			log_warning(logger, "Kernel Scheduler disconnected");
 			close(kernel_scheduler_fd);
 			break;
 		}
+	switch (op)
+	{
+	case PROCESS_EXECUTE:
+	{
+		uint32_t pid = uint32_decode(kernel_scheduler_fd);
+		log_info(logger, "Received PID %d from Kernel scheduler", pid);
+		t_package *pkg = package_create();
+		pkg->op_code = CONTEXT_TRANSFER;
+		package_add(pkg, &pid, sizeof(uint32_t));
+		package_send(pkg, kernel_memory_fd);
+		package_delete(pkg);
+		break;
+	}
+	}
 	}
 }
 
-t_log *start_logger(t_config *config) {
+t_log *start_logger(t_config *config)
+{
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
 	t_log_level level = log_level_from_string(level_str);
 	t_log *logger = log_create("cpu.log", "CPU", true, level);
 	return logger;
 }
 
-int iterate_connection_create_with_memory_sticks (t_list *list) {
+int iterate_connection_create_with_memory_sticks(t_list *list)
+{
 	int i;
-	for(i = 0; i < list_size(list); i++) {
+	for (i = 0; i < list_size(list); i++)
+	{
 		t_module_credentials *credentials = list_get(list, i);
-		if(connect_with_memory_stick(logger, credentials) == EXIT_FAILURE) return EXIT_FAILURE;
+		if (connect_with_memory_stick(logger, credentials) == EXIT_FAILURE)
+			return EXIT_FAILURE;
 	}
 
 	log_debug(logger, "Finished stablishing connectios with memory sticks, total: %d", i);
 	return EXIT_SUCCESS;
 }
 
-int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials) {
+int connect_with_memory_stick(t_log *logger, t_module_credentials *credentials)
+{
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);
 
-	if (memory_stick_fd == -1) {
+	if (memory_stick_fd == -1)
+	{
 		log_error(logger, "Couldnt connect with Memory Stick");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send (memory_stick_fd, MODULE_CPU, logger);
+	t_module_id_send(memory_stick_fd, MODULE_CPU, logger);
 	uint32_send(memory_stick_fd, cpu_id);
 	log_debug(logger, "Sent MODULE_CPU and cpu_id = %d to Memory Stick", cpu_id);
 
@@ -161,20 +257,23 @@ int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials)
 	return EXIT_SUCCESS;
 }
 
-void *memory_stick_handler (void *mem_stick_ptr) {
+void *memory_stick_handler(void *mem_stick_ptr)
+{
 	t_client_info *mem_stick = (t_client_info *)mem_stick_ptr;
 	log_debug(logger, "Memory Stick handler started for fd: %d, id: %d", mem_stick->fd, mem_stick->id);
 
-	while (1) {
-		//Handle connection with Memory Stick
+	while (1)
+	{
+		// Handle connection with Memory Stick
 		int op = operation_receive(mem_stick->fd);
-        if (op == -1) {
-            log_warning(logger, "Memory Stick %d disconnected", mem_stick->id);
+		if (op == -1)
+		{
+			log_warning(logger, "Memory Stick %d disconnected", mem_stick->id);
 			close(mem_stick->fd);
 			list_remove_element(list_memory_stick, mem_stick);
 			free(mem_stick);
-            break;
-        }
+			break;
+		}
 	}
 	return NULL;
 }
