@@ -71,3 +71,21 @@ t_process *get_process_by_cpu (t_client_info *cpu) { // Get a process from the l
 
     return process;
 }
+
+void evict_process (t_process *process) { // Evict a process from the CPU
+    int cpu_fd = -1;
+
+    pthread_mutex_lock(&scheduler_mutex);
+    if (process->cpu != NULL) {
+        cpu_fd = process->cpu->fd;
+        process_set_cpu(process, NULL);
+    }
+    pthread_mutex_unlock(&scheduler_mutex);
+
+    if (cpu_fd == -1) return;
+
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_EVICT;
+    package_send(pkg, cpu_fd);
+    package_delete(pkg);
+}

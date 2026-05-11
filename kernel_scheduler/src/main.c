@@ -3,6 +3,7 @@
 t_log *logger;
 
 t_scheduler_algorithm scheduler_algorithm;
+int quantum = 0;
 
 t_list *list_cpu = NULL;
 t_list *list_io = NULL;
@@ -31,6 +32,7 @@ int main(int argc, char *argv[]) {
 	logger = start_logger(config);
 
 	scheduler_algorithm = scheduler_algorithm_from_string(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
+	quantum = config_get_int_value(config, "RR_QUANTUM");
 
 	list_cpu = list_create();
     list_io = list_create();
@@ -38,7 +40,7 @@ int main(int argc, char *argv[]) {
 	ready_queue = list_create();
 
 	/*-------------------Connection with Kernel Memory-------------------*/
-	if(kernel_memory_connection(logger, config, argv[2]) == EXIT_FAILURE) return EXIT_FAILURE;
+	if(kernel_memory_connection(logger, config, strdup(argv[2])) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Server setup-------------------*/
 	char *port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");

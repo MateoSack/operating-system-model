@@ -41,6 +41,10 @@ void cpu_handler (int cpu_fd) {
 				}
 				cpu->is_available = true;
 
+				if (scheduler_algorithm == RR && process != NULL) {
+					process->cancel_quantum = true;
+				}
+
 				pthread_mutex_unlock(&scheduler_mutex);
 
 				log_info(logger, "## (%d) Process finished - Motive: EXIT", pid);
@@ -67,6 +71,7 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 		process_set_cpu(process, NULL);
 		add_process_to_list(ready_queue, process);
 		pid = process->pid;
+		process->cancel_quantum = true;
 	}
 	remove_client_from_list(list_cpu, cpu);
 	

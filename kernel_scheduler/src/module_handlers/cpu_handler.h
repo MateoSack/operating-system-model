@@ -7,6 +7,8 @@
 #include <short_term_scheduler.h>
 #include <utils.h>
 
+extern t_scheduler_algorithm scheduler_algorithm;
+
 extern t_list *list_cpu;
 extern t_list *list_io;
 extern t_list *list_processes;
