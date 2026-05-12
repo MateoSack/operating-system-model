@@ -20,16 +20,22 @@ void cpu_handler (int cpu_fd) {
         }
 
 		switch (op) {
-        	case PROCESS_CREATE:
-            	uint32_t priority = uint32_decode (cpu->fd);
+        	case PROCESS_CREATE: {
+				uint32_t pid = uint32_decode(cpu->fd);
+            	uint32_t priority = uint32_receive (cpu->fd);
             	char *path = message_receive(logger, cpu->fd);
+
+				log_info(logger, "## (%d) Solicited syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
             
             	long_term_scheduler(path, priority);
             
             	break;
+			}
 			
-			case PROCESS_END:
+			case PROCESS_END: {
 				uint32_t pid = uint32_decode(cpu->fd);
+
+				log_info(logger, "## (%d) Solicited syscall: EXIT", pid);
 
 				pthread_mutex_lock(&scheduler_mutex);
 
@@ -40,7 +46,7 @@ void cpu_handler (int cpu_fd) {
 					process_set_cpu(process, NULL);
 					remove_process_from_list(exec_processes, process);
 				}
-				
+
 				cpu->is_available = true;
 
 				pthread_mutex_unlock(&scheduler_mutex);
@@ -49,6 +55,7 @@ void cpu_handler (int cpu_fd) {
 
 				short_term_scheduler();
 				break;
+			}
         }
 	}
 }
