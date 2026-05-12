@@ -8,7 +8,7 @@ t_module_id handshake_receiver (int client_fd) { // Receives the handshake from 
         return -1;
     }
 
-    t_module_id module_id = t_module_id_receive(client_fd);
+    t_module_id module_id = t_module_id_decode(client_fd);
 	return module_id;
 }
 

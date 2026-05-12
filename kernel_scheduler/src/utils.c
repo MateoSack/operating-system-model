@@ -15,6 +15,7 @@ t_process *create_process (uint32_t pid, uint8_t priority) { // Create a new pro
     process->priority = priority;
     process->state = NEW;
     process->cpu = NULL;
+    process->start_exec_time = 0;
 
     return process;
 }
@@ -88,4 +89,27 @@ void evict_process (t_process *process) { // Evict a process from the CPU
     pkg->op_code = PROCESS_EVICT;
     package_send(pkg, cpu_fd);
     package_delete(pkg);
+
+    //wait_confirmation(cpu_fd); //TODO: Implement confirmation with semaphores to avoid busy waiting and the posibility that the next operation may not necesarily be a CONFIRMATION
+}
+
+void evict_all_processes () {
+    while (1) {
+        pthread_mutex_lock(&scheduler_mutex);
+
+        if (list_size(exec_processes) == 0) {
+            pthread_mutex_unlock(&scheduler_mutex);
+            break;
+        }
+
+        t_process *process = list_get(exec_processes, 0);
+
+        remove_process_from_list(exec_processes, process);
+        process_set_state(process, READY, logger);
+        add_process_to_list(ready_queue, process);
+
+        pthread_mutex_unlock(&scheduler_mutex);
+
+        evict_process(process);
+    }
 }

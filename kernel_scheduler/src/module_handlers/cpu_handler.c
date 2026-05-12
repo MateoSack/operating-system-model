@@ -38,12 +38,10 @@ void cpu_handler (int cpu_fd) {
 				if (process != NULL) {
 					process_set_state(process, EXIT, logger);
 					process_set_cpu(process, NULL);
+					remove_process_from_list(exec_processes, process);
 				}
+				
 				cpu->is_available = true;
-
-				if (scheduler_algorithm == RR && process != NULL) {
-					process->cancel_quantum = true;
-				}
 
 				pthread_mutex_unlock(&scheduler_mutex);
 
@@ -70,9 +68,11 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 		process_set_state(process, READY, logger);
 		process_set_cpu(process, NULL);
 		add_process_to_list(ready_queue, process);
+		remove_process_from_list(exec_processes, process);
 		pid = process->pid;
-		process->cancel_quantum = true;
+		process->start_exec_time = 0;
 	}
+
 	remove_client_from_list(list_cpu, cpu);
 	
 	pthread_mutex_unlock(&scheduler_mutex);

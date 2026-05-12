@@ -14,19 +14,19 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
         switch (op) {
             case PROCESS_CREATE: {
-            uint32_t pid = uint32_decode(client_fd);
-            char *relative_path = message_receive(logger, client_fd);
+                uint32_t pid = uint32_decode(client_fd);
+                char *relative_path = message_receive(logger, client_fd);
             
-            // Build full path and create PCB
-            char *full_path = string_from_format("%s/%s", base_path, relative_path);
-            free(relative_path);
-            log_info(logger, "Creating process %u with instructions in: %s", pid, full_path);
+                // Build full path and create PCB
+                char *full_path = string_from_format("%s/%s", base_path, relative_path);
+                free(relative_path);
+                log_info(logger, "Creating process %u with instructions in: %s", pid, full_path);
             
-            t_pcb *pcb = create_pcb(pid, full_path);
-            free(full_path);
-            list_add(list_processes, pcb);
+                t_pcb *pcb = create_pcb(pid, full_path);
+                free(full_path);
+                list_add(list_processes, pcb);
             
-            break;
+                break;
             }
 
             case PROCESS_END: {
@@ -46,7 +46,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 break;
             }
 
-            case IO_MEMORY_READ: {
+            case IO_MEMORY_READ: { // TODO: Volver esto un paquete (mismo paquete en IO_MEMORY_READy IO_MEMORY_WRITE)
                 uint32_t pid = uint32_decode(client_fd);
                 uint32_t logical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
@@ -57,7 +57,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 break;
             }
 
-            case IO_MEMORY_WRITE: {
+            case IO_MEMORY_WRITE: { // TODO: Volver esto un paquete
                 uint32_t pid = uint32_decode(client_fd);
                 uint32_t logical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
@@ -68,5 +68,5 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
         }
     }
-    return -1;
+    return EXIT_FAILURE;
 }

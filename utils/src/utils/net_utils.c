@@ -181,12 +181,7 @@ void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) { //
     log_debug(logger, "t_module_id sent to: %d", server_fd);
 }
 
-t_module_id t_module_id_receive (int client_fd) { // Receives a t_module_id from the client as part of the handshake process, returns the module_id
-	int op_code = operation_receive(client_fd);
-	if (op_code != HANDSHAKE) {
-		log_error(logger, "t_module_id_receive: expected HANDSHAKE, got %d", op_code);
-		return -1; // Return an invalid module_id on error
-	}
+t_module_id t_module_id_decode (int client_fd) { // Receives a t_module_id from the client, returns the module_id. Use only after receiving a HANDSHAKE operation code
 	int size;
 	int offset = 0;
     void *buffer = buffer_receive(&size, client_fd);
@@ -344,4 +339,18 @@ uint32_t uint32_decode (int client_fd) { //Returns uint32 from client, use only 
     uint32_t value = uint32_deserialize(buffer, &offset);
     free(buffer);
     return value;
+}
+
+void send_confirmation (int client_fd) {
+	t_package *pkg = package_create();
+	pkg->op_code = CONFIRMATION;
+	package_send(pkg, client_fd);
+    package_delete(pkg);
+}
+
+void wait_confirmation (int client_fd) {
+	int op_code = operation_receive(client_fd);
+	if (op_code != CONFIRMATION) {
+		log_error(logger, "Expected CONFIRMATION, received: %d", op_code);
+	}
 }

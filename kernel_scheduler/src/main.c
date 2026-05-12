@@ -10,6 +10,9 @@ t_list *list_io = NULL;
 
 t_list *list_processes = NULL;
 t_list *ready_queue = NULL;
+t_list *exec_processes = NULL;
+
+t_temporal *system_timer;
 
 pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -38,6 +41,15 @@ int main(int argc, char *argv[]) {
     list_io = list_create();
 	list_processes = list_create();
 	ready_queue = list_create();
+	exec_processes = list_create();
+
+	if (scheduler_algorithm == RR) {
+		system_timer = temporal_create();
+
+        pthread_t quantum_thread;
+        pthread_create(&quantum_thread, NULL, quantum_manager, NULL);
+        pthread_detach(quantum_thread);
+	}
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_connection(logger, config, strdup(argv[2])) == EXIT_FAILURE) return EXIT_FAILURE;

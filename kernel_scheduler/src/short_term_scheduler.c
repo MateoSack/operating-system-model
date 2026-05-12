@@ -20,19 +20,16 @@ void short_term_scheduler () { // Main function for the short-term scheduler
 
         cpu->is_available = false;
 
-        process->cancel_quantum = false;
         process_set_state(process, EXEC, logger);
         process_set_cpu(process, cpu);
+
+        if(scheduler_algorithm != FIFO) process->start_exec_time = temporal_gettime(system_timer);
+
+        add_process_to_list(exec_processes, process);
 
         pthread_mutex_unlock(&scheduler_mutex);
 
         send_process_exec_info(process->pid, cpu->fd);
-
-        if(scheduler_algorithm == RR) {
-            pthread_t timer_thread;
-            pthread_create(&timer_thread, NULL, timer_manager, (void*)process);
-            pthread_detach(timer_thread);
-        }
     }
 
     if (no_processes) log_debug(logger, "No processes in READY");
@@ -85,42 +82,41 @@ void send_process_exec_info (uint32_t pid, int cpu_fd) { // Sends the process ex
     package_delete(pkg);
 }
 
-void *timer_manager (void *ptr) {
-    t_process *process = (t_process*) ptr;
-    t_temporal *timer = temporal_create();
+void *quantum_manager () {
+    int time_to_sleep = (quantum * 1000) / 20; // Sleep for a fraction of the quantum to check for expirations more frequently
+    if (time_to_sleep < 1000) time_to_sleep = 1000; // Sleep at least 1 ms to avoid busy waiting in very low quantum scenarios
 
-    while (quantum > temporal_gettime(timer)) {
+    while (1) {
+        usleep(time_to_sleep);
+        
         pthread_mutex_lock(&scheduler_mutex);
-        bool cancel_quantum = process->cancel_quantum;
-        pthread_mutex_unlock(&scheduler_mutex);
+        
+        for (int i = 0; i < list_size(exec_processes); i++) {
 
-        if (cancel_quantum) {
-            temporal_destroy(timer);
-            return NULL;
+            t_process *process = list_get(exec_processes, i);
+
+            uint64_t elapsed = temporal_gettime(system_timer) - process->start_exec_time;
+
+            if (elapsed >= quantum) {
+                remove_process_from_list(exec_processes, process);
+                process_set_state(process, READY, logger);
+                add_process_to_list(ready_queue, process);
+
+                i--;
+
+                pthread_mutex_unlock(&scheduler_mutex);
+
+                evict_process((t_process*)process);
+                log_info(logger, "## (%d) Process evicted - Motive: Quantum expiration", process->pid);
+
+                short_term_scheduler();
+
+                pthread_mutex_lock(&scheduler_mutex);
+            }
         }
 
-        usleep(quantum * 1000 / 20); // Sleep for a fraction of the quantum to check for cancellation periodically
-    }
-
-    temporal_destroy(timer);
-
-    bool should_evict = false;
-
-    pthread_mutex_lock(&scheduler_mutex);
-
-    if (!process->cancel_quantum && process->state == EXEC) {
-        process_set_state(process, READY, logger);
-        add_process_to_list(ready_queue, process);
-        should_evict = true;
-    }
-
-    pthread_mutex_unlock(&scheduler_mutex);
-
-    if (should_evict) {
-        evict_process((t_process*)process);
-        log_info(logger, "## (%d) Process evicted - Motive: Quantum expiration", process->pid);
-
-        short_term_scheduler();
+        pthread_mutex_unlock(&scheduler_mutex);
+    
     }
 
     return NULL;

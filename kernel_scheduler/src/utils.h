@@ -7,15 +7,17 @@
 #include <commons/string.h>
 #include <commons/config.h>
 
-extern t_list *list_processes;
 extern pthread_mutex_t scheduler_mutex;
+extern t_list *list_processes;
+extern t_list *ready_queue;
+extern t_list *exec_processes;
 
 typedef struct {
     uint32_t pid;
     t_process_state state;
     uint8_t priority;
     t_client_info *cpu;
-    bool cancel_quantum;
+    uint64_t start_exec_time;
 } t_process;
 
 typedef enum {
@@ -34,5 +36,6 @@ t_scheduler_algorithm scheduler_algorithm_from_string(const char *str);
 t_process *get_process_from_pid (uint32_t pid);
 t_process *get_process_by_cpu (t_client_info *cpu);
 void evict_process (t_process *process);
+void evict_all_processes ();
 
 #endif

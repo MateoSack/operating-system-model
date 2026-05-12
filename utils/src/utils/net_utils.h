@@ -18,6 +18,7 @@ typedef enum {
 	MESSAGE,
 	PACKAGE,
     HANDSHAKE,
+    CONFIRMATION,
     CREDENTIALS_UPDATE,
     PROCESS_CREATE,
     PROCESS_END,
@@ -79,7 +80,7 @@ uint8_t uint8_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);
 void *package_serialize(t_package *package, int bytes);
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger);
-t_module_id t_module_id_receive (int client_fd);
+t_module_id t_module_id_decode (int client_fd);
 uint32_t uint32_receive (int client_fd);
 void uint32_send (int client_fd, uint32_t value);
 void send_credentials_list (int fd, t_list *list, t_log *logger);
@@ -90,5 +91,7 @@ void t_module_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 void remove_client_from_list (t_list *list, t_client_info *client);
 uint32_t uint32_decode (int client_fd);
+void send_confirmation (int client_fd);
+void wait_confirmation (int client_fd);
 
 #endif
