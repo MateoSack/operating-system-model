@@ -99,16 +99,72 @@ int kernel_memory_handler(t_log *logger, int client_fd)
 		break;
 	}
 
-	case INSTRUCTION_FETCH:
-	{
-		uint32_send(pid);
-		log_info(logger, "Receiving instruction from Kernel Memory");
-		message_receive(logger, client_fd) //a chequear si estan bien los parametros
-		// A COMPLETAR
-		break;
-	}
-	}
-	return -1;
+    
+case INSTRUCTION_FETCH:
+    {
+        uint32_send(pid);
+        log_info(logger, "Receiving instruction from Kernel Memory");
+        char *instruction = message_receive(logger, client_fd); // a chequear si estan bien los parametros
+        execute_instruction(instruction, &context);             // A COMPLETAR
+        break;
+    }
+    }
+    return -1;
+}
+
+void execute_instruction(char *instruction, t_cpu_context *context)
+{
+
+    switch (op)
+    {
+
+    case "NOOP": // SOLO UTILIZA EL TIEMPO, NO HACE NADA MAS
+    {
+
+        break;
+    }
+
+    case "SET": // Asigna al registro el valor pasado como parámetro.
+    {
+
+        break;
+    }
+
+    case "MOV_IN":
+    {
+
+        break;
+    }
+
+    case "MOV_OUT":
+    {
+
+        break;
+    }
+
+    case "SUM":
+    {
+
+        break;
+    }
+
+    case "SUB":
+    {
+
+        break;
+    }
+
+    case "JNZ":
+    {
+
+        break;
+    }
+
+    case "COPY_MEM":
+    {
+
+        break;
+    }
 }
 
 int connect_kernel_scheduler(t_log *logger, t_config *config)
