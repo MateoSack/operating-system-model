@@ -7,18 +7,18 @@ int kernel_memory_fd = -1;
 uint32_t cpu_id;
 uint32_t pid;
 
-t_cpu_context context = NULL;
+t_cpu_context *context = NULL;
 
 t_list *list_memory_stick;
 
-int main(void)
-{
+int main(void) {
 	/*-------------------Initial Setup-------------------*/
 	t_config *config = config_create("cpu.config");
 	if (config == NULL)
 		return EXIT_FAILURE;
 	logger = start_logger(config);
 	log_info(logger, "CPU started");
+	context = malloc(sizeof(t_cpu_context));
 	list_memory_stick = list_create();
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
@@ -36,16 +36,14 @@ int main(void)
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_memory(t_log *logger, t_config *config)
-{
+int connect_kernel_memory(t_log *logger, t_config *config) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
-	if (kernel_memory_fd == -1)
-	{
+	if (kernel_memory_fd == -1) {
 		log_info(logger, "Couldnt connect with Kernel Memory");
 		return EXIT_FAILURE;
 	}
@@ -57,14 +55,13 @@ int connect_kernel_memory(t_log *logger, t_config *config)
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory_fd);
 	log_debug(logger, "Has received credentials' list");
-	if (list_size(credentials_list) != 0)
-	{
+	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
 			return EXIT_FAILURE;
 	}
 	else
 	{
-		log_debug(logger, "Credentials' list empty");
+		log_debug(logger, "Credentials list empty.");
 	}
 	// list_destroy_and_destroy_elements(credentials_list, t_module_credentials_destroyer);
 
@@ -77,43 +74,41 @@ int connect_kernel_memory(t_log *logger, t_config *config)
 	return EXIT_SUCCESS;
 }
 
-int kernel_memory_handler(t_log *logger, int client_fd)
-{
-	switch (op)
-	{
-	case CONTEXT_TRANSFER:
-	{
-		uint32_send(pid);
-		log_info(logger, "Sent CONTEXT_TRANSFER request to Kernel Memory");
-		context_send(context, client_fd);
-        log_info(logger, "Context sent correctly to Kernel Memory");
-        break;
-	}
+int kernel_memory_handler(t_log *logger, int client_fd) {
+	operation_receive(client_fd);
+	switch (op) {
+		case CONTEXT_TRANSFER:
+		{
+			uint32_send(pid);
+			log_info(logger, "Sent CONTEXT_TRANSFER request to Kernel Memory");
+			context_send(context, client_fd);
+			log_info(logger, "Context sent correctly to Kernel Memory");
+			break;
+		}
 
-	case CONTEXT_SEEK:
-	{
-		uint32_send(pid);
-		log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
-		context = *context_receive(client_fd);
-		log_info(logger, "Context updated correctly");
-		break;
-	}
+		case CONTEXT_SEEK:
+		{
+			uint32_send(pid);
+			log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
+			context = *context_receive(client_fd);
+			log_info(logger, "Context updated correctly");
+			break;
+		}
 
-    
-case INSTRUCTION_FETCH:
-    {
-        uint32_send(pid);
-        log_info(logger, "Receiving instruction from Kernel Memory");
-        char *instruction = message_receive(logger, client_fd); // a chequear si estan bien los parametros
-        execute_instruction(instruction, &context);             // A COMPLETAR
-        break;
-    }
-    }
+		
+		case INSTRUCTION_FETCH:
+		{
+			uint32_send(pid);
+			log_info(logger, "Receiving instruction from Kernel Memory");
+			char *instruction = message_receive(logger, client_fd); // a chequear si estan bien los parametros
+			execute_instruction(instruction, &context);             // A COMPLETAR
+			break;
+		}
+	}
     return -1;
 }
 
-void execute_instruction(char *instruction, t_cpu_context *context)
-{
+void execute_instruction(char *instruction, t_cpu_context *context) {
 
     switch (op)
     {
@@ -165,6 +160,7 @@ void execute_instruction(char *instruction, t_cpu_context *context)
 
         break;
     }
+}
 }
 
 int connect_kernel_scheduler(t_log *logger, t_config *config)

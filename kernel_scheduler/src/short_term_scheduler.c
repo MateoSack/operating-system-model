@@ -29,7 +29,7 @@ void short_term_scheduler () { // Main function for the short-term scheduler
 
         pthread_mutex_unlock(&scheduler_mutex);
 
-        send_process_exec_info(process->pid, cpu->fd);
+        send_pid_to_execute(process->pid, cpu->fd);
     }
 
     if (no_processes) log_debug(logger, "No processes in READY");
@@ -69,12 +69,7 @@ t_client_info *get_available_cpu () { // Returns an available CPU from the list 
     return cpu;
 }
 
-bool process_is_ready(void *ptr) { // Returns true if the process is in READY state, false otherwise
-    t_process *process = (t_process*) ptr;
-    return process->state == READY;
-}
-
-void send_process_exec_info (uint32_t pid, int cpu_fd) { // Sends the process execution information to the CPU
+void send_pid_to_execute (uint32_t pid, int cpu_fd) { // Sends the process execution information to the CPU
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EXECUTE;
     package_add(pkg, &pid, sizeof(uint32_t));

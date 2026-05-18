@@ -5,8 +5,7 @@ t_list *list_cpu = NULL;
 uint32_t mem_stick_id;
 int kernel_memory_fd;
 
-int main(void)
-{
+int main(void) {
 	list_cpu = list_create();
 	
 	t_config *config = config_create("mem_stick.config");
