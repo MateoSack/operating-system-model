@@ -4,6 +4,7 @@ t_log *logger;
 
 int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
+bool interruptPending = 0;
 uint32_t cpu_id;
 uint32_t pid;
 
@@ -74,95 +75,6 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-int kernel_memory_handler(t_log *logger, int client_fd) {
-	operation_receive(client_fd);
-	switch (op) {
-		case CONTEXT_TRANSFER:
-		{
-			uint32_send(pid);
-			log_info(logger, "Sent CONTEXT_TRANSFER request to Kernel Memory");
-			context_send(context, client_fd);
-			log_info(logger, "Context sent correctly to Kernel Memory");
-			break;
-		}
-
-		case CONTEXT_SEEK:
-		{
-			uint32_send(pid);
-			log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
-			context = *context_receive(client_fd);
-			log_info(logger, "Context updated correctly");
-			break;
-		}
-
-		
-		case INSTRUCTION_FETCH:
-		{
-			uint32_send(pid);
-			log_info(logger, "Receiving instruction from Kernel Memory");
-			char *instruction = message_receive(logger, client_fd); // a chequear si estan bien los parametros
-			execute_instruction(instruction, &context);             // A COMPLETAR
-			break;
-		}
-	}
-    return -1;
-}
-
-void execute_instruction(char *instruction, t_cpu_context *context) {
-
-    switch (op)
-    {
-
-    case "NOOP": // SOLO UTILIZA EL TIEMPO, NO HACE NADA MAS
-    {
-
-        break;
-    }
-
-    case "SET": // Asigna al registro el valor pasado como parámetro.
-    {
-
-        break;
-    }
-
-    case "MOV_IN":
-    {
-
-        break;
-    }
-
-    case "MOV_OUT":
-    {
-
-        break;
-    }
-
-    case "SUM":
-    {
-
-        break;
-    }
-
-    case "SUB":
-    {
-
-        break;
-    }
-
-    case "JNZ":
-    {
-
-        break;
-    }
-
-    case "COPY_MEM":
-    {
-
-        break;
-    }
-}
-}
-
 int connect_kernel_scheduler(t_log *logger, t_config *config)
 {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
@@ -201,11 +113,13 @@ void *kernel_memory_thread()
 			close(kernel_memory_fd);
 			break;
 		}
-		else if (op == CREDENTIALS_UPDATE)
-		{
-			t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
-			log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
-			connect_with_memory_stick(logger, credentials);
+		switch (op) {
+			case CREDENTIALS_UPDATE: {
+				t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
+				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
+				connect_with_memory_stick(logger, credentials);
+				break;
+			}
 		}
 	}
 	return NULL;
@@ -223,21 +137,142 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 			close(kernel_scheduler_fd);
 			break;
 		}
-	switch (op)
+		switch (op) {
+			case PROCESS_EXECUTE:
+			{
+				pid = uint32_decode(kernel_scheduler_fd);
+				log_info(logger, "Received PID %d from Kernel scheduler", pid);
+				
+				t_package *pkg = package_create();
+				pkg->op_code = CONTEXT_SEEK;
+				package_add(pkg, &pid, sizeof(uint32_t));
+				package_send(pkg, kernel_memory_fd);
+				package_delete(pkg);
+				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
+				
+				context = malloc(sizeof(t_cpu_context));
+				*context = *context_receive(kernel_memory_fd);
+				if (context == NULL) {
+					log_error(logger, "Failed to receive context from Kernel Memory");
+					break;
+				}
+				log_info(logger, "Context received correctly from Kernel Memory for PID %d", pid);
+				
+				t_process_execution_args *execution_args = malloc(sizeof(t_process_execution_args));
+				execution_args->pid = pid;
+				execution_args->context = context;
+				
+				pthread_t thread;
+				pthread_create(&thread, NULL, process_execution_handler, execution_args);
+				pthread_detach(thread);
+				
+				break;
+			}
+
+			default: {
+				interruptPending = 1; //ahora mismo no hay otros códigos de operación que reciba el scheduler implementados
+				break;
+			}
+		}
+	}
+}
+
+// Toda esta zona podría estar en un archivo aparte de instructions_utils o instructions_cicle o algo del estilo
+void instructions_cicle(t_cpu_context *context, uint32_t pid) {
+	while (1)
 	{
-	case PROCESS_EXECUTE:
-	{
-		pid = uint32_decode(kernel_scheduler_fd);
-		log_info(logger, "Received PID %d from Kernel scheduler", pid);
 		t_package *pkg = package_create();
-		pkg->op_code = CONTEXT_TRANSFER;
+		pkg->op_code = INSTRUCTION_FETCH;
 		package_add(pkg, &pid, sizeof(uint32_t));
 		package_send(pkg, kernel_memory_fd);
 		package_delete(pkg);
-		break;
+		log_info(logger, "Sent INSTRUCTION_FETCH request to Kernel Memory");
+		char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
+		if (instruction == NULL) {
+			log_error(logger, "Failed to receive instruction from Kernel Memory");
+			context->pc++;
+			break;
+		}
+		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
+		char **decoded_instruction = decode_instruction(instruction);
+		execute_instruction(decoded_instruction, context);
+		log_info(logger, "Executed instruction: %s", instruction);
+		free(instruction);
+		string_array_destroy(decoded_instruction);
+		context->pc++;
+
+		if(interruptPending) {
+			log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
+			t_package *pkg = package_create();
+			pkg->op_code = CONTEXT_TRANSFER;
+			package_add(pkg, &pid, sizeof(uint32_t));
+			package_send(pkg, kernel_memory_fd);
+			context_send(context, kernel_memory_fd);
+			package_delete(pkg);
+			log_info(logger, "Context saved to Kernel Memory");
+			interruptPending = 0;
+			break;
+		}
+		log_info(logger, "No interrupt pending for PID %d, continuing execution", pid);
 	}
+}
+
+char **decode_instruction(char *content) {
+	char **decoded_instruction = string_split(content, " ");
+	return decoded_instruction;
+}
+
+t_instruction_type instruction_to_type(char *instruction_mnemonic) {
+	if (strcmp(instruction_mnemonic, "NO_OP") == 0)
+		return NO_OP;
+	else if (strcmp(instruction_mnemonic, "I/O") == 0)
+		return IO;
+	else if (strcmp(instruction_mnemonic, "READ") == 0)
+		return READ;
+	else if (strcmp(instruction_mnemonic, "WRITE") == 0)
+		return WRITE;
+	else if (strcmp(instruction_mnemonic, "COPY") == 0)
+		return COPY;
+	else
+		return UNKNOWN;
+}
+
+void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
+	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
+	
+	switch (instruction) {
+		case NO_OP:
+			log_info(logger, "Executing NO_OP...");
+			break;
+		case IO:
+			log_info(logger, "Executing I/O...");
+			break;
+		case READ:
+			log_info(logger, "Executing READ...");
+			break;
+		case WRITE:
+			log_info(logger, "Executing WRITE...");
+			break;
+		case COPY:
+			log_info(logger, "Executing COPY...");
+			break;
+		case UNKNOWN:
+			log_warning(logger, "Unknown instruction: %s", decoded_instruction[0]);
+			break;
 	}
-	}
+}
+
+void *process_execution_handler(void *args) {
+	t_process_execution_args *exec_args = (t_process_execution_args *)args;
+	uint32_t exec_pid = exec_args->pid;
+	t_cpu_context *exec_context = exec_args->context;
+	
+	instructions_cicle(exec_context, exec_pid);
+	
+	free(exec_context);
+	free(exec_args);
+	
+	return NULL;
 }
 
 t_log *start_logger(t_config *config)
