@@ -177,7 +177,9 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 	}
 }
 
+//--------------------------------------------------------------------------------------------------------------
 // Toda esta zona podría estar en un archivo aparte de instructions_utils o instructions_cicle o algo del estilo
+//--------------------------------------------------------------------------------------------------------------
 void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 	while (1)
 	{
@@ -225,14 +227,20 @@ char **decode_instruction(char *content) {
 t_instruction_type instruction_to_type(char *instruction_mnemonic) {
 	if (strcmp(instruction_mnemonic, "NO_OP") == 0)
 		return NO_OP;
-	else if (strcmp(instruction_mnemonic, "I/O") == 0)
-		return IO;
-	else if (strcmp(instruction_mnemonic, "READ") == 0)
-		return READ;
-	else if (strcmp(instruction_mnemonic, "WRITE") == 0)
-		return WRITE;
-	else if (strcmp(instruction_mnemonic, "COPY") == 0)
-		return COPY;
+	else if (strcmp(instruction_mnemonic, "SET") == 0)
+		return SET;
+	else if (strcmp(instruction_mnemonic, "MOV_IN") == 0)
+		return MOV_IN;
+	else if (strcmp(instruction_mnemonic, "MOV_OUT") == 0)
+		return MOV_OUT;
+	else if (strcmp(instruction_mnemonic, "SUM") == 0)
+		return SUM;
+	else if (strcmp(instruction_mnemonic, "SUB") == 0)
+		return SUB;
+	else if (strcmp(instruction_mnemonic, "JNZ") == 0)
+		return JNZ;
+	else if (strcmp(instruction_mnemonic, "COPY_MEM") == 0)
+		return COPY_MEM;
 	else
 		return UNKNOWN;
 }
@@ -241,25 +249,81 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
 	
 	switch (instruction) {
-		case NO_OP:
-			log_info(logger, "Executing NO_OP...");
+		case NO_OP: {
+			log_info(logger, "NO_OP executed");
 			break;
-		case IO:
-			log_info(logger, "Executing I/O...");
+		}
+
+		case SET: {
+			if (!check_if_register(decoded_instruction[1])) {
+				log_error(logger, "Invalid register: %s", decoded_instruction[1]);
+				return;
+			}
+			if (strcmp(decoded_instruction[1], "ax") == 0){
+				context->ax = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "bx") == 0){
+				context->bx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "cx") == 0){
+				context->cx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "dx") == 0){
+				context->dx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "eax") == 0){
+				context->eax = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "ebx") == 0){
+				context->ebx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "ecx") == 0){
+				context->ecx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "edx") == 0){
+				context->edx = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "si") == 0){
+				context->si = atoi(decoded_instruction[2]);
+			}
+			else if (strcmp(decoded_instruction[1], "di") == 0){
+				context->di = atoi(decoded_instruction[2]);
+			}
+			log_info(logger, "SET executed");
 			break;
-		case READ:
-			log_info(logger, "Executing READ...");
+		}
+
+		case MOV_IN: //TODO: hacer todos estos y los SYSCALLS
+			log_info(logger, "MOV_IN executed");
 			break;
-		case WRITE:
-			log_info(logger, "Executing WRITE...");
+		case MOV_OUT:
+			log_info(logger, "MOV_OUT executed");
 			break;
-		case COPY:
-			log_info(logger, "Executing COPY...");
+		case SUM:
+			log_info(logger, "SUM executed");
+			break;
+		case SUB:
+			log_info(logger, "SUB executed");
+			break;
+		case JNZ:
+			log_info(logger, "JNZ executed");
+			break;
+		case COPY_MEM:
+			log_info(logger, "COPY_MEM executed");
 			break;
 		case UNKNOWN:
 			log_warning(logger, "Unknown instruction: %s", decoded_instruction[0]);
 			break;
 	}
+}
+
+bool check_if_register(char *operand) {
+	if (strcmp(operand, "ax") == 0 || strcmp(operand, "bx") == 0 || strcmp(operand, "cx") == 0 || strcmp(operand, "dx") == 0 ||
+		strcmp(operand, "eax") == 0 || strcmp(operand, "ebx") == 0 || strcmp(operand, "ecx") == 0 || strcmp(operand, "edx") == 0 ||
+		strcmp(operand, "si") == 0 || strcmp(operand, "di") == 0) {
+		return true;
+	}
+	return false;
 }
 
 void *process_execution_handler(void *args) {

@@ -8,12 +8,15 @@
 
 typedef enum {
 	NO_OP,
-	IO,
-	READ,
-	WRITE,
-	COPY,
+	SET,
+	MOV_IN,
+	MOV_OUT,
+	SUM,
+	SUB,
+	JNZ,
+	COPY_MEM,
 	UNKNOWN
-} t_instruction_type;
+} t_instruction_type; //FALTAN SYSCALLS
 
 typedef struct {
 	uint32_t pid;
@@ -33,3 +36,4 @@ t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
 void execute_instruction(char **decoded_instruction, t_cpu_context *context);
 void *process_execution_handler(void *args);
+bool check_if_register(char *operand);
