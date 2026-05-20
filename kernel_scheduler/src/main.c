@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 	sem_init(&short_term_scheduler_sem, 0, 0);
 
 	pthread_t short_term_scheduler_thread;
-	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler, NULL);
+	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler_main, NULL);
 	pthread_detach(short_term_scheduler_thread);
 
 	if (scheduler_algorithm == RR) {
@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
 	log_destroy(logger);
     config_destroy(config);
 	pthread_mutex_destroy(&scheduler_mutex);
+	sem_destroy(&short_term_scheduler_sem);
 	return EXIT_SUCCESS;
 }
 

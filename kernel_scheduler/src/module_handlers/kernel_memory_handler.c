@@ -1,6 +1,6 @@
 #include "kernel_memory_handler.h"
 
-void *kernel_memory_handler () {
+void *kernel_memory_handler (void *arg) {
 	while (1) {
 		//Handle connection with Kernel Memory
 		int op = operation_receive(kernel_memory_fd);

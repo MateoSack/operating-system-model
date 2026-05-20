@@ -1,41 +1,43 @@
 #include <short_term_scheduler.h>
 
-void *short_term_scheduler () { // Main function for the short-term scheduler
-    sem_wait(&short_term_scheduler_sem);
-
-    bool no_processes = false;
-    bool no_cpus = false;
-
+void *short_term_scheduler_main (void *arg) { // Main function for the short-term scheduler
     while (1) {
-        pthread_mutex_lock(&scheduler_mutex);
-        
-        t_process *process = get_next_process_to_execute();
-        t_client_info *cpu = get_available_cpu();
+        sem_wait(&short_term_scheduler_sem);
 
-        no_processes = (process == NULL);
-        no_cpus = (cpu == NULL);
+        bool no_processes = false;
+        bool no_cpus = false;
 
-        if (no_processes || no_cpus) {
+        while (1) {
+            pthread_mutex_lock(&scheduler_mutex);
+            
+            t_process *process = get_next_process_to_execute();
+            t_client_info *cpu = get_available_cpu();
+
+            no_processes = (process == NULL);
+            no_cpus = (cpu == NULL);
+
+            if (no_processes || no_cpus) {
+                pthread_mutex_unlock(&scheduler_mutex);
+                break;
+            }
+
+            cpu->is_available = false;
+
+            process_set_state(process, EXEC, logger);
+            process_set_cpu(process, cpu);
+
+            if(scheduler_algorithm != FIFO) process->start_exec_time = temporal_gettime(system_timer);
+
+            add_process_to_list(exec_processes, process);
+
             pthread_mutex_unlock(&scheduler_mutex);
-            break;
+
+            send_pid_to_execute(process->pid, cpu->fd);
         }
 
-        cpu->is_available = false;
-
-        process_set_state(process, EXEC, logger);
-        process_set_cpu(process, cpu);
-
-        if(scheduler_algorithm != FIFO) process->start_exec_time = temporal_gettime(system_timer);
-
-        add_process_to_list(exec_processes, process);
-
-        pthread_mutex_unlock(&scheduler_mutex);
-
-        send_pid_to_execute(process->pid, cpu->fd);
+        if (no_processes) log_debug(logger, "No processes in READY");
+        if (no_cpus) log_debug(logger, "No CPUs available");
     }
-
-    if (no_processes) log_debug(logger, "No processes in READY");
-    if (no_cpus) log_debug(logger, "No CPUs available");
 
     return NULL;
 }
@@ -81,7 +83,7 @@ void send_pid_to_execute (uint32_t pid, int cpu_fd) { // Sends the process execu
     package_delete(pkg);
 }
 
-void *quantum_manager () {
+void *quantum_manager (void *arg) { // Manages the quantum expiration for processes in the EXEC state
     int time_to_sleep = (quantum * 1000) / 20; // Sleep for a fraction of the quantum to check for expirations more frequently
     if (time_to_sleep < 1000) time_to_sleep = 1000; // Sleep at least 1 ms to avoid busy waiting in very low quantum scenarios
 
