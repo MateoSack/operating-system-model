@@ -20,7 +20,7 @@ int long_term_scheduler (char *path, uint8_t priority) {
 
     pthread_mutex_unlock(&scheduler_mutex);
 
-    short_term_scheduler();
+    sem_post(&short_term_scheduler_sem);
 
     return EXIT_SUCCESS;
 }

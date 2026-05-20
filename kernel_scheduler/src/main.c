@@ -15,6 +15,7 @@ t_list *exec_processes = NULL;
 t_temporal *system_timer;
 
 pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
+sem_t short_term_scheduler_sem;
 
 int kernel_memory_fd = -1;
 
@@ -42,6 +43,12 @@ int main(int argc, char *argv[]) {
 	list_processes = list_create();
 	ready_queue = list_create();
 	exec_processes = list_create();
+	
+	sem_init(&short_term_scheduler_sem, 0, 0);
+
+	pthread_t short_term_scheduler_thread;
+	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler, NULL);
+	pthread_detach(short_term_scheduler_thread);
 
 	if (scheduler_algorithm == RR) {
 		system_timer = temporal_create();

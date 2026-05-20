@@ -9,7 +9,7 @@ void cpu_handler (int cpu_fd) {
 	cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
 
-	short_term_scheduler();
+	sem_post(&short_term_scheduler_sem);
 
 	while (1) {
 		//Handle connection with CPU
@@ -53,7 +53,7 @@ void cpu_handler (int cpu_fd) {
 
 				log_info(logger, "## (%d) Process finished - Motive: EXIT", pid);
 
-				short_term_scheduler();
+				sem_post(&short_term_scheduler_sem);
 				break;
 			}
         }
@@ -88,5 +88,5 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	
 	if (had_process) log_warning(logger, "CPU %d was executing process %d. Returning it to READY state.", cpu_id, pid);
 
-	short_term_scheduler();
+	sem_post(&short_term_scheduler_sem);
 }

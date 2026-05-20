@@ -6,6 +6,7 @@
 #include <commons/log.h>
 #include <commons/string.h>
 #include <commons/config.h>
+#include <semaphore.h>
 
 extern pthread_mutex_t scheduler_mutex;
 extern t_list *list_processes;

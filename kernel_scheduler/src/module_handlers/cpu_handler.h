@@ -9,6 +9,8 @@
 
 extern t_scheduler_algorithm scheduler_algorithm;
 
+extern sem_t short_term_scheduler_sem;
+
 extern t_list *list_cpu;
 extern t_list *list_io;
 extern t_list *list_processes;

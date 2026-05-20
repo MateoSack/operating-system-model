@@ -1,6 +1,8 @@
 #include <short_term_scheduler.h>
 
-void short_term_scheduler () { // Main function for the short-term scheduler
+void *short_term_scheduler () { // Main function for the short-term scheduler
+    sem_wait(&short_term_scheduler_sem);
+
     bool no_processes = false;
     bool no_cpus = false;
 
@@ -34,6 +36,8 @@ void short_term_scheduler () { // Main function for the short-term scheduler
 
     if (no_processes) log_debug(logger, "No processes in READY");
     if (no_cpus) log_debug(logger, "No CPUs available");
+
+    return NULL;
 }
 
 t_process *get_next_process_to_execute () { // Returns the next process to execute based on the scheduling algorithm
@@ -104,7 +108,7 @@ void *quantum_manager () {
                 evict_process((t_process*)process);
                 log_info(logger, "## (%d) Process evicted - Motive: Quantum expiration", process->pid);
 
-                short_term_scheduler();
+                sem_post(&short_term_scheduler_sem);
 
                 pthread_mutex_lock(&scheduler_mutex);
             }
