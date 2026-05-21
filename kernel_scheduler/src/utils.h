@@ -32,6 +32,7 @@ void process_set_cpu (t_process *process, t_client_info *cpu);
 t_process *create_process (uint32_t pid, uint8_t priority);
 void add_process_to_list (t_list *list_processes, t_process *process);
 void remove_process_from_list (t_list *list_processes, t_process *process);
+void destroy_list_of_processes (t_list *list);
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd);
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str);
 t_process *get_process_from_pid (uint32_t pid);

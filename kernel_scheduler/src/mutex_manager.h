@@ -5,7 +5,7 @@
 
 extern t_log *logger;
 extern pthread_mutex_t scheduler_mutex;
-extern pthread_mutex_t mutex_manager_mutex;
+extern pthread_mutex_t list_mutex_mutex;
 extern sem_t short_term_scheduler_sem;
 extern t_list *ready_queue;
 extern t_list *list_mutexes;
@@ -22,5 +22,6 @@ t_mutex *mutex_create (char *name);
 void mutex_lock (t_mutex *mutex, t_process *process);
 void mutex_unlock (t_mutex *mutex, t_process *process);
 t_mutex* get_mutex_by_name (char *name);
+void destroy_list_of_mutexes (t_list *list);
 
 #endif

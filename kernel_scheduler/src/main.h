@@ -10,5 +10,6 @@
 int kernel_memory_connection (t_log *logger, t_config *config, char *process0);
 void *client_handler_selector(void *fd_ptr);
 t_log *start_logger(t_config *config);
+void *shutdown_handler (void *arg);
 
 #endif

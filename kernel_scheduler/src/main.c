@@ -1,6 +1,7 @@
 #include <main.h>
 
 t_log *logger;
+t_config *config;
 
 t_scheduler_algorithm scheduler_algorithm;
 int quantum = 0;
@@ -17,12 +18,14 @@ t_list *list_mutexes = NULL;
 t_temporal *system_timer;
 
 pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mutex_manager_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t list_mutex_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t cpu_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t short_term_scheduler_sem;
+
+sem_t shutdown_sem;
 
 int kernel_memory_fd = -1;
 
@@ -38,7 +41,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-	t_config *config = config_create(argv[1]);
+	config = config_create(argv[1]);
 	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);
 
@@ -53,6 +56,11 @@ int main(int argc, char *argv[]) {
 	list_mutexes = list_create();
 
 	sem_init(&short_term_scheduler_sem, 0, 0);
+	sem_init(&shutdown_sem, 0, 0);
+
+	pthread_t shutdown_thread;
+	pthread_create(&shutdown_thread, NULL, shutdown_handler, NULL);
+	pthread_detach(shutdown_thread);
 
 	pthread_t short_term_scheduler_thread;
 	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler_main, NULL);
@@ -101,15 +109,7 @@ int main(int argc, char *argv[]) {
         pthread_create(&thread, NULL, client_handler_selector, (void*)fd_for_thread);
         pthread_detach(thread);
 	}
-
-	log_destroy(logger);
-    config_destroy(config);
-	pthread_mutex_destroy(&scheduler_mutex);
-	pthread_mutex_destroy(&mutex_manager_mutex);
-	pthread_mutex_destroy(&io_mutex);
-	pthread_mutex_destroy(&cpu_id_mutex);
-	pthread_mutex_destroy(&io_id_mutex);
-	sem_destroy(&short_term_scheduler_sem);
+	
 	return EXIT_SUCCESS;
 }
 
@@ -171,4 +171,33 @@ t_log *start_logger(t_config *config) {
 	t_log_level level = log_level_from_string(level_str);
 	t_log *logger = log_create("log.log", "Kernel_Scheduler", 1, level);
 	return logger;
+}
+
+void *shutdown_handler (void *arg) { // Waits for the shutdown signal and performs cleanup
+	sem_wait(&shutdown_sem);
+	log_info(logger, "Shutdown signal received, shutting down...");
+
+	log_destroy(logger);
+    config_destroy(config);
+	pthread_mutex_destroy(&scheduler_mutex);
+	pthread_mutex_destroy(&list_mutex_mutex);
+	pthread_mutex_destroy(&io_mutex);
+	pthread_mutex_destroy(&cpu_id_mutex);
+	pthread_mutex_destroy(&io_id_mutex);
+	sem_destroy(&short_term_scheduler_sem);
+	sem_destroy(&shutdown_sem);
+	temporal_destroy(system_timer);
+
+	destroy_list_of_clients(list_cpu);
+	destroy_list_of_clients(list_io);
+
+	destroy_list_of_mutexes(list_mutexes);
+
+	destroy_list_of_processes(list_processes);
+	destroy_list_of_processes(ready_queue);
+	destroy_list_of_processes(exec_processes);
+
+	// Should add cleanup to everything that arises
+
+	exit(EXIT_SUCCESS);
 }

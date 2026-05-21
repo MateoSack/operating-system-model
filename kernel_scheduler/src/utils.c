@@ -28,6 +28,15 @@ void remove_process_from_list (t_list *list_processes, t_process *process) { // 
     list_remove_element(list_processes, process);
 }
 
+void destroy_list_of_processes (t_list *list) { // Destroys a list of processes, freeing their memory
+    void _destroy_process(void *ptr) {
+        t_process *process = (t_process*)ptr;
+        free(process);
+    }
+
+    list_destroy_and_destroy_elements(list, _destroy_process);
+}
+
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd) { // Send the process creation information to Kernel Memory
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_CREATE;

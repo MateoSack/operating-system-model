@@ -1,6 +1,6 @@
 #include "mutex_manager.h"
 
-// Alway use first the mutex_manager_mutex, then internal_mutex and then the scheduler_mutex when locking both, to avoid deadlocks
+// Alway use first the list_mutex_mutex, then internal_mutex and then the scheduler_mutex when locking both, to avoid deadlocks
 
 t_mutex *mutex_create (char *name) { // Create a new mutex with the given name and add it to the list of mutexes
     t_mutex *mutex = malloc(sizeof(t_mutex));
@@ -11,9 +11,9 @@ t_mutex *mutex_create (char *name) { // Create a new mutex with the given name a
 
     pthread_mutex_init(&mutex->internal_mutex, NULL);
 
-    pthread_mutex_lock(&mutex_manager_mutex);
+    pthread_mutex_lock(&list_mutex_mutex);
     list_add(list_mutexes, mutex);
-    pthread_mutex_unlock(&mutex_manager_mutex);
+    pthread_mutex_unlock(&list_mutex_mutex);
     return mutex;
 }
 
@@ -98,9 +98,21 @@ t_mutex* get_mutex_by_name (char *name) { // Get a mutex from the list of mutexe
         return string_equals_ignore_case(m->name, name);
     }
 
-    pthread_mutex_lock(&mutex_manager_mutex);
+    pthread_mutex_lock(&list_mutex_mutex);
     t_mutex *mutex = list_find(list_mutexes, _mutex_name_coincides);
-    pthread_mutex_unlock(&mutex_manager_mutex);
+    pthread_mutex_unlock(&list_mutex_mutex);
 
     return mutex;
+}
+
+void destroy_list_of_mutexes (t_list *list) { // Destroys a list of mutexes, freeing their memory and destroying their internal mutexes
+    void _destroy_mutex(void *ptr) {
+        t_mutex *mutex = (t_mutex*)ptr;
+        pthread_mutex_destroy(&mutex->internal_mutex);
+        list_destroy(mutex->waitingProcesses);
+        free(mutex->name);
+        free(mutex);
+    }
+
+    list_destroy_and_destroy_elements(list, _destroy_mutex);
 }
