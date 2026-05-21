@@ -177,7 +177,7 @@ void instruction_sum(char **decoded_instruction, t_cpu_context *context){
     }
 }
 
-void instruction_sum(char **decoded_instruction, t_cpu_context *context){
+void instruction_sub(char **decoded_instruction, t_cpu_context *context){
     uint32_t add=0;
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid register: %s", decoded_instruction[1]);
@@ -250,6 +250,66 @@ void instruction_sum(char **decoded_instruction, t_cpu_context *context){
     }
 }
 
+void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
+        return;
+    }
+    if (atoi(decoded_instruction[2]<=0) {
+        log_error(logger, "The program counter cannot be less than 1");
+        return;
+    }
+    if (strcmp(decoded_instruction[1], "ax") == 0){
+        if (context->ax!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "bx") == 0){
+        if (context->bx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "cx") == 0){
+        if (context->cx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "dx") == 0){
+        if (context->dx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "eax") == 0){
+        if (context->eax!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "ebx") == 0){
+        if (context->ebx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "ecx") == 0){
+        if (context->ecx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "edx") == 0){
+        if (context->edx!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "si") == 0){
+        if (context->si!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+    else if (strcmp(decoded_instruction[1], "di") == 0){
+        if (context->di!=0) {
+            context->pc = atoi(decoded_instruction[2]);
+        }
+    }
+}
 
 void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
@@ -269,15 +329,21 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 		case MOV_IN:{} //NO ENTIENDO BIEN COMO FUNCIONA LA DIRECCION LOGICA
 		case MOV_IN:{} //NO ENTIENDO BIEN COMO FUNCIONA LA DIRECCION LOGICA
 		
-		case SUM: {//SE PUEDE USAR SUMA EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO QUE PASA SI ES MAYOR QUE SU TIPO
+		case SUM: {//SE PUEDE USAR SUMA EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO, QUE PASA SI ES MAYOR QUE SU TIPO
 			instruction_sum(decoded_instruction, context)
 			log_info(logger, "SUM executed");
 			break;
 		}
 
-        case SUB: {//SE PUEDE USAR SUB EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO QUE PASA SI ES MAYOR QUE SU TIPO O MENOR QUE 0
+        case SUB: {//SE PUEDE USAR SUB EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO, QUE PASA SI ES MAYOR QUE SU TIPO O MENOR QUE 0
 			instruction_sub(decoded_instruction, context)
 			log_info(logger, "SUB executed");
+			break;
+		}
+
+        case JNZ: {
+			instruction_jnz(decoded_instruction, context)
+			log_info(logger, "JNZ executed");
 			break;
 		}
 	}
