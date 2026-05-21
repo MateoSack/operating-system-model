@@ -1,9 +1,12 @@
 #include <main.h>
+#include <unistd.h> // Necesario para usleep
 
 t_log *logger;
 
 int main(void)
 {
+
+
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	uint32_t io_id;
 	int kernel_scheduler_fd;
@@ -41,6 +44,10 @@ int main(void)
 	log_destroy(logger);
     config_destroy(config);
 	return EXIT_SUCCESS;
+}
+
+void sleep_ms(long ms) {
+	usleep(ms*1000); 
 }
 
 t_log *start_logger(t_config *config) {

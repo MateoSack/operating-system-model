@@ -188,7 +188,9 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 		}
 
         case COPY_MEM: {
-            break;
+           //Llamar a mmu dir_logica → dir_fisica
+			log_info(logger, "Memory operations not yet implemented. OK for now.");
+			break;
         }
 
         case UNKNOWN: {
