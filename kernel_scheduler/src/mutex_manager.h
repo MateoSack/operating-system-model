@@ -5,9 +5,18 @@
 
 extern t_log *logger;
 extern pthread_mutex_t scheduler_mutex;
+extern pthread_mutex_t mutex_manager_mutex;
 extern sem_t short_term_scheduler_sem;
 extern t_list *ready_queue;
 extern t_list *list_mutexes;
+
+typedef struct {
+    char *name;
+    bool isLocked;
+    t_process*lockedBy;
+    t_list *waitingProcesses;
+    pthread_mutex_t internal_mutex;
+} t_mutex;
 
 t_mutex *mutex_create (char *name);
 void mutex_lock (t_mutex *mutex, t_process *process);

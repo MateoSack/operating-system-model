@@ -27,13 +27,6 @@ typedef enum {
     CMN,
 } t_scheduler_algorithm;
 
-typedef struct {
-    char *name;
-    bool isLocked;
-    t_process*lockedBy;
-    t_list *waitingProcesses;
-} t_mutex;
-
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
 void process_set_cpu (t_process *process, t_client_info *cpu);
 t_process *create_process (uint32_t pid, uint8_t priority);

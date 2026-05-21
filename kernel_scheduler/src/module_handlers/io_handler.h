@@ -3,6 +3,9 @@
 
 #include <commons/log.h>
 #include <utils/server_utils.h>
+#include <utils.h>
+
+extern pthread_mutex_t io_id_mutex;
 
 extern t_list *list_cpu;
 extern t_list *list_io;

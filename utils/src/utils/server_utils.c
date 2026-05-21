@@ -103,3 +103,13 @@ char* get_ip_from_fd (int fd, t_log *logger) { // Gets the ip of a socket fd, re
 	return ip;
 }
 
+uint32_t id_assigner (uint32_t *current_max_id, int fd, pthread_mutex_t *mutex) { // Assign a new ID for a CPU or IO, based on the current maximum ID and the list of connected clients, sends it to the client and returns the assigned ID
+    pthread_mutex_lock(mutex);
+    uint32_t id = *current_max_id;
+    (*current_max_id)++;
+    pthread_mutex_unlock(mutex);
+
+    uint32_send(fd, id);
+
+    return id;
+}

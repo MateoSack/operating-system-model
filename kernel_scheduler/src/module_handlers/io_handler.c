@@ -1,9 +1,7 @@
 #include "io_handler.h"
 
 void io_handler (int io_fd) {
-	int id = next_io_id;
-	uint32_send(io_fd, id);
-	next_io_id++;
+	uint32_t id = id_assigner(&next_io_id, io_fd, &io_id_mutex);
 
 	t_client_info *io = malloc(sizeof(t_client_info));
 	io = add_client_to_list(list_io, io_fd, id);

@@ -1,9 +1,7 @@
 #include "cpu_handler.h"
 
 void cpu_handler (int cpu_fd) {
-	uint32_t id = next_cpu_id;
-	uint32_send(cpu_fd, id);
-	next_cpu_id++;
+	uint32_t id = id_assigner(&next_cpu_id, cpu_fd, &cpu_id_mutex);
 	
 	t_client_info *cpu = malloc(sizeof(t_client_info));
 	cpu = add_client_to_list(list_cpu, cpu_fd, id);

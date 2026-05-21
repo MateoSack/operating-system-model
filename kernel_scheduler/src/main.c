@@ -17,6 +17,11 @@ t_list *list_mutexes = NULL;
 t_temporal *system_timer;
 
 pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_manager_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t io_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t cpu_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t io_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 sem_t short_term_scheduler_sem;
 
 int kernel_memory_fd = -1;
@@ -100,6 +105,10 @@ int main(int argc, char *argv[]) {
 	log_destroy(logger);
     config_destroy(config);
 	pthread_mutex_destroy(&scheduler_mutex);
+	pthread_mutex_destroy(&mutex_manager_mutex);
+	pthread_mutex_destroy(&io_mutex);
+	pthread_mutex_destroy(&cpu_id_mutex);
+	pthread_mutex_destroy(&io_id_mutex);
 	sem_destroy(&short_term_scheduler_sem);
 	return EXIT_SUCCESS;
 }
