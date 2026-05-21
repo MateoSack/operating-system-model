@@ -1,0 +1,49 @@
+#ifndef CPU_MANAGE_INSTRUCTIONS_H
+#define CPU_MANAGE_INSTRUCTIONS_H
+
+#include <utils/net_utils.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include<commons/log.h>
+#include<commons/string.h>
+#include<commons/config.h>
+#include<utils/process_utils.h>
+
+typedef enum {
+	NO_OP,
+	SET,
+	MOV_IN,
+	MOV_OUT,
+	SUM,
+	SUB,
+	JNZ,
+	COPY_MEM,
+	UNKNOWN
+} t_instruction_type; //FALTAN SYSCALLS
+
+typedef struct {
+	uint32_t pid;
+	t_cpu_context *context;
+} t_process_execution_args;
+
+typedef struct {
+	void *field_address;
+	size_t field_size;
+} t_register_descriptor;
+
+extern t_log *logger;
+extern int kernel_memory_fd;
+extern bool interruptPending;
+
+void instructions_cicle(t_cpu_context *context, uint32_t pid);
+t_instruction_type instruction_to_type(char *instruction_str);
+char **decode_instruction(char *content);
+void execute_instruction(char **decoded_instruction, t_cpu_context *context);
+void *process_execution_handler(void *args);
+bool check_if_register(char *operand);
+
+t_register_descriptor get_register_descriptor(t_cpu_context *context, const char *register_name);
+uint32_t read_register_value(t_cpu_context *context, const char *register_name);
+bool write_register_value(t_cpu_context *context, const char *register_name, uint32_t value);
+
+#endif // CPU_MANAGE_INSTRUCTIONS_H
