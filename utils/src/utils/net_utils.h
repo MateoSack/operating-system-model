@@ -30,6 +30,9 @@ typedef enum {
     IO_MEMORY_READ,
     IO_MEMORY_WRITE,
     INSTRUCTION_FETCH,
+    MUTEX_CREATE,
+    MUTEX_LOCK,
+    MUTEX_UNLOCK,
 } op_code;
 
 typedef struct {
@@ -69,7 +72,9 @@ void connection_liberate (int client_socket);
 int operation_receive (int client_socket);
 void *buffer_receive (int *size, int client_socket);
 char *message_receive (t_log *logger, int client_socket);
+char *message_decode (int client_socket);
 void message_send (char *message, int client_socket);
+void message_send_with_op_code (char *message, op_code op_code, int client_socket);
 void buffer_create (t_package *package);
 t_package *package_create (void);
 void package_add (t_package *package, void *value, int size);

@@ -56,6 +56,64 @@ void cpu_handler (int cpu_fd) {
 				sem_post(&short_term_scheduler_sem);
 				break;
 			}
+
+			case MUTEX_CREATE : {
+				char *mutex_name = message_decode(cpu->fd);
+				log_info(logger, "## Solicited syscall: MUTEX_CREATE (Mutex name: %s)", mutex_name);
+				mutex_create(mutex_name);
+				free(mutex_name);
+				break;
+			}
+
+			case MUTEX_LOCK : {
+				char *mutex_name = message_decode(cpu->fd);
+				
+				t_process *process = get_process_from_cpu(cpu);
+
+				log_info(logger, "## Solicited syscall: MUTEX_LOCK (Mutex name: %s)", mutex_name);
+
+				if (process == NULL) {
+    				log_error(logger, "No process associated to CPU");
+    				free(mutex_name);
+    				break;
+				}
+
+				t_mutex *mutex = get_mutex_by_name(mutex_name);
+
+				if (mutex != NULL) {
+					mutex_lock(mutex, process);
+				} else {
+					log_warning(logger, "Mutex '%s' not found", mutex_name);
+				}
+
+				free(mutex_name);
+				break;
+			}
+
+			case MUTEX_UNLOCK : {
+				char *mutex_name = message_decode(cpu->fd);
+				
+				t_process *process = get_process_from_cpu(cpu);
+
+				log_info(logger, "## Solicited syscall: MUTEX_UNLOCK (Mutex name: %s)", mutex_name);
+
+				if (process == NULL) {
+    				log_error(logger, "No process associated to CPU");
+    				free(mutex_name);
+    				break;
+				}
+				
+				t_mutex *mutex = get_mutex_by_name(mutex_name);
+
+				if (mutex != NULL) {
+					mutex_unlock(mutex, process);
+				} else {
+					log_warning(logger, "Mutex '%s' not found", mutex_name);
+				}
+
+				free(mutex_name);
+				break;
+			}
         }
 	}
 }
@@ -67,7 +125,7 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	close(cpu->fd);
 
 	pthread_mutex_lock(&scheduler_mutex);
-	t_process *process = get_process_by_cpu(cpu);
+	t_process *process = get_process_from_cpu(cpu);
 	bool had_process = (process != NULL);
 	uint32_t pid = 0;
 

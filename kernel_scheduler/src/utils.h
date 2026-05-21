@@ -30,7 +30,8 @@ typedef enum {
 typedef struct {
     char *name;
     bool isLocked;
-    t_client_info *lockedBy;
+    t_process*lockedBy;
+    t_list *waitingProcesses;
 } t_mutex;
 
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
@@ -41,7 +42,7 @@ void remove_process_from_list (t_list *list_processes, t_process *process);
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd);
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str);
 t_process *get_process_from_pid (uint32_t pid);
-t_process *get_process_by_cpu (t_client_info *cpu);
+t_process *get_process_from_cpu (t_client_info *cpu);
 void evict_process (t_process *process);
 void evict_all_processes ();
 

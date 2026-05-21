@@ -62,7 +62,7 @@ t_process *get_process_from_pid (uint32_t pid) { // Get a process from the list 
     return process;
 }
 
-t_process *get_process_by_cpu (t_client_info *cpu) { // Get a process from the list of processes based on its assigned CPU, returns NULL if not found
+t_process *get_process_from_cpu (t_client_info *cpu) { // Get a process from the list of processes based on its assigned CPU, returns NULL if not found
     bool _process_cpu_coincides (void *ptr) {
         t_process *p = (t_process*)ptr;
         return p->cpu == cpu;

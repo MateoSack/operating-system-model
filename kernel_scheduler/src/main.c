@@ -12,6 +12,8 @@ t_list *list_processes = NULL;
 t_list *ready_queue = NULL;
 t_list *exec_processes = NULL;
 
+t_list *list_mutexes = NULL;
+
 t_temporal *system_timer;
 
 pthread_mutex_t scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -43,7 +45,8 @@ int main(int argc, char *argv[]) {
 	list_processes = list_create();
 	ready_queue = list_create();
 	exec_processes = list_create();
-	
+	list_mutexes = list_create();
+
 	sem_init(&short_term_scheduler_sem, 0, 0);
 
 	pthread_t short_term_scheduler_thread;

@@ -60,7 +60,8 @@ void *buffer_receive (int *size, int client_socket) { // Receives a buffer from 
 
 char *message_receive (t_log *logger, int client_socket) { // Receives a message (char*) from the client, returns NULL on error or disconnection
 	int op_code = operation_receive(client_socket);
-    if (op_code != MESSAGE) {
+
+	if (op_code != MESSAGE) {
 		log_error(logger, "Error retrieving message");
         return NULL;
     }
@@ -71,10 +72,35 @@ char *message_receive (t_log *logger, int client_socket) { // Receives a message
 	return buffer;
 }
 
+char *message_decode (int client_socket) { // Receives a message (char*) from the client, use only if already did an operation_receive
+	int size;
+	char *buffer = buffer_receive(&size, client_socket);
+	return buffer;
+}
+
 void message_send (char *message, int client_socket) { // Sends a message (char*) to the client
 	t_package *package = malloc(sizeof(t_package));
 
 	package->op_code = MESSAGE;
+	package->buffer = malloc(sizeof(t_buffer));
+	package->buffer->size = strlen(message) + 1;
+	package->buffer->stream = malloc(package->buffer->size);
+	memcpy(package->buffer->stream, message, package->buffer->size);
+
+	int bytes = package->buffer->size + 2 * sizeof(int);
+
+	void *to_send = package_serialize(package, bytes);
+
+	send(client_socket, to_send, bytes, 0);
+
+	free(to_send);
+	package_delete(package);
+}
+
+void message_send_with_op_code (char *message, op_code op_code, int client_socket) { // Sends a message (char*) to the client with a specific operation code (use for operations that expect a message but not necessarily a PACKAGE, like MUTEX_CREATE, MUTEX_LOCK and MUTEX_UNLOCK)
+	t_package *package = malloc(sizeof(t_package));
+
+	package->op_code = op_code;
 	package->buffer = malloc(sizeof(t_buffer));
 	package->buffer->size = strlen(message) + 1;
 	package->buffer->stream = malloc(package->buffer->size);

@@ -5,6 +5,7 @@
 #include <utils/server_utils.h>
 #include <long_term_scheduler.h>
 #include <short_term_scheduler.h>
+#include <mutex_manager.h>
 #include <utils.h>
 
 extern t_scheduler_algorithm scheduler_algorithm;
