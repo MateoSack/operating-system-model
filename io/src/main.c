@@ -2,7 +2,7 @@
 #include <unistd.h> // Necesario para usleep
 
 t_log *logger;
-
+uint32_t pid;
 int main(void)
 {
 
@@ -39,6 +39,14 @@ int main(void)
 			close(kernel_scheduler_fd);
             break;
         }
+		switch (op) {
+			case IO_PROCESS://ESPERA 3 UINT32 PID, 
+			{
+				pid = uint32_decode(kernel_scheduler_fd);
+				log_info(logger, "## PID:  %d - Inicio de IO", pid);
+
+			}
+		}
 	}
 
 	log_destroy(logger);
@@ -46,8 +54,21 @@ int main(void)
 	return EXIT_SUCCESS;
 }
 
-void sleep_ms(long ms) {
+char *io_stdin(uint32_t pid,uint32_t size){
+	char input[size]= {0};
+	log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, size);
+	fgets(input, sizeof(input), stdin);
+	input[strcspn(input, "\n")] = '\0';
+	log_info(logger, "## PID:  %d - Fin de IO", pid);
+	return input;
+} 
+
+
+void io_sleep_ms(uint32_t pid,uint32_t ms) {
+	log_info(logger, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, ms);
 	usleep(ms*1000); 
+	log_info(logger, "## PID:  %d - Fin de IO", pid);
+	return;
 }
 
 t_log *start_logger(t_config *config) {
