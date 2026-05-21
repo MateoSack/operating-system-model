@@ -1,5 +1,7 @@
 #include<manage_instructions.h>
 
+bool hasJumped = false;
+
 void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 	while (1)
 	{
@@ -21,7 +23,12 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		log_info(logger, "Executed instruction: %s", instruction);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
-		context->pc++;
+		
+        if (!hasJumped) {
+            context->pc++;
+        } else {
+            hasJumped = false;
+        }
 
 		if(interruptPending) {
 			log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
@@ -32,6 +39,9 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 			context_send(context, kernel_memory_fd);
 			package_delete(pkg);
 			log_info(logger, "Context saved to Kernel Memory");
+
+            //========== Falta implementar la parte con scheduler segun pide la consigna ==========================
+
 			interruptPending = 0;
 			break;
 		}
@@ -147,10 +157,17 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 			break;
 		}
 
-		case MOV_IN: //NO ENTIENDO BIEN COMO FUNCIONA LA DIRECCION LOGICA
-		case MOV_OUT: //NO ENTIENDO BIEN COMO FUNCIONA LA DIRECCION LOGICA
-			log_info(logger, "%s operation not implemented", decoded_instruction[0]);
+		case MOV_IN:{
+            //Llamar a mmu dir_logica → dir_fisica
+            log_info(logger, "Memory operations not yet implemented. OK for now.");
+            break;
+        }
+
+		case MOV_OUT: {
+            //Llamar a mmu dir_logica → dir_fisica
+			log_info(logger, "Memory operations not yet implemented. OK for now.");
 			break;
+        }
 		
 		case SUM: {
 			instruction_sum(decoded_instruction, context);
@@ -158,7 +175,7 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 			break;
 		}
 
-        case SUB: {//SE PUEDE USAR SUB EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO, QUE PASA SI ES MAYOR QUE SU TIPO O MENOR QUE 0
+        case SUB: {
 			instruction_sub(decoded_instruction, context);
 			log_info(logger, "SUB executed");
 			break;
@@ -241,6 +258,7 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
 
     if (read_register_value(context, decoded_instruction[1]) != 0) {
         context->pc = atoi(decoded_instruction[2]);
+        hasJumped = true;
     }
 }
 
@@ -265,3 +283,26 @@ void *process_execution_handler(void *args) {
 	
 	return NULL;
 }
+
+/*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc
+int32_t mmu_translate(t_cpu_context *context, uint32_t dir_logica, uint32_t size) {
+    uint32_t num_segmento   = dir_logica / SEGMENT_MAX_SIZE;
+    uint32_t desplazamiento = dir_logica % SEGMENT_MAX_SIZE;
+
+    // Verificar que el segmento existe en la tabla
+    if (num_segmento >= context->segment_table_size) {
+        log_error(logger, "Segfault: segmento %d no existe", num_segmento);
+        return -1;
+    }
+
+    t_segment seg = context->segment_table[num_segmento];
+
+    // Verificar que no se sale del límite del segmento
+    if (desplazamiento + size > seg.limit) {
+        log_error(logger, "Segfault: acceso fuera del segmento");
+        return -1;
+    }
+
+    return seg.base + desplazamiento;
+}
+*/
