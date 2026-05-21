@@ -107,6 +107,7 @@ t_register_descriptor get_register_descriptor(t_cpu_context *context, const char
 uint32_t read_register_value(t_cpu_context *context, const char *register_name) {
     t_register_descriptor descriptor = get_register_descriptor(context, register_name);
     if (descriptor.field_address == NULL) {
+        log_error(logger, "Invalid register: %s", register_name);
         return 0;
     }
 
@@ -119,6 +120,7 @@ uint32_t read_register_value(t_cpu_context *context, const char *register_name) 
 bool write_register_value(t_cpu_context *context, const char *register_name, uint32_t value) {
     t_register_descriptor descriptor = get_register_descriptor(context, register_name);
     if (descriptor.field_address == NULL) {
+        log_error(logger, "Invalid register: %s", register_name);
         return false;
     }
 
@@ -128,69 +130,6 @@ bool write_register_value(t_cpu_context *context, const char *register_name, uin
         *(uint32_t *)descriptor.field_address = value;
     }
     return true;
-}
-
-void instruction_set(char **decoded_instruction, t_cpu_context *context){
-    if (!check_if_register(decoded_instruction[1])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
-        return;
-    }
-
-    uint32_t value = atoi(decoded_instruction[2]);
-    if (!write_register_value(context, decoded_instruction[1], value)) {
-        log_error(logger, "Failed to set register: %s", decoded_instruction[1]);
-    }
-}
-
-void instruction_sum(char **decoded_instruction, t_cpu_context *context){
-    if (!check_if_register(decoded_instruction[1])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
-        return;
-    }
-    if (!check_if_register(decoded_instruction[2])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[2]);
-        return;
-    }
-
-    uint32_t left_value = read_register_value(context, decoded_instruction[1]);
-    uint32_t right_value = read_register_value(context, decoded_instruction[2]);
-
-    if (!write_register_value(context, decoded_instruction[1], left_value + right_value)) {
-        log_error(logger, "Failed to write SUM result to register: %s", decoded_instruction[1]);
-    }
-}
-
-void instruction_sub(char **decoded_instruction, t_cpu_context *context){
-    if (!check_if_register(decoded_instruction[1])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
-        return;
-    }
-    if (!check_if_register(decoded_instruction[2])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[2]);
-        return;
-    }
-
-    uint32_t left_value = read_register_value(context, decoded_instruction[1]);
-    uint32_t right_value = read_register_value(context, decoded_instruction[2]);
-
-    if (!write_register_value(context, decoded_instruction[1], left_value - right_value)) {
-        log_error(logger, "Failed to write SUB result to register: %s", decoded_instruction[1]);
-    }
-}
-
-void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
-    if (!check_if_register(decoded_instruction[1])) {
-        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
-        return;
-    }
-    if (atoi(decoded_instruction[2]) <= 0) {
-        log_error(logger, "The program counter cannot be less than 1");
-        return;
-    }
-
-    if (read_register_value(context, decoded_instruction[1]) != 0) {
-        context->pc = atoi(decoded_instruction[2]);
-    }
 }
 
 void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
@@ -213,7 +152,7 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 			log_info(logger, "%s operation not implemented", decoded_instruction[0]);
 			break;
 		
-		case SUM: {//SE PUEDE USAR SUMA EN SI O EN DI, UTILIZA SU VALOR O SU UBICADO, QUE PASA SI ES MAYOR QUE SU TIPO
+		case SUM: {
 			instruction_sum(decoded_instruction, context);
 			log_info(logger, "SUM executed");
 			break;
@@ -234,7 +173,75 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
         case COPY_MEM: {
             break;
         }
+
+        case UNKNOWN: {
+            log_warning(logger, "Unknown instruction: %s", decoded_instruction[0]);
+            break;
+        }
 	}
+}
+
+void instruction_set(char **decoded_instruction, t_cpu_context *context){
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
+        return;
+    }
+
+    uint32_t value = atoi(decoded_instruction[2]);
+    if (!write_register_value(context, decoded_instruction[1], value)) {
+        log_error(logger, "Failed to set register: %s", decoded_instruction[1]);
+    }
+}
+
+void instruction_sum(char **decoded_instruction, t_cpu_context *context){
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
+        return;
+    }
+    if (!check_if_register(decoded_instruction[2])) {
+        log_error(logger, "Invalid source register: %s", decoded_instruction[2]);
+        return;
+    }
+
+    uint32_t left_value = read_register_value(context, decoded_instruction[1]);
+    uint32_t right_value = read_register_value(context, decoded_instruction[2]);
+
+    if (!write_register_value(context, decoded_instruction[1], left_value + right_value)) {
+        log_error(logger, "Failed to write SUM result to register: %s", decoded_instruction[1]);
+    }
+}
+
+void instruction_sub(char **decoded_instruction, t_cpu_context *context){
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
+        return;
+    }
+    if (!check_if_register(decoded_instruction[2])) {
+        log_error(logger, "Invalid source register: %s", decoded_instruction[2]);
+        return;
+    }
+
+    uint32_t left_value = read_register_value(context, decoded_instruction[1]);
+    uint32_t right_value = read_register_value(context, decoded_instruction[2]);
+
+    if (!write_register_value(context, decoded_instruction[1], left_value - right_value)) {
+        log_error(logger, "Failed to write SUB result to register: %s", decoded_instruction[1]);
+    }
+}
+
+void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid register: %s", decoded_instruction[1]);
+        return;
+    }
+    if (atoi(decoded_instruction[2]) <= 0) {
+        log_error(logger, "Invalid jump address: %s", decoded_instruction[2]);
+        return;
+    }
+
+    if (read_register_value(context, decoded_instruction[1]) != 0) {
+        context->pc = atoi(decoded_instruction[2]);
+    }
 }
 
 bool check_if_register(char *operand) {
