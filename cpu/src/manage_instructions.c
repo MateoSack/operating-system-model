@@ -19,7 +19,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		}
 		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
-		execute_instruction(decoded_instruction, context);
+		execute_instruction(decoded_instruction, context, pid);
 		log_info(logger, "Executed instruction: %s", instruction);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
@@ -71,6 +71,26 @@ t_instruction_type instruction_to_type(char *instruction_mnemonic) {
 		return JNZ;
 	else if (strcmp(instruction_mnemonic, "COPY_MEM") == 0)
 		return COPY_MEM;
+    else if (strcmp(instruction_mnemonic, "MUTEX_CREATE") == 0)
+		return INS_MUTEX_CREATE;
+    else if (strcmp(instruction_mnemonic, "MUTEX_LOCK") == 0)
+		return INS_MUTEX_LOCK;
+    else if (strcmp(instruction_mnemonic, "MUTEX_UNLOCK") == 0)
+		return INS_MUTEX_UNLOCK;
+    else if (strcmp(instruction_mnemonic, "MEM_ALLOC") == 0)
+		return INS_MEM_ALLOC;
+    else if (strcmp(instruction_mnemonic, "MEM_FREE") == 0)
+		return INS_MEM_FREE;
+    else if (strcmp(instruction_mnemonic, "SLEEP") == 0)
+		return INS_SLEEP;
+    else if (strcmp(instruction_mnemonic, "STDOUT") == 0)
+		return INS_STDOUT;
+    else if (strcmp(instruction_mnemonic, "STDIN") == 0)
+		return INS_STDIN;
+    else if (strcmp(instruction_mnemonic, "INIT_PROC") == 0)
+		return INS_INIT_PROC;
+    else if (strcmp(instruction_mnemonic, "EXIT") == 0)
+        return INS_EXIT;
 	else
 		return UNKNOWN;
 }
@@ -142,7 +162,7 @@ bool write_register_value(t_cpu_context *context, const char *register_name, uin
     return true;
 }
 
-void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
+void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
 	
 	switch (instruction) {
@@ -192,6 +212,66 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context) {
 			log_info(logger, "Memory operations not yet implemented. OK for now.");
 			break;
         }
+
+		case INS_MUTEX_CREATE: {
+			instruction_mutex_create(decoded_instruction, context);
+			log_info(logger, "MUTEX_CREATE executed");
+			break;
+		}
+
+		case INS_MUTEX_LOCK: {
+			instruction_mutex_lock(decoded_instruction, context);
+			log_info(logger, "MUTEX_LOCK executed");
+			break;
+		}
+
+		case INS_MUTEX_UNLOCK: {
+			instruction_mutex_unlock(decoded_instruction, context);
+			log_info(logger, "MUTEX_UNLOCK executed");
+			break;
+		}
+
+		case INS_MEM_ALLOC: {
+			instruction_mem_alloc(decoded_instruction, context, pid);
+			log_info(logger, "MEM_ALLOC executed");
+			break;
+		}
+
+		case INS_MEM_FREE: {
+			instruction_mem_free(decoded_instruction, context, pid);
+			log_info(logger, "MEM_FREE executed");
+			break;
+		}
+
+		case INS_SLEEP: {
+			instruction_sleep(decoded_instruction, context, pid);
+			log_info(logger, "SLEEP executed");
+			break;
+		}
+
+		case INS_STDOUT: {
+			instruction_stdout(decoded_instruction, context, pid);
+			log_info(logger, "STDOUT executed");
+			break;
+		}
+
+		case INS_STDIN: {
+			instruction_stdin(decoded_instruction, context, pid);
+			log_info(logger, "STDIN executed");
+			break;
+		}
+
+		case INS_INIT_PROC: {
+			instruction_init_proc(decoded_instruction, context, pid);
+			log_info(logger, "INIT_PROC executed");
+			break;
+		}
+
+		case INS_EXIT: {
+			instruction_exit(decoded_instruction, context, pid);
+			log_info(logger, "EXIT executed");
+			break;
+		}
 
         case UNKNOWN: {
             log_warning(logger, "Unknown instruction: %s", decoded_instruction[0]);
@@ -284,6 +364,109 @@ void *process_execution_handler(void *args) {
 	free(exec_args);
 	
 	return NULL;
+}
+
+// Syscall instruction implementations
+
+void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
+    // Send MUTEX_CREATE operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_CREATE;
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
+    // Send MUTEX_LOCK operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_LOCK;
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
+    // Send MUTEX_UNLOCK operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_UNLOCK;
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    uint32_t size = atoi(decoded_instruction[1]);
+    // Send MEM_ALLOC operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = MEM_ALLOC;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    uint32_t address = atoi(decoded_instruction[1]);
+    // Send MEM_FREE operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = MEM_FREE;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &address, sizeof(uint32_t));
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    uint32_t time = atoi(decoded_instruction[1]);
+    // Send SLEEP operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = SLEEP;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &time, sizeof(uint32_t));
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    // Send STDOUT operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = STDOUT;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    // Send STDIN operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = STDIN;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    uint32_t priority = atoi(decoded_instruction[2]);
+    // Send PROCESS_CREATE operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_CREATE;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &priority, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+}
+
+void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+    // Send PROCESS_END operation to kernel scheduler
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_END;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
 }
 
 /*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc
