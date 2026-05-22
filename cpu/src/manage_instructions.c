@@ -1,14 +1,25 @@
 #include<manage_instructions.h>
 
-bool hasJumped = false;
+static void send_package_to_kernel_scheduler(t_package *pkg) {
+    pthread_mutex_lock(&kernel_scheduler_write_mutex);
+    package_send(pkg, kernel_scheduler_fd);
+    pthread_mutex_unlock(&kernel_scheduler_write_mutex);
+}
+
+static void send_package_to_kernel_memory(t_package *pkg) {
+    pthread_mutex_lock(&kernel_memory_write_mutex);
+    package_send(pkg, kernel_memory_fd);
+    pthread_mutex_unlock(&kernel_memory_write_mutex);
+}
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid) {
+    bool hasJumped = false;
 	while (1)
 	{
 		t_package *pkg = package_create();
 		pkg->op_code = INSTRUCTION_FETCH;
 		package_add(pkg, &pid, sizeof(uint32_t));
-		package_send(pkg, kernel_memory_fd);
+		send_package_to_kernel_memory(pkg);
 		package_delete(pkg);
 		log_info(logger, "Sent INSTRUCTION_FETCH request to Kernel Memory");
 		char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
@@ -19,7 +30,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		}
 		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
-		execute_instruction(decoded_instruction, context, pid);
+		execute_instruction(decoded_instruction, context, pid, &hasJumped);
 		log_info(logger, "Executed instruction: %s", instruction);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
@@ -30,19 +41,28 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             hasJumped = false;
         }
 
-		if(interruptPending) {
+        pthread_mutex_lock(&interrupt_mutex);
+        bool interrupt = interruptPending;
+        pthread_mutex_unlock(&interrupt_mutex);
+
+		if(interrupt) {
 			log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
 			t_package *pkg = package_create();
 			pkg->op_code = CONTEXT_TRANSFER;
 			package_add(pkg, &pid, sizeof(uint32_t));
-			package_send(pkg, kernel_memory_fd);
+			send_package_to_kernel_memory(pkg);
+			pthread_mutex_lock(&kernel_memory_write_mutex);
+            package_send(pkg, kernel_memory_fd);
 			context_send(context, kernel_memory_fd);
+			pthread_mutex_unlock(&kernel_memory_write_mutex);
 			package_delete(pkg);
 			log_info(logger, "Context saved to Kernel Memory");
 
             //========== Falta implementar la parte con scheduler segun pide la consigna ==========================
 
+            pthread_mutex_lock(&interrupt_mutex);
 			interruptPending = 0;
+            pthread_mutex_unlock(&interrupt_mutex);
 			break;
 		}
 		log_info(logger, "No interrupt pending for PID %d, continuing execution", pid);
@@ -162,7 +182,7 @@ bool write_register_value(t_cpu_context *context, const char *register_name, uin
     return true;
 }
 
-void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
 	
 	switch (instruction) {
@@ -202,7 +222,7 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 		}
 
         case JNZ: {
-			instruction_jnz(decoded_instruction, context);
+			instruction_jnz(decoded_instruction, context, &hasJumped);
 			log_info(logger, "JNZ executed");
 			break;
 		}
@@ -328,7 +348,7 @@ void instruction_sub(char **decoded_instruction, t_cpu_context *context){
     }
 }
 
-void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
+void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped){
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid register: %s", decoded_instruction[1]);
         return;
@@ -340,7 +360,7 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context){
 
     if (read_register_value(context, decoded_instruction[1]) != 0) {
         context->pc = atoi(decoded_instruction[2]);
-        hasJumped = true;
+        *hasJumped = true;
     }
 }
 
@@ -373,7 +393,7 @@ void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context
     t_package *pkg = package_create();
     pkg->op_code = MUTEX_CREATE;
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -382,7 +402,7 @@ void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) 
     t_package *pkg = package_create();
     pkg->op_code = MUTEX_LOCK;
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -391,7 +411,7 @@ void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context
     t_package *pkg = package_create();
     pkg->op_code = MUTEX_UNLOCK;
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -402,7 +422,7 @@ void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, u
     pkg->op_code = MEM_ALLOC;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -413,7 +433,7 @@ void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, ui
     pkg->op_code = MEM_FREE;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &address, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -424,7 +444,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     pkg->op_code = SLEEP;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &time, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -434,7 +454,7 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     pkg->op_code = STDOUT;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -444,7 +464,7 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     pkg->op_code = STDIN;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -456,7 +476,7 @@ void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, u
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &priority, sizeof(uint32_t));
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 
@@ -465,7 +485,7 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_END;
     package_add(pkg, &pid, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    send_package_to_kernel_scheduler(pkg);
     package_delete(pkg);
 }
 

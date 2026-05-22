@@ -8,6 +8,11 @@ bool interruptPending = 0;
 uint32_t cpu_id;
 uint32_t pid;
 
+pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t kernel_scheduler_write_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
+
 t_cpu_context *context = NULL;
 
 t_list *list_memory_stick;
@@ -146,8 +151,11 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				t_package *pkg = package_create();
 				pkg->op_code = CONTEXT_SEEK;
 				package_add(pkg, &pid, sizeof(uint32_t));
+				pthread_mutex_lock(&kernel_memory_write_mutex);
 				package_send(pkg, kernel_memory_fd);
+				pthread_mutex_unlock(&kernel_memory_write_mutex);
 				package_delete(pkg);
+
 				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
 				
 				context = malloc(sizeof(t_cpu_context));
@@ -170,7 +178,9 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 			}
 
 			default: {
+				pthread_mutex_lock(&interrupt_mutex);
 				interruptPending = 1; //ahora mismo no hay otros códigos de operación que reciba el scheduler implementados
+				pthread_mutex_unlock(&interrupt_mutex);
 				break;
 			}
 		}
@@ -213,10 +223,13 @@ int connect_with_memory_stick(t_log *logger, t_module_credentials *credentials)
 	t_module_id_send(memory_stick_fd, MODULE_CPU, logger);
 	uint32_send(memory_stick_fd, cpu_id);
 	log_debug(logger, "Sent MODULE_CPU and cpu_id = %d to Memory Stick", cpu_id);
-
+	
+	pthread_mutex_lock(&memory_stick_list_mutex);
 	t_client_info *mem_stick = add_client_to_list(list_memory_stick, memory_stick_fd, credentials->id);
+	int mem_stick_count = list_size(list_memory_stick);
+	pthread_mutex_unlock(&memory_stick_list_mutex);
 
-	log_info(logger, "Memory Stick %d connected (total: %d)", credentials->id, list_size(list_memory_stick));
+	log_info(logger, "Memory Stick %d connected (total: %d)", credentials->id, mem_stick_count);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, memory_stick_handler, mem_stick);
@@ -238,7 +251,9 @@ void *memory_stick_handler(void *mem_stick_ptr)
 		{
 			log_warning(logger, "Memory Stick %d disconnected", mem_stick->id);
 			close(mem_stick->fd);
+			pthread_mutex_lock(&memory_stick_list_mutex);
 			list_remove_element(list_memory_stick, mem_stick);
+			pthread_mutex_unlock(&memory_stick_list_mutex);
 			free(mem_stick);
 			break;
 		}

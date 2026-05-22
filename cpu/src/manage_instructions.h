@@ -9,6 +9,10 @@
 #include<commons/config.h>
 #include<utils/process_utils.h>
 
+extern pthread_mutex_t interrupt_mutex;
+extern pthread_mutex_t kernel_scheduler_write_mutex;
+extern pthread_mutex_t kernel_memory_write_mutex;
+
 typedef enum {
 	NO_OP,
 	SET,
@@ -46,6 +50,8 @@ extern int kernel_memory_fd;
 extern int kernel_scheduler_fd;
 extern bool interruptPending;
 
+void send_package_to_kernel_memory(t_package *pkg);
+void send_package_to_kernel_scheduler(t_package *pkg);
 void instructions_cicle(t_cpu_context *context, uint32_t pid);
 t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
