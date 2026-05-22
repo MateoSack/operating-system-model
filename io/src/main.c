@@ -6,7 +6,6 @@ uint32_t pid;
 int main(void)
 {
 
-
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	uint32_t io_id;
 	int kernel_scheduler_fd;
@@ -54,15 +53,24 @@ int main(void)
 	return EXIT_SUCCESS;
 }
 
-char *io_stdin(uint32_t pid,uint32_t size){
-	char input[size]= {0};
-	log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, size);
-	fgets(input, sizeof(input), stdin);
-	input[strcspn(input, "\n")] = '\0';
-	log_info(logger, "## PID:  %d - Fin de IO", pid);
-	return input;
-} 
+char *io_stdin(uint32_t pid, uint32_t size) {
+    char *input = calloc(size, sizeof(char)); 
+    if (input == NULL) return NULL;
 
+    log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, size);
+    fgets(input, size, stdin);
+    input[strcspn(input, "\n")] = '\0';
+    log_info(logger, "## PID: %d - Fin de IO", pid);
+
+    return input;
+}
+
+void io_stdout(uint32_t pid,char *output){
+	log_info(logger, "## PID: %d - %s",pid, output);
+	printf("%s\n", output);
+	log_info(logger, "%s", output);
+	return;
+}
 
 void io_sleep_ms(uint32_t pid,uint32_t ms) {
 	log_info(logger, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, ms);
