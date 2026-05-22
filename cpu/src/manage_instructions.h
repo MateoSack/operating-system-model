@@ -12,6 +12,7 @@
 extern pthread_mutex_t interrupt_mutex;
 extern pthread_mutex_t kernel_scheduler_write_mutex;
 extern pthread_mutex_t kernel_memory_write_mutex;
+extern pthread_mutex_t kernel_memory_read_mutex;
 
 typedef enum {
 	NO_OP,
@@ -50,16 +51,14 @@ extern int kernel_memory_fd;
 extern int kernel_scheduler_fd;
 extern bool interruptPending;
 
-void send_package_to_kernel_memory(t_package *pkg);
-void send_package_to_kernel_scheduler(t_package *pkg);
 void instructions_cicle(t_cpu_context *context, uint32_t pid);
 t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
-void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
+void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
 void instruction_set(char **decoded_instruction, t_cpu_context *context);
 void instruction_sum(char **decoded_instruction, t_cpu_context *context);
 void instruction_sub(char **decoded_instruction, t_cpu_context *context);
-void instruction_jnz(char **decoded_instruction, t_cpu_context *context);
+void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
 void *process_execution_handler(void *args);
 bool check_if_register(char *operand);
 
@@ -70,7 +69,7 @@ bool write_register_value(t_cpu_context *context, const char *register_name, uin
 void instruction_set(char **decoded_instruction, t_cpu_context *context);
 void instruction_sum(char **decoded_instruction, t_cpu_context *context);
 void instruction_sub(char **decoded_instruction, t_cpu_context *context);
-void instruction_jnz(char **decoded_instruction, t_cpu_context *context);
+void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
 void instruction_mov_in(char **decoded_instruction, t_cpu_context *context);
 void instruction_mov_out(char **decoded_instruction, t_cpu_context *context);
 void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context);

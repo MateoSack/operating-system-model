@@ -6,26 +6,30 @@ int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
 bool interruptPending = 0;
 uint32_t cpu_id;
-uint32_t pid;
+char *cpu_identifier = NULL;
 
 pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_scheduler_write_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
-
-t_cpu_context *context = NULL;
+pthread_mutex_t kernel_memory_read_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 t_list *list_memory_stick;
 
-int main(void) {
+int main(int argc, char *argv[]) {
+
+	if (argc < 3) {
+        printf("Mode of use: %s <config_file> <Identifier>\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
 	/*-------------------Initial Setup-------------------*/
-	t_config *config = config_create("cpu.config");
-	if (config == NULL)
-		return EXIT_FAILURE;
+	t_config *config = config_create(argv[1]);
+	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);
 	log_info(logger, "CPU started");
-	context = malloc(sizeof(t_cpu_context));
 	list_memory_stick = list_create();
+	cpu_identifier = strdup(argv[2]); 
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
@@ -39,6 +43,7 @@ int main(void) {
 
 	log_destroy(logger);
 	config_destroy(config);
+	free(cpu_identifier);
 	return EXIT_SUCCESS;
 }
 
@@ -110,10 +115,11 @@ void *kernel_memory_thread()
 	while (1)
 	{
 		// Handle connection with Kernel Memory
+		pthread_mutex_lock(&kernel_memory_read_mutex);
 		int op = operation_receive(kernel_memory_fd);
-		log_debug(logger, "Attending op_code: %d", op);
 		if (op == -1)
 		{
+			pthread_mutex_unlock(&kernel_memory_read_mutex);
 			log_warning(logger, "Kernel Memory disconnected");
 			close(kernel_memory_fd);
 			break;
@@ -121,8 +127,15 @@ void *kernel_memory_thread()
 		switch (op) {
 			case CREDENTIALS_UPDATE: {
 				t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
+				pthread_mutex_unlock(&kernel_memory_read_mutex);
 				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
 				connect_with_memory_stick(logger, credentials);
+				break;
+			}
+
+			default: {
+				pthread_mutex_unlock(&kernel_memory_read_mutex);
+				log_warning(logger, "Received unknown operation code %d from Kernel Memory", op);
 				break;
 			}
 		}
@@ -145,7 +158,7 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 		switch (op) {
 			case PROCESS_EXECUTE:
 			{
-				pid = uint32_decode(kernel_scheduler_fd);
+				uint32_t pid = uint32_decode(kernel_scheduler_fd);
 				log_info(logger, "Received PID %d from Kernel scheduler", pid);
 				
 				t_package *pkg = package_create();
@@ -158,8 +171,10 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 
 				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
 				
-				context = malloc(sizeof(t_cpu_context));
-				*context = *context_receive(kernel_memory_fd);
+				pthread_mutex_lock(&kernel_memory_read_mutex);
+				t_cpu_context *context = context_receive(kernel_memory_fd);
+				pthread_mutex_unlock(&kernel_memory_read_mutex);
+
 				if (context == NULL) {
 					log_error(logger, "Failed to receive context from Kernel Memory");
 					break;

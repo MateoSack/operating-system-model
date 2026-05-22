@@ -22,8 +22,12 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		send_package_to_kernel_memory(pkg);
 		package_delete(pkg);
 		log_info(logger, "Sent INSTRUCTION_FETCH request to Kernel Memory");
-		char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
-		if (instruction == NULL) {
+		
+        pthread_mutex_lock(&kernel_memory_read_mutex);
+        char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
+		pthread_mutex_unlock(&kernel_memory_read_mutex);
+        
+        if (instruction == NULL) {
 			log_error(logger, "Failed to receive instruction from Kernel Memory");
 			context->pc++;
 			break;
@@ -50,7 +54,6 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 			t_package *pkg = package_create();
 			pkg->op_code = CONTEXT_TRANSFER;
 			package_add(pkg, &pid, sizeof(uint32_t));
-			send_package_to_kernel_memory(pkg);
 			pthread_mutex_lock(&kernel_memory_write_mutex);
             package_send(pkg, kernel_memory_fd);
 			context_send(context, kernel_memory_fd);
@@ -222,7 +225,7 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 		}
 
         case JNZ: {
-			instruction_jnz(decoded_instruction, context, &hasJumped);
+			instruction_jnz(decoded_instruction, context, hasJumped);
 			log_info(logger, "JNZ executed");
 			break;
 		}
