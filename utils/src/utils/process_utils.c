@@ -72,3 +72,64 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
         default: return "UNKNOWN";
     }
 }
+
+void io_numeric_process_send (uint32_t pid, uint32_t value, t_io_type io_type, int client_socket) { // Sends an IO process with a numeric value request
+    t_package *package = package_create();
+    package->op_code = IO_PROCESS;
+    package_add(package, &pid, sizeof(uint32_t));
+    package_add(package, &value, sizeof(uint32_t));
+    package_add(package, &io_type, sizeof(t_io_type));
+
+    package_send(package, client_socket);
+    package_delete(package);
+}
+
+t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receives an IO process request with a numeric value
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_socket);
+    t_io_numeric_process *io_process = malloc(sizeof(t_io_numeric_process));
+
+    memcpy(&io_process->pid, buffer + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    memcpy(&io_process->value, buffer + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    memcpy(&io_process->io_type, buffer + offset, sizeof(t_io_type));
+    offset += sizeof(t_io_type);
+
+    free(buffer);
+    return io_process;
+}
+
+void io_string_process_send (uint32_t pid, char *value, t_io_type io_type, int client_socket) { // Sends an IO process request with a string value
+    t_package *package = package_create();
+    package->op_code = IO_PROCESS;
+    package_add(package, &pid, sizeof(uint32_t));
+    uint32_t value_length = strlen(value) + 1; // +1 for null terminator
+    package_add(package, &value_length, sizeof(uint32_t));
+    package_add(package, value, value_length);
+    package_add(package, &io_type, sizeof(t_io_type));
+    package_send(package, client_socket);
+    package_delete(package);
+}
+
+t_io_string_process *io_string_process_receive(int client_socket) { // Receives an IO process request with a string value
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_socket);
+    t_io_string_process *io_process = malloc(sizeof(t_io_string_process));
+
+    memcpy(&io_process->pid, buffer + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    uint32_t value_length;
+    memcpy(&value_length, buffer + offset, sizeof(uint32_t));
+    offset += sizeof(uint32_t);
+    io_process->value = malloc(value_length);
+    memcpy(io_process->value, buffer + offset, value_length);
+    offset += value_length;
+    memcpy(&io_process->io_type, buffer + offset, sizeof(t_io_type));
+    offset += sizeof(t_io_type);
+
+    free(buffer);
+    return io_process;
+}
