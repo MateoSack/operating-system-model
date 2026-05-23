@@ -53,8 +53,6 @@ int main(int argc, char *argv[]) {
 			}
 
 			default: {
-				log_info(logger, "## PID:  %d - Inicio de IO", pid);
-
 				handle_operation(kernel_scheduler_fd, io_type);
 			}
 		}
@@ -78,9 +76,12 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			// Handle STDIN operation
 			t_io_numeric_process *io_process = io_numeric_process_receive(client_fd);
 			if (io_process != NULL) {
+				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				char *output = io_stdin(io_process->pid, io_process->value);
-				io_string_process_send(io_process->pid, output, IO_TYPE_STDIN, kernel_scheduler_fd);
+				t_io_string_process *string_process = t_io_string_process_create(io_process->pid, output, IO_TYPE_STDIN);
+				io_string_process_send(string_process, STDIN, kernel_scheduler_fd);
 				free(io_process);
+				free(output);
 			}
 			break;
 		}
@@ -89,6 +90,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			// Handle STDOUT operation
 			t_io_string_process *io_process = io_string_process_receive(client_fd);
 			if (io_process != NULL) {
+				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_stdout(io_process->pid, io_process->value);
 				free(io_process->value);
 				free(io_process);
@@ -101,6 +103,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			// Handle SLEEP operation
 			t_io_numeric_process *io_process = io_numeric_process_receive(client_fd);
 			if (io_process != NULL) {
+				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_sleep_ms(io_process->pid, io_process->value);
 				free(io_process);
 				send_confirmation(io_process->pid, kernel_scheduler_fd);

@@ -40,8 +40,6 @@ t_process *get_process_from_cpu (t_client_info *cpu);
 void evict_process (t_process *process, t_interrupt_reason reason);
 void evict_all_processes (t_interrupt_reason reason);
 t_client_info *get_available_io_type (t_list *io_list);
-t_io_numeric_process *t_io_numeric_process_create(uint32_t pid, uint32_t value, t_io_type io_type);
-t_io_string_process *t_io_string_process_create(uint32_t pid, char *value, t_io_type io_type);
 t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_list);
 t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_list);
 

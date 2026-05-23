@@ -7,19 +7,28 @@ void io_handler (int io_fd) {
 	t_client_info *io = malloc(sizeof(t_client_info));
 
 	t_list *io_list = NULL;
+	t_list *pending_io_list = NULL;
+
+	op_code standard_op;
 
 	if (io_type == IO_TYPE_STDIN) {
 		io = add_client_to_list(list_io_stdin, io_fd, id);
 		log_info(logger, "IO STDIN %d conectada (total: %d)", id, list_size(list_io_stdin));
 		io_list = list_io_stdin;
+		pending_io_list = pending_request_io_stdin;
+		standard_op = STDIN;
 	} else if (io_type == IO_TYPE_STDOUT) {
 		io = add_client_to_list(list_io_stdout, io_fd, id);
 		log_info(logger, "IO STDOUT %d conectada (total: %d)", id, list_size(list_io_stdout));
 		io_list = list_io_stdout;
+		pending_io_list = pending_request_io_stdout;
+		standard_op = STDOUT;
 	} else if (io_type == IO_TYPE_SLEEP) {
 		io = add_client_to_list(list_io_sleep, io_fd, id);
 		log_info(logger, "IO SLEEP %d conectada (total: %d)", id, list_size(list_io_sleep));
 		io_list = list_io_sleep;
+		pending_io_list = pending_request_io_sleep;
+		standard_op = SLEEP;
 	} else {
 		log_error(logger, "Tipo de IO desconocido recibido: %d", io_type);
 		close(io_fd);
@@ -58,6 +67,12 @@ void io_handler (int io_fd) {
 					log_warning(logger, "Proceso %d no encontrado para confirmar finalización de IO", pid);
 				}
 
+				t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+				if (pending_process == NULL) break;
+
+				io_numeric_process_send(pending_process, standard_op, io_fd);
+
 				break;
 			}
 
@@ -88,9 +103,11 @@ void io_handler (int io_fd) {
 
 				free(io_process);
 
-				t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_request_io_stdin);
+				t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
 
 				if (pending_process == NULL) break;
+
+				io_string_process_send(pending_process, standard_op, io_fd);
 
 				break;
 			}

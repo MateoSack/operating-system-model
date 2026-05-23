@@ -136,7 +136,8 @@ void cpu_handler (int cpu_fd) {
 				if (io != NULL) {
 					pthread_mutex_lock(&io->network_mutex);
 					io->is_available = false;
-					io_numeric_process_send(pid, sleep_time, IO_TYPE_SLEEP, SLEEP, io->fd);
+					t_io_numeric_process *io_process = t_io_numeric_process_create(pid, sleep_time, IO_TYPE_SLEEP);
+					io_numeric_process_send(io_process, SLEEP, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
 					log_debug(logger, "Proceso %d enviado a IO SLEEP (fd: %d) para dormir por %d ms", pid, io->fd, sleep_time);
 				} else {
@@ -171,7 +172,8 @@ void cpu_handler (int cpu_fd) {
 				if (io != NULL) {
 					pthread_mutex_lock(&io->network_mutex);
 					io->is_available = false;
-					io_numeric_process_send(pid, value, IO_TYPE_STDIN, STDIN, io->fd);
+					t_io_numeric_process *io_process = t_io_numeric_process_create(pid, value, IO_TYPE_STDIN);
+					io_numeric_process_send(io_process, STDIN, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
 					log_debug(logger, "Proceso %d enviado a IO STDIN (fd: %d)", pid, io->fd);
 				} else {
@@ -202,12 +204,13 @@ void cpu_handler (int cpu_fd) {
 
 				evict_process(process, IO_REQUEST);
 
-				int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
+				char *value = "10"; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
 
 				if (io != NULL) {
 					pthread_mutex_lock(&io->network_mutex);
 					io->is_available = false;
-					io_numeric_process_send(pid, value, IO_TYPE_STDOUT, STDOUT, io->fd);
+					t_io_string_process *io_process = t_io_string_process_create(pid, value, IO_TYPE_STDOUT);
+					io_string_process_send(io_process, STDOUT, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
 					log_debug(logger, "Proceso %d enviado a IO STDOUT (fd: %d)", pid, io->fd);
 				} else {
