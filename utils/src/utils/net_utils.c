@@ -382,9 +382,10 @@ uint32_t uint32_decode (int client_fd) { //Returns uint32 from client, use only 
     return value;
 }
 
-void send_confirmation (int client_fd) { // Sends a confirmation package to the client
+void send_confirmation (uint32_t pid, int client_fd) { // Sends a confirmation package to the client, can be used to signal that a response is ready to be processed
 	t_package *pkg = package_create();
 	pkg->op_code = CONFIRMATION;
+	package_add(pkg, &pid, sizeof(uint32_t));
 	package_send(pkg, client_fd);
     package_delete(pkg);
 }

@@ -58,9 +58,9 @@ t_cpu_context *context_receive(int client_socket);
 t_process_state t_process_state_deserialize(void *buffer, int *offset);
 const char* process_state_to_string(t_process_state state);
 const char* interrupt_reason_to_string(t_interrupt_reason reason);
-void io_numeric_process_send (uint32_t pid, uint32_t value, t_io_type io_type, int client_socket);
+void io_numeric_process_send (uint32_t pid, uint32_t value, t_io_type io_type, op_code op_code, int client_socket);
 t_io_numeric_process *io_numeric_process_receive(int client_socket);
-void io_string_process_send (uint32_t pid, char *value, t_io_type io_type, int client_socket);
+void io_string_process_send (uint32_t pid, char *value, t_io_type io_type, op_code op_code, int client_socket);
 t_io_string_process *io_string_process_receive(int client_socket);
 
 #endif

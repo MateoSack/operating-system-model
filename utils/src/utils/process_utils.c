@@ -73,9 +73,9 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
     }
 }
 
-void io_numeric_process_send (uint32_t pid, uint32_t value, t_io_type io_type, int client_socket) { // Sends an IO process with a numeric value request
+void io_numeric_process_send (uint32_t pid, uint32_t value, t_io_type io_type, op_code op_code, int client_socket) { // Sends an IO process with a numeric value request
     t_package *package = package_create();
-    package->op_code = IO_PROCESS;
+    package->op_code = op_code;
     package_add(package, &pid, sizeof(uint32_t));
     package_add(package, &value, sizeof(uint32_t));
     package_add(package, &io_type, sizeof(t_io_type));
@@ -101,9 +101,9 @@ t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receive
     return io_process;
 }
 
-void io_string_process_send (uint32_t pid, char *value, t_io_type io_type, int client_socket) { // Sends an IO process request with a string value
+void io_string_process_send (uint32_t pid, char *value, t_io_type io_type, op_code op_code, int client_socket) { // Sends an IO process request with a string value
     t_package *package = package_create();
-    package->op_code = IO_PROCESS;
+    package->op_code = op_code;
     package_add(package, &pid, sizeof(uint32_t));
     uint32_t value_length = strlen(value) + 1; // +1 for null terminator
     package_add(package, &value_length, sizeof(uint32_t));

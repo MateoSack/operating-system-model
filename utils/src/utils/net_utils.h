@@ -112,7 +112,7 @@ void t_module_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 void remove_client_from_list (t_list *list, t_client_info *client);
 uint32_t uint32_decode (int client_fd);
-void send_confirmation (int client_fd);
+void send_confirmation (uint32_t pid, int client_fd);
 void wait_confirmation (int client_fd);
 void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger);
 t_io_type t_io_type_receive (int client_fd);
