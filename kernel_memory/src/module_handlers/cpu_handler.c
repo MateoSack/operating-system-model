@@ -50,15 +50,22 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
 
             case INSTRUCTION_FETCH: {
                 uint32_t pid = uint32_decode(client_fd);
+                uint32_t pc = uint32_decode(client_fd);
                 target_pid = pid;
+                
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
                     break;
                 }
-                log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pcb->context.pc, pcb->instructions[pcb->context.pc]);
-
-                char *instruction = pcb->instructions[pcb->context.pc];
+                
+                if (pcb->instructions == NULL) {
+                    log_error(logger, "ERROR: Instructions not loaded for PID %d - file may not exist", pid);
+                    break;
+                }
+                
+                char *instruction = pcb->instructions[pc];
+                log_info(logger, "## PID: %u - Obtener instruccion: %u - Instruccion: %s", pid, pc, instruction);
                 message_send(instruction, client_fd);
                 log_info(logger, "Instruction sent correctly for PID %d: %s", pid, instruction);
                 break;

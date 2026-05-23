@@ -7,6 +7,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		t_package *pkg = package_create();
 		pkg->op_code = INSTRUCTION_FETCH;
 		package_add(pkg, &pid, sizeof(uint32_t));
+		package_add(pkg, &context->pc, sizeof(uint32_t));
 		
 		pthread_mutex_lock(&kernel_memory_write_mutex); // Usar funcion general de send
 		package_send(pkg, kernel_memory_fd);

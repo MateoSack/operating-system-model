@@ -52,6 +52,11 @@ void *buffer_receive (int *size, int client_socket) { // Receives a buffer from 
 	void *buffer;
 
 	recv(client_socket, size, sizeof(int), MSG_WAITALL);
+	
+	if (*size == 0) {
+		return NULL;
+	}
+	
 	buffer = malloc(*size);
 	recv(client_socket, buffer, *size, MSG_WAITALL);
 
