@@ -13,6 +13,12 @@ extern t_list *list_io_stdin;
 extern t_list *list_io_stdout;
 extern t_list *list_processes;
 
+extern sem_t short_term_scheduler_sem;
+
+extern t_list *pending_request_io_sleep;
+extern t_list *pending_request_io_stdin;
+extern t_list *pending_request_io_stdout;
+
 extern t_log *logger;
 extern int kernel_memory_fd;
 

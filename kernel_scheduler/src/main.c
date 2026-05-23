@@ -7,9 +7,14 @@ t_scheduler_algorithm scheduler_algorithm;
 int quantum = 0;
 
 t_list *list_cpu = NULL;
+
 t_list *list_io_sleep = NULL;
 t_list *list_io_stdin = NULL;
 t_list *list_io_stdout = NULL;
+
+t_list *pending_request_io_sleep = NULL;
+t_list *pending_request_io_stdin = NULL;
+t_list *pending_request_io_stdout = NULL;
 
 t_list *list_processes = NULL;
 t_list *ready_queue = NULL;
@@ -51,12 +56,21 @@ int main(int argc, char *argv[]) {
 	quantum = config_get_int_value(config, "RR_QUANTUM");
 
 	list_cpu = list_create();
+
     list_io_sleep = list_create();
 	list_io_stdin = list_create();
 	list_io_stdout = list_create();
+
+	pending_request_io_sleep = list_create();
+	pending_request_io_stdin = list_create();
+	pending_request_io_stdout = list_create();
+
 	list_processes = list_create();
+
 	ready_queue = list_create();
+
 	exec_processes = list_create();
+
 	list_mutexes = list_create();
 
 	sem_init(&short_term_scheduler_sem, 0, 0);

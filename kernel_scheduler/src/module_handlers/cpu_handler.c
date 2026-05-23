@@ -21,9 +21,9 @@ void cpu_handler (int cpu_fd) {
 				uint32_t pid;
 				uint32_t priority;
 				char *path;
-
+				
 				receive_instruction_process_create(&pid, &priority, &path, cpu->fd);
-
+				
 				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
             
             	long_term_scheduler(path, priority);
@@ -33,7 +33,7 @@ void cpu_handler (int cpu_fd) {
 			
 			case PROCESS_END: {
 				uint32_t pid = uint32_decode(cpu->fd);
-
+				
 				log_info(logger, "## (%d) - Solicitó syscall: EXIT", pid);
 
 				pthread_mutex_lock(&scheduler_mutex);
@@ -57,8 +57,8 @@ void cpu_handler (int cpu_fd) {
 			}
 
 			case MUTEX_CREATE : {
-				t_process *process = get_process_from_cpu(cpu);
 				char *mutex_name = message_decode(cpu->fd);
+				t_process *process = get_process_from_cpu(cpu);
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE (Nombre del mutex: %s)", process->pid, mutex_name);
 				mutex_create(mutex_name);
 				free(mutex_name);
@@ -69,7 +69,7 @@ void cpu_handler (int cpu_fd) {
 				char *mutex_name = message_decode(cpu->fd);
 				
 				t_process *process = get_process_from_cpu(cpu);
-
+				
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK (Nombre del mutex: %s)", process->pid, mutex_name);
 
 				if (process == NULL) {
@@ -94,9 +94,9 @@ void cpu_handler (int cpu_fd) {
 				char *mutex_name = message_decode(cpu->fd);
 				
 				t_process *process = get_process_from_cpu(cpu);
-
+				
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK (Nombre del mutex: %s)", process->pid, mutex_name);
-
+				
 				if (process == NULL) {
     				log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
@@ -118,8 +118,105 @@ void cpu_handler (int cpu_fd) {
 			case SLEEP : {
 				uint32_t pid;
 				uint32_t sleep_time;
-
+				
 				receive_instruction_sleep(&pid, &sleep_time, cpu->fd);
+				
+				t_process *process = get_process_from_pid(pid);
+
+				log_info(logger, "## (%d) - Solicitó syscall: SLEEP (Tiempo: %d ms)", pid, sleep_time);
+
+				pthread_mutex_lock(&scheduler_mutex);
+				process_set_state(process, BLOCK, logger);
+				remove_process_from_list(exec_processes, process);
+				t_client_info *io = get_available_io_type(list_io_sleep);
+				pthread_mutex_unlock(&scheduler_mutex);
+
+				evict_process(process, IO_REQUEST);
+
+				if (io != NULL) {
+					pthread_mutex_lock(&io->network_mutex);
+					io->is_available = false;
+					io_numeric_process_send(pid, sleep_time, IO_TYPE_SLEEP, SLEEP, io->fd);
+					pthread_mutex_unlock(&io->network_mutex);
+					log_debug(logger, "Proceso %d enviado a IO SLEEP (fd: %d) para dormir por %d ms", pid, io->fd, sleep_time);
+				} else {
+					pthread_mutex_lock(&scheduler_mutex);
+					list_add(pending_request_io_sleep, process);
+					pthread_mutex_unlock(&scheduler_mutex);
+					log_debug(logger, "No hay dispositivos IO de tipo SLEEP disponibles para procesar la solicitud de sleep del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo SLEEP esté disponible.", pid);
+				}
+			}
+
+			case STDIN : {
+				uint32_t pid;
+				uint32_t base;
+				uint32_t limit;
+				
+				receive_instruction_std(&pid, &base, &limit, cpu->fd);
+				
+				t_process *process = get_process_from_pid(pid);
+				
+				log_info(logger, "## (%d) - Solicitó syscall: STDIN (Base: %d, Limit: %d)", pid, base, limit);
+
+				pthread_mutex_lock(&scheduler_mutex);
+				process_set_state(process, BLOCK, logger);
+				remove_process_from_list(exec_processes, process);
+				t_client_info *io = get_available_io_type(list_io_stdin);
+				pthread_mutex_unlock(&scheduler_mutex);
+
+				evict_process(process, IO_REQUEST);
+
+				int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
+
+				if (io != NULL) {
+					pthread_mutex_lock(&io->network_mutex);
+					io->is_available = false;
+					io_numeric_process_send(pid, value, IO_TYPE_STDIN, STDIN, io->fd);
+					pthread_mutex_unlock(&io->network_mutex);
+					log_debug(logger, "Proceso %d enviado a IO STDIN (fd: %d)", pid, io->fd);
+				} else {
+					pthread_mutex_lock(&scheduler_mutex);
+					list_add(pending_request_io_stdin, process);
+					pthread_mutex_unlock(&scheduler_mutex);
+					log_debug(logger, "No hay dispositivos IO de tipo STDIN disponibles para procesar la solicitud de stdin del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDIN esté disponible.", pid);
+				}
+				break;
+			}
+
+			case STDOUT : {
+				uint32_t pid;
+				uint32_t base;
+				uint32_t limit;
+				
+				receive_instruction_std(&pid, &base, &limit, cpu->fd);
+				
+				t_process *process = get_process_from_pid(pid);
+				
+				log_info(logger, "## (%d) - Solicitó syscall: STDOUT", pid);
+
+				pthread_mutex_lock(&scheduler_mutex);
+				process_set_state(process, BLOCK, logger);
+				remove_process_from_list(exec_processes, process);
+				t_client_info *io = get_available_io_type(list_io_stdout);
+				pthread_mutex_unlock(&scheduler_mutex);
+
+				evict_process(process, IO_REQUEST);
+
+				int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
+
+				if (io != NULL) {
+					pthread_mutex_lock(&io->network_mutex);
+					io->is_available = false;
+					io_numeric_process_send(pid, value, IO_TYPE_STDOUT, STDOUT, io->fd);
+					pthread_mutex_unlock(&io->network_mutex);
+					log_debug(logger, "Proceso %d enviado a IO STDOUT (fd: %d)", pid, io->fd);
+				} else {
+					pthread_mutex_lock(&scheduler_mutex);
+					list_add(pending_request_io_stdout, process);
+					pthread_mutex_unlock(&scheduler_mutex);
+					log_debug(logger, "No hay dispositivos IO de tipo STDOUT disponibles para procesar la solicitud de stdout del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDOUT esté disponible.", pid);
+				}
+				break;
 			}
         }
 	}
@@ -164,6 +261,21 @@ void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd)
 	memcpy(pid, buffer + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(sleep_time, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	free(buffer);
+}
+
+void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+
+	memcpy(pid, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(base, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(limit, buffer + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
 	free(buffer);

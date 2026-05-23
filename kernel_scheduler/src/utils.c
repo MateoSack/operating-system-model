@@ -123,3 +123,52 @@ void evict_all_processes (t_interrupt_reason reason) {
         evict_process(process, reason);
     }
 }
+
+t_client_info *get_available_io_type (t_list *io_list) {
+	t_client_info *io;
+
+	bool io_is_available(void *ptr) {
+		t_client_info *client = (t_client_info*) ptr;
+		return client->is_available == true;
+	}
+
+	io = list_find(io_list, (void*)io_is_available);
+
+	return io;
+}
+
+t_io_numeric_process *t_io_numeric_process_create(uint32_t pid, uint32_t value, t_io_type io_type) { // Creates a t_io_numeric_process with the given values, returns the created process
+    t_io_numeric_process *io_process = malloc(sizeof(t_io_numeric_process));
+    io_process->pid = pid;
+    io_process->value = value;
+    io_process->io_type = io_type;
+
+    return io_process;
+}
+
+t_io_string_process *t_io_string_process_create(uint32_t pid, char *value, t_io_type io_type) { // Creates a t_io_string_process with the given values, returns the created process
+    t_io_string_process *io_process = malloc(sizeof(t_io_string_process));
+    io_process->pid = pid;
+    io_process->value = strdup(value);
+    io_process->io_type = io_type;
+
+    return io_process;
+}
+
+t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_list) { // Gets the next t_io_numeric_process from the list, returns NULL if the list is empty
+    if (list_is_empty(io_pending_list)) return NULL;
+
+    t_io_numeric_process *io_process = list_get(io_pending_list, 0);
+    list_remove(io_pending_list, 0);
+
+    return io_process;
+}
+
+t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_list) { // Gets the next t_io_string_process from the list, returns NULL if the list is empty
+    if (list_is_empty(io_pending_list)) return NULL;
+
+    t_io_string_process *io_process = list_get(io_pending_list, 0);
+    list_remove(io_pending_list, 0);
+
+    return io_process;
+}

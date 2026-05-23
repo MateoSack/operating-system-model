@@ -88,6 +88,8 @@ void send_pid_to_execute (uint32_t pid, int cpu_fd) { // Sends the process execu
     package_add(pkg, &pid, sizeof(uint32_t));
     package_send(pkg, cpu_fd);
     package_delete(pkg);
+
+    log_debug(logger, "Enviado proceso %d a CPU (fd: %d)", pid, cpu_fd);
 }
 
 void *quantum_manager (void *arg) { // Manages the quantum expiration for processes in the EXEC state
@@ -109,6 +111,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
                 remove_process_from_list(exec_processes, process);
                 process_set_state(process, READY, logger);
                 add_process_to_list(ready_queue, process);
+                process->cpu->is_available = true;
 
                 i--;
 

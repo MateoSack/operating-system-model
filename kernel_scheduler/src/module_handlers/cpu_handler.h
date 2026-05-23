@@ -15,11 +15,16 @@ extern sem_t short_term_scheduler_sem;
 extern pthread_mutex_t cpu_id_mutex;
 
 extern t_list *list_cpu;
+extern t_list *list_processes;
+extern t_list *ready_queue;
+
 extern t_list *list_io_sleep;
 extern t_list *list_io_stdin;
 extern t_list *list_io_stdout;
-extern t_list *list_processes;
-extern t_list *ready_queue;
+
+extern t_list *pending_request_io_sleep;
+extern t_list *pending_request_io_stdin;
+extern t_list *pending_request_io_stdout;
 
 extern t_log *logger;
 extern int kernel_memory_fd;
@@ -30,5 +35,7 @@ void cpu_handler (int cpu_fd);
 void handle_cpu_disconnection (t_client_info *cpu);
 void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd);
 void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char **path, int cpu_fd);
+t_client_info *get_available_io_type (t_list *io_list);
+void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd);
 
 #endif

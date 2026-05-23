@@ -2,23 +2,22 @@
 #include <unistd.h> // Necesario para usleep
 
 t_log *logger;
-uint32_t pid;
 uint32_t io_id;
 int kernel_scheduler_fd;
-t_io_type io_type;
 
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
-        printf("Modo de uso: %s <config_file> <Tipo>\n", argv[0]);
+		printf("Modo de uso: %s <config_file> <Tipo>\n", argv[0]);
         return EXIT_FAILURE;
     }
-
+	
 	/*-------------------Connection with Kernel Scheduler-------------------*/
-
+	
 	t_config *config = config_create(argv[1]);
 	if(config == NULL) return EXIT_FAILURE;
 	logger = start_logger(config);	
-
+	
+	t_io_type io_type;
 	io_type = io_type_from_string(argv[2]);
 	if (io_type == -1) {
 		log_error(logger, "Tipo de IO desconocido: %s", argv[2]);
@@ -46,16 +45,17 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		int op = operation_receive(kernel_scheduler_fd);
 
-        if (op == -1) {
-            log_warning(logger, "Kernel Scheduler desconectado");
-			close(kernel_scheduler_fd);
-            break;
-        }
-
 		switch (op) {
-			case IO_PROCESS: {
-				pid = uint32_decode(kernel_scheduler_fd);
+			case -1: {
+				log_warning(logger, "Kernel Scheduler desconectado");
+				close(kernel_scheduler_fd);
+				return EXIT_FAILURE;
+			}
+
+			default: {
 				log_info(logger, "## PID:  %d - Inicio de IO", pid);
+
+				handle_operation(kernel_scheduler_fd, io_type);
 			}
 		}
 	}
@@ -79,7 +79,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			t_io_numeric_process *io_process = io_numeric_process_receive(client_fd);
 			if (io_process != NULL) {
 				char *output = io_stdin(io_process->pid, io_process->value);
-				io_string_process_send(pid, output, IO_TYPE_STDIN, kernel_scheduler_fd);
+				io_string_process_send(io_process->pid, output, IO_TYPE_STDIN, kernel_scheduler_fd);
 				free(io_process);
 			}
 			break;
@@ -92,7 +92,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 				io_stdout(io_process->pid, io_process->value);
 				free(io_process->value);
 				free(io_process);
-				send_confirmation(kernel_scheduler_fd);
+				send_confirmation(io_process->pid, kernel_scheduler_fd);
 			}
 			break;
 		}
@@ -103,7 +103,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			if (io_process != NULL) {
 				io_sleep_ms(io_process->pid, io_process->value);
 				free(io_process);
-				send_confirmation(kernel_scheduler_fd);
+				send_confirmation(io_process->pid, kernel_scheduler_fd);
 			}
 			break;
 		}
