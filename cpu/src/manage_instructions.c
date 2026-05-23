@@ -1,9 +1,17 @@
 #include<manage_instructions.h>
 
+bool should_stop_execution = false;
+
 void instructions_cicle(t_cpu_context *context, uint32_t pid) {
     bool hasJumped = false;
 	while (1)
 	{
+        if(should_stop_execution) {
+            log_info(logger, "Finalizando proceso PID %d", pid);
+            should_stop_execution = false;
+            break;
+        }
+
 		t_package *pkg = package_create();
 		pkg->op_code = INSTRUCTION_FETCH;
 		package_add(pkg, &pid, sizeof(uint32_t));
@@ -22,6 +30,8 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		// Wait for kernel_memory_thread to deliver the instruction
 		sem_wait(&sem_instruction_response_ready);
         
+        log_debug(logger, "sem_instruction_response_ready signaled for PID %d", pid);
+
 		// Get the instruction from shared structure
 		pthread_mutex_lock(&instruction_response.mutex);
 		char *instruction = instruction_response.instruction;
@@ -77,10 +87,12 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             package_delete(pkg2);
             log_info(logger, "Notified Kernel Scheduler about PID %d interruption (reason=%s)", pid, interrupt_reason_to_string(reason_local));
             
+            sem_post(&sem_eviction_ready);
 
             pthread_mutex_lock(&interrupt_mutex);
 			interruptPending = 0;
             pthread_mutex_unlock(&interrupt_mutex);
+
 			break;
 		}
 		log_info(logger, "No interrupt pending for PID %d, continuing execution", pid);
@@ -531,6 +543,7 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     package_add(pkg, &pid, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+    should_stop_execution = true;
 }
 
 /*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc

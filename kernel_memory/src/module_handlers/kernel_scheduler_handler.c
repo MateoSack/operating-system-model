@@ -21,8 +21,15 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 char *full_path = string_from_format("%s/%s", base_path, relative_path);
                 free(relative_path);
                 log_info(logger, "## PID: %u - Proceso Creado", pid);
-            
+                
                 t_pcb *pcb = create_pcb(pid, full_path);
+                if (pcb->instructions == NULL) {
+                    log_error(logger, "No se pudieron cargar las instrucciones para PID %u - el archivo puede no existir: %s", pid, full_path);
+                    free(full_path);
+                    break;
+                }
+
+                log_debug(logger, "La primera instruccion del proceso PID %u es: %s", pid, pcb->instructions[0]);
                 free(full_path);
                 list_add(list_processes, pcb);
             

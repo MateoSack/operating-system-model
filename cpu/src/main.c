@@ -16,6 +16,7 @@ pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t sem_instruction_fetch_ready;
 sem_t sem_instruction_response_ready;
+sem_t sem_eviction_ready;
 
 t_instruction_response instruction_response = {
 	.instruction = NULL,
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
 	
 	sem_init(&sem_instruction_fetch_ready, 0, 0);
 	sem_init(&sem_instruction_response_ready, 0, 0); 
+	sem_init(&sem_eviction_ready, 0, 0);
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
@@ -145,8 +147,11 @@ void *kernel_memory_thread()
 		switch (op) {
 			case INSTRUCTION_FETCH: {
 				// CPU instruction fetch flow: wait until CPU thread signals readiness
+				log_debug(logger, "Received INSTRUCTION_FETCH request from CPU thread, waiting for CPU to be ready");
 				sem_wait(&sem_instruction_fetch_ready);
-				char *instruction = message_receive(logger, kernel_memory_fd);
+				log_debug(logger, "CPU thread is ready for instruction, receiving instruction from Kernel Memory");
+				char *instruction = message_decode(kernel_memory_fd);
+				log_debug(logger, "Instruction received from Kernel Memory");
 
 				pthread_mutex_lock(&instruction_response.mutex);
 				instruction_response.instruction = instruction;
@@ -206,6 +211,14 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 		switch (op) {
 			case PROCESS_EXECUTE:
 			{
+				pthread_mutex_lock(&interrupt_mutex);
+    			bool hay_interrupcion = interruptPending;
+   				pthread_mutex_unlock(&interrupt_mutex);
+
+    			if (hay_interrupcion) {
+        			sem_wait(&sem_eviction_ready);
+    			}
+
 				uint32_t pid = uint32_decode(kernel_scheduler_fd);
 				log_info(logger, "Received PID %d from Kernel scheduler", pid);
 
