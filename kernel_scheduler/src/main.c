@@ -37,7 +37,7 @@ uint32_t current_max_pid = 0;
 int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
 	if (argc < 3) {
-        printf("Mode of use: %s <config_file> <first_process_path>\n", argv[0]);
+        printf("Modo de uso: %s <config_file> <first_process_path>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -85,22 +85,22 @@ int main(int argc, char *argv[]) {
 	free(port);
 
 	if (server_fd == -1) {
-		log_error(logger, "Couldnt start server");
+		log_error(logger, "No se pudo iniciar el servidor");
 		return EXIT_FAILURE;
 	}
 
-	log_info(logger, "Kernel Scheduler ready, waiting for connections...");
+	log_info(logger, "Kernel Scheduler iniciado en el puerto %s, esperando conexiones...", config_get_string_value(config, "KERNEL_SCHEDULER_PORT"));
 
 	/*-------------------Handle connections-------------------*/
 	while(1) {
 		int new_client_fd = server_client_wait(server_fd);
 
 		if (new_client_fd == -1) {
-            log_error(logger, "Couldnt accept connection");
+            log_error(logger, "No se pudo aceptar la conexión");
             continue;
         }
 
-		log_debug(logger, "New client connected: %d", new_client_fd);
+		log_debug(logger, "Nuevo cliente conectado: %d", new_client_fd);
 
         int *fd_for_thread = malloc(sizeof(int));
         *fd_for_thread = new_client_fd;
@@ -117,17 +117,17 @@ int kernel_memory_connection (t_log *logger, t_config *config, char *process0) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
+	log_debug(logger, "Intentando conexión con ip: %s, puerto: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
-		log_error(logger, "Couldnt connect with Kernel Memory");
+		log_error(logger, "No se pudo conectar con Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
 	t_module_id_send (kernel_memory_fd, MODULE_KERNEL_SCHEDULER, logger);
 
-	log_info(logger, "Connection successful with Kernel Memory");
+	log_info(logger, "## Conectado a Kernel Memory");
 
 	long_term_scheduler(process0, 0);
 
@@ -148,17 +148,17 @@ void *client_handler_selector (void *fd_ptr) {
 
 	switch (module_id) {
 		case MODULE_CPU:
-			log_debug(logger, "New client is of type CPU");
+			log_debug(logger, "Nuevo cliente es del tipo CPU");
 			cpu_handler(client_fd);
 			break;
 
 		case MODULE_IO:
-			log_debug(logger, "New client is of type IO");
+			log_debug(logger, "Nuevo cliente es del tipo IO");
 			io_handler(client_fd);
 			break;
 
 		default:
-            log_warning(logger, "Unknown module: %d", module_id);
+            log_warning(logger, "Modulo desconocido: %d", module_id);
             close(client_fd);
             return NULL;
 	}
@@ -175,7 +175,7 @@ t_log *start_logger(t_config *config) {
 
 void *shutdown_handler (void *arg) { // Waits for the shutdown signal and performs cleanup
 	sem_wait(&shutdown_sem);
-	log_info(logger, "Shutdown signal received, shutting down...");
+	log_info(logger, "Señal de apagado recibida, apagando...");
 
 	log_destroy(logger);
     config_destroy(config);

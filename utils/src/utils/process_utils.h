@@ -14,7 +14,7 @@ typedef enum {
 } t_process_state;
 
 typedef enum {
-    QUANTUM_EXPIRED,
+    QUANTUM_EXPIRATION,
     HIGHER_PRIORITY,
     CORRUPT_MEMORY,
     MUTEX_LOCKED,
@@ -44,5 +44,6 @@ void context_send (t_cpu_context *context, int client_socket);
 t_cpu_context *context_receive(int client_socket);
 t_process_state t_process_state_deserialize(void *buffer, int *offset);
 const char* process_state_to_string(t_process_state state);
+const char* interrupt_reason_to_string(t_interrupt_reason reason);
 
 #endif

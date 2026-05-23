@@ -5,7 +5,7 @@ int long_term_scheduler (char *path, uint8_t priority) {
     uint32_t pid = pid_assigner(&current_max_pid);
     pthread_mutex_unlock(&scheduler_mutex);
 
-    log_info(logger, "## (%d) New process - State: NEW", pid);
+    log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid);
     send_process_create_info(pid, path, kernel_memory_fd);
     free(path);
     

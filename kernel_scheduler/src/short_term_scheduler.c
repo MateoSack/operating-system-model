@@ -35,8 +35,8 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
             send_pid_to_execute(process->pid, cpu->fd);
         }
 
-        if (no_processes) log_debug(logger, "No processes in READY");
-        if (no_cpus) log_debug(logger, "No CPUs available");
+        if (no_processes) log_debug(logger, "Sin procesos en READY");
+        if (no_cpus) log_debug(logger, "No hay CPUs disponibles");
     }
 
     return NULL;
@@ -107,8 +107,8 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
 
                 pthread_mutex_unlock(&scheduler_mutex);
 
-                evict_process((t_process*)process);
-                log_info(logger, "## (%d) Process evicted - Motive: Quantum expiration", process->pid);
+                evict_process((t_process*)process, QUANTUM_EXPIRATION);
+                log_info(logger, "## (%d) - Desalojado por fin de quantum", process->pid);
 
                 sem_post(&short_term_scheduler_sem);
 

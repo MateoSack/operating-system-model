@@ -5,7 +5,7 @@ void cpu_handler (int cpu_fd) {
 	
 	t_client_info *cpu = malloc(sizeof(t_client_info));
 	cpu = add_client_to_list(list_cpu, cpu_fd, id);
-	log_info(logger, "CPU %d connected (total: %d)", id, list_size(list_cpu));
+	log_info(logger, "CPU %d conectado (total: %d)", id, list_size(list_cpu));
 
 	sem_post(&short_term_scheduler_sem);
 
@@ -23,7 +23,7 @@ void cpu_handler (int cpu_fd) {
             	uint32_t priority = uint32_receive (cpu->fd);
             	char *path = message_receive(logger, cpu->fd);
 
-				log_info(logger, "## (%d) Solicited syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
+				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
             
             	long_term_scheduler(path, priority);
             
@@ -33,7 +33,7 @@ void cpu_handler (int cpu_fd) {
 			case PROCESS_END: {
 				uint32_t pid = uint32_decode(cpu->fd);
 
-				log_info(logger, "## (%d) Solicited syscall: EXIT", pid);
+				log_info(logger, "## (%d) - Solicitó syscall: EXIT", pid);
 
 				pthread_mutex_lock(&scheduler_mutex);
 
@@ -49,15 +49,16 @@ void cpu_handler (int cpu_fd) {
 
 				pthread_mutex_unlock(&scheduler_mutex);
 
-				log_info(logger, "## (%d) Process finished - Motive: EXIT", pid);
+				log_info(logger, "## (%d) finalizo su ejecución con motivo de EXIT", pid);
 
 				sem_post(&short_term_scheduler_sem);
 				break;
 			}
 
 			case MUTEX_CREATE : {
+				t_process *process = get_process_from_cpu(cpu);
 				char *mutex_name = message_decode(cpu->fd);
-				log_info(logger, "## Solicited syscall: MUTEX_CREATE (Mutex name: %s)", mutex_name);
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE (Nombre del mutex: %s)", process->pid, mutex_name);
 				mutex_create(mutex_name);
 				free(mutex_name);
 				break;
@@ -68,10 +69,10 @@ void cpu_handler (int cpu_fd) {
 				
 				t_process *process = get_process_from_cpu(cpu);
 
-				log_info(logger, "## Solicited syscall: MUTEX_LOCK (Mutex name: %s)", mutex_name);
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK (Nombre del mutex: %s)", process->pid, mutex_name);
 
 				if (process == NULL) {
-    				log_error(logger, "No process associated to CPU");
+    				log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
     				break;
 				}
@@ -81,7 +82,7 @@ void cpu_handler (int cpu_fd) {
 				if (mutex != NULL) {
 					mutex_lock(mutex, process);
 				} else {
-					log_warning(logger, "Mutex '%s' not found", mutex_name);
+					log_warning(logger, "Mutex '%s' no encontrado", mutex_name);
 				}
 
 				free(mutex_name);
@@ -93,10 +94,10 @@ void cpu_handler (int cpu_fd) {
 				
 				t_process *process = get_process_from_cpu(cpu);
 
-				log_info(logger, "## Solicited syscall: MUTEX_UNLOCK (Mutex name: %s)", mutex_name);
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK (Nombre del mutex: %s)", process->pid, mutex_name);
 
 				if (process == NULL) {
-    				log_error(logger, "No process associated to CPU");
+    				log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
     				break;
 				}
@@ -106,7 +107,7 @@ void cpu_handler (int cpu_fd) {
 				if (mutex != NULL) {
 					mutex_unlock(mutex, process);
 				} else {
-					log_warning(logger, "Mutex '%s' not found", mutex_name);
+					log_warning(logger, "Mutex '%s' no encontrado", mutex_name);
 				}
 
 				free(mutex_name);
@@ -119,7 +120,7 @@ void cpu_handler (int cpu_fd) {
 void handle_cpu_disconnection (t_client_info *cpu) {
 	int cpu_id = cpu->id;
 
-	log_warning(logger, "CPU %d disconnected", cpu_id);
+	log_warning(logger, "CPU %d desconectada", cpu_id);
 	close(cpu->fd);
 
 	pthread_mutex_lock(&scheduler_mutex);
@@ -142,7 +143,7 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	
 	free(cpu);
 	
-	if (had_process) log_warning(logger, "CPU %d was executing process %d. Returning it to READY state.", cpu_id, pid);
+	if (had_process) log_warning(logger, "CPU %d estaba ejecutando el proceso %d. Devolviéndolo al estado READY.", cpu_id, pid);
 
 	sem_post(&short_term_scheduler_sem);
 }

@@ -3,7 +3,7 @@
 t_module_id handshake_receiver (int client_fd) { // Receives the handshake from the client, returns the module_id of the client or -1 on error
 	int cod_op = operation_receive(client_fd);
     if (cod_op != HANDSHAKE) {
-        log_error(logger, "Expected HANDSHAKE, received: %d", cod_op);
+        log_error(logger, "Se esperaba HANDSHAKE, se recibió: %d", cod_op);
         close(client_fd);
         return -1;
     }
@@ -56,7 +56,7 @@ int server_start (char *port, t_log *logger) { // Starts the server, returns the
 	}
 
 	freeaddrinfo(server_info);
-	log_trace(logger, "Ready to listen to client");
+	log_trace(logger, "Listo para escuchar clientes");
 
 	return server_socket;
 }
@@ -74,7 +74,7 @@ char* get_port_from_fd (int fd, t_log *logger) { // Gets the port of a socket fd
     socklen_t len = sizeof(addr);
 
     if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
-        log_error(logger, "Couldnt get port");
+        log_error(logger, "No se pudo obtener el puerto");
         return NULL;
     }
 
@@ -92,7 +92,7 @@ char* get_ip_from_fd (int fd, t_log *logger) { // Gets the ip of a socket fd, re
     socklen_t len = sizeof(addr);
 
     if (getsockname(fd, (struct sockaddr*)&addr, &len) == -1) {
-        log_error(logger, "Couldnt get ip");
+        log_error(logger, "No se pudo obtener la ip");
         return NULL;
     }
 

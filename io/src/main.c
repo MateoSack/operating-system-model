@@ -3,12 +3,11 @@
 
 t_log *logger;
 uint32_t pid;
-int main(void)
-{
+uint32_t io_id;
+int kernel_scheduler_fd;
 
+int main(void) {
 	/*-------------------Connection with Kernel Scheduler-------------------*/
-	uint32_t io_id;
-	int kernel_scheduler_fd;
 
 	t_config *config = config_create("io.config");
 	if(config == NULL) return EXIT_FAILURE;
@@ -21,29 +20,29 @@ int main(void)
 
 	kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
 
-	if (kernel_scheduler_fd == -1)
-	{
-		log_error(logger, "Connection attempt to Kernel scheduler failed.");
+	if (kernel_scheduler_fd == -1) {
+		log_error(logger, "Conexión con Kernel scheduler fallida");
 		return EXIT_FAILURE;
 	}
 
 	t_module_id_send(kernel_scheduler_fd, MODULE_IO, logger);
 	io_id = uint32_receive(kernel_scheduler_fd);
-	log_info(logger, "Connection successful with Kernel Scheduler, IO ID: %d", io_id);
+	log_info(logger, "## Conectado a Kernel Scheduler");
+	log_info(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);
 
 	while (1) {
 		int op = operation_receive(kernel_scheduler_fd);
+
         if (op == -1) {
-            log_warning(logger, "Kernel Scheduler disconnected");
+            log_warning(logger, "Kernel Scheduler desconectado");
 			close(kernel_scheduler_fd);
             break;
         }
+
 		switch (op) {
-			case IO_PROCESS://ESPERA 3 UINT32 PID, 
-			{
+			case IO_PROCESS: { //ESPERA 3 UINT32 PID
 				pid = uint32_decode(kernel_scheduler_fd);
 				log_info(logger, "## PID:  %d - Inicio de IO", pid);
-
 			}
 		}
 	}

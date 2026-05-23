@@ -24,7 +24,7 @@ int connection_create (char *ip, char *port, t_log *logger) { // Returns client 
 	err = connect(client_socket, server_info->ai_addr, server_info->ai_addrlen);
 
 	if (err != 0) {
-		log_error(logger, "connect error");
+		log_error(logger, "error de connección");
 		return -1;
 	}
 
@@ -62,13 +62,13 @@ char *message_receive (t_log *logger, int client_socket) { // Receives a message
 	int op_code = operation_receive(client_socket);
 
 	if (op_code != MESSAGE) {
-		log_error(logger, "Error retrieving message");
+		log_error(logger, "Error recuperando mensaje");
         return NULL;
     }
 
 	int size;
 	char *buffer = buffer_receive(&size, client_socket);
-	log_debug(logger, "Received message: %s", buffer);
+	log_debug(logger, "Mensaje recibido: %s", buffer);
 	return buffer;
 }
 
@@ -204,7 +204,7 @@ void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) { //
     package_add(pkg, &module_id, sizeof(t_module_id));
     package_send(pkg, server_fd);
     package_delete(pkg);
-    log_debug(logger, "t_module_id sent to: %d", server_fd);
+    log_debug(logger, "t_module_id enviado a: %d", server_fd);
 }
 
 t_module_id t_module_id_decode (int client_fd) { // Receives a t_module_id from the client, returns the module_id. Use only after receiving a HANDSHAKE operation code
@@ -219,7 +219,7 @@ t_module_id t_module_id_decode (int client_fd) { // Receives a t_module_id from 
 uint32_t uint32_receive (int client_fd) { // Receives a uint32_t from the client, returns the value
     int op_code = operation_receive(client_fd);
     if (op_code != PACKAGE && op_code != PROCESS_CREATE) {
-        log_error(logger, "uint32_receive: expected PACKAGE, got %d", op_code);
+        log_error(logger, "uint32_receive: se esperaba PACKAGE, se recibió %d", op_code);
         return 0;
     }
 
@@ -249,7 +249,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a li
 
 	package_send(pkg, fd);
 	package_delete(pkg);
-	log_debug(logger, "Has sent credentials' package");
+	log_debug(logger, "Paquete de credenciales enviado a fd: %d", fd);
 }
 
 t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_module_credentials from the client as part of a package, returns the list
@@ -303,7 +303,7 @@ void send_credentials (int fd, t_module_credentials *cred, t_log *logger) { // S
 	package_add(pkg, &cred->id, sizeof(cred->id));
 	package_send(pkg, fd);
 	package_delete(pkg);
-	log_debug(logger, "Has sent credentials to fd: %d", fd);
+	log_debug(logger, "Credenciales enviadas a fd: %d", fd);
 }
 
 t_module_credentials *receive_credentials (int socket_cliente) { // Receives a t_module_credentials from the client as part of a package, returns the credentials
@@ -350,7 +350,7 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { /
 	client->fd = client_fd;
 	client->id = id;
     list_add(list, client);
-	log_debug(logger, "Added to list client with fd: %d, id: %d", client_fd, id);
+	log_debug(logger, "Cliente agregado a la lista con fd: %d, id: %d", client_fd, id);
 	return client;
 }
 
@@ -377,6 +377,6 @@ void send_confirmation (int client_fd) {
 void wait_confirmation (int client_fd) {
 	int op_code = operation_receive(client_fd);
 	if (op_code != CONFIRMATION) {
-		log_error(logger, "Expected CONFIRMATION, received: %d", op_code);
+		log_error(logger, "Se esperaba CONFIRMATION, se recibió: %d", op_code);
 	}
 }

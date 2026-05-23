@@ -26,12 +26,12 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
 
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        log_info(logger, "## (%d) Mutex '%s' locked", process->pid, mutex->name);
+        log_info(logger, "## (%d) Toma el mutex '%s'", process->pid, mutex->name);
 
     } else {
         if (mutex->lockedBy == process) { // If the process already owns the mutex, do nothing (avoid deadlock)
             pthread_mutex_unlock(&mutex->internal_mutex);
-            log_warning(logger, "## (%d) Process already owns mutex '%s'", process->pid, mutex->name);
+            log_warning(logger, "## (%d) El proceso %d ya posee el mutex '%s'", process->pid, process->pid, mutex->name);
             return;
         }
         list_add(mutex->waitingProcesses, process);
@@ -45,7 +45,7 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        evict_process(process);
+        evict_process(process, MUTEX_LOCKED);
     }
 }
 
@@ -59,7 +59,7 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
     if (mutex->lockedBy != process) {
         pthread_mutex_unlock(&mutex->internal_mutex);
-        log_warning(logger, "## (%d) tried to unlock mutex '%s' without owning it", process->pid, mutex->name);
+        log_warning(logger, "## (%d) intentó liberar el mutex '%s' sin poseerlo", process->pid, mutex->name);
         return;
     }
 
@@ -80,7 +80,7 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
         sem_post(&short_term_scheduler_sem);
 
-        log_info(logger, "## (%d) Mutex '%s' unlocked and assigned to process %d", previous_owner_pid, mutex->name, next_process->pid);
+        log_info(logger, "## (%d) Libera el Mutex '%s' y se asigna al proceso %d", previous_owner_pid, mutex->name, next_process->pid);
 
     } else {
         mutex->isLocked = false;
@@ -88,7 +88,7 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        log_info(logger, "## (%d) Mutex '%s' unlocked ", previous_owner_pid, mutex->name);
+        log_info(logger, "## (%d) Libera el Mutex '%s' ", previous_owner_pid, mutex->name);
     }
 }
 

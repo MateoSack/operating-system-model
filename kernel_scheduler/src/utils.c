@@ -1,7 +1,7 @@
 #include <utils.h>
 
 void process_set_state (t_process *process, t_process_state state, t_log *logger) { // Set process state and log the transition
-    log_info(logger, "## (%d) Transitions from state <%s> to state <%s>", process->pid, process_state_to_string(process->state), process_state_to_string(state));
+    log_info(logger, "## (%d) Pasa del estado <%s> al estado <%s>", process->pid, process_state_to_string(process->state), process_state_to_string(state));
     process->state = state;
 }
 
@@ -55,7 +55,7 @@ t_scheduler_algorithm scheduler_algorithm_from_string(const char *str) { // Conv
     } else if (strcmp(str, "CMN") == 0) {
         return CMN;
     } else {
-        log_warning(logger, "Unknown scheduler algorithm: %s. Defaulting to FIFO.", str);
+        log_warning(logger, "Algoritmo de planificación desconocido: %s. Estableciendo FIFO.", str);
         return FIFO; // Default to FIFO if unknown
     }
 }
@@ -82,7 +82,7 @@ t_process *get_process_from_cpu (t_client_info *cpu) { // Get a process from the
     return process;
 }
 
-void evict_process (t_process *process) { // Evict a process from the CPU
+void evict_process (t_process *process, t_interrupt_reason reason) { // Evict a process from the CPU
     int cpu_fd = -1;
 
     pthread_mutex_lock(&scheduler_mutex);
@@ -96,13 +96,14 @@ void evict_process (t_process *process) { // Evict a process from the CPU
 
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EVICT;
+    package_add(pkg, &reason, sizeof(t_interrupt_reason));
     package_send(pkg, cpu_fd);
     package_delete(pkg);
 
     //wait_confirmation(cpu_fd); //TODO: Implement confirmation with semaphores to avoid busy waiting and the posibility that the next operation may not necesarily be a CONFIRMATION
 }
 
-void evict_all_processes () {
+void evict_all_processes (t_interrupt_reason reason) {
     while (1) {
         pthread_mutex_lock(&scheduler_mutex);
 
@@ -119,6 +120,6 @@ void evict_all_processes () {
 
         pthread_mutex_unlock(&scheduler_mutex);
 
-        evict_process(process);
+        evict_process(process, reason);
     }
 }

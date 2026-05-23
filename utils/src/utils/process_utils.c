@@ -62,3 +62,13 @@ const char* process_state_to_string(t_process_state state) { // Converts a t_pro
         default: return "UNKNOWN";
     }
 }
+
+const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts a t_interrupt_reason to a string, for logging purposes
+    switch(reason) {
+        case QUANTUM_EXPIRATION: return "QUANTUM_EXPIRATION";
+        case HIGHER_PRIORITY: return "HIGHER_PRIORITY";
+        case CORRUPT_MEMORY: return "CORRUPT_MEMORY";
+        case MUTEX_LOCKED: return "MUTEX_LOCKED";
+        default: return "UNKNOWN";
+    }
+}
