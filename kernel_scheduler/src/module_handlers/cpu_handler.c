@@ -3,8 +3,7 @@
 void cpu_handler (int cpu_fd) {
 	uint32_t id = id_assigner(&next_cpu_id, cpu_fd, &cpu_id_mutex);
 	
-	t_client_info *cpu = malloc(sizeof(t_client_info));
-	cpu = add_client_to_list(list_cpu, cpu_fd, id);
+	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d conectado (total: %d)", id, list_size(list_cpu));
 
 	sem_post(&short_term_scheduler_sem);

@@ -132,8 +132,15 @@ int kernel_memory_connection (t_log *logger, t_config *config, char *process0) {
 	t_module_id_send (kernel_memory_fd, MODULE_KERNEL_SCHEDULER, logger);
 
 	log_info(logger, "## Conectado a Kernel Memory");
+	
+	log_debug(logger, "Inicializando proceso0 con ruta: %s", process0);
 
-	long_term_scheduler(process0, 0);
+	int init_result = long_term_scheduler(process0, 0);
+	if (init_result == EXIT_SUCCESS) {
+		log_debug(logger, "Proceso0 creado correctamente");
+	} else {
+		log_error(logger, "No se pudo crear proceso0");
+	}
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_handler, NULL);

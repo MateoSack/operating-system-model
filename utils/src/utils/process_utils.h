@@ -18,6 +18,7 @@ typedef enum {
     HIGHER_PRIORITY,
     CORRUPT_MEMORY,
     MUTEX_LOCKED,
+    IO_REQUEST,
 } t_interrupt_reason;
 
 typedef struct {

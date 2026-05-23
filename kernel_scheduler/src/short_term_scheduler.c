@@ -4,6 +4,8 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
     while (1) {
         sem_wait(&short_term_scheduler_sem);
 
+        log_debug(logger, "Scheduler woke: ready_queue=%d, cpus=%d", list_size(ready_queue), list_size(list_cpu));
+
         bool no_processes = false;
         bool no_cpus = false;
 
@@ -20,6 +22,8 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
                 pthread_mutex_unlock(&scheduler_mutex);
                 break;
             }
+
+            list_remove(ready_queue, 0); // Remove the process from the ready queue
 
             cpu->is_available = false;
 
@@ -49,13 +53,16 @@ t_process *get_next_process_to_execute () { // Returns the next process to execu
 
     switch (scheduler_algorithm) {
         case FIFO:
-            process = (t_process*) list_remove(ready_queue, 0); // Get the first process in the list
+            process = (t_process*) list_get(ready_queue, 0); // Get the first process in the list
             break;
         case RR:
-            process = (t_process*) list_remove(ready_queue, 0); // Get the first process in the list
+            process = (t_process*) list_get(ready_queue, 0); // Get the first process in the list
             break;
         case CMN:
             /* code */
+            break;
+        default:
+            log_error(logger, "Algoritmo de planificación desconocido");
             break;
     }
 

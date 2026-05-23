@@ -64,7 +64,7 @@ int server_start (char *port, t_log *logger) { // Starts the server, returns the
 int server_client_wait (int socket_server) { // Waits for a client to connect, returns the client socket fd or -1 on error
 	int client_socket = accept(socket_server, NULL, NULL);;
 
-	log_info(logger, "Client connected");
+	log_info(logger, "Cliente conectado con fd: %d", client_socket);
 
 	return client_socket;
 }

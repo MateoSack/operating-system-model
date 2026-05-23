@@ -349,6 +349,9 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { /
 	t_client_info *client = malloc(sizeof(t_client_info));
 	client->fd = client_fd;
 	client->id = id;
+	client->is_available = true;
+	pthread_mutex_init(&client->network_mutex, NULL);
+	sem_init(&client->response_sem, 0, 0);
     list_add(list, client);
 	log_debug(logger, "Cliente agregado a la lista con fd: %d, id: %d", client_fd, id);
 	return client;

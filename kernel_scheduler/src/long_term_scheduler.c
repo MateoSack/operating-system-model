@@ -17,6 +17,7 @@ int long_term_scheduler (char *path, uint8_t priority) {
     process_set_state(process, READY, logger);
 
     add_process_to_list(ready_queue, process); // Not a list per se, but a queue, but we can use a list to implement it
+    log_debug(logger, "Proceso %d agregado a READY (ready_queue=%d)", process->pid, list_size(ready_queue));
 
     pthread_mutex_unlock(&scheduler_mutex);
 
