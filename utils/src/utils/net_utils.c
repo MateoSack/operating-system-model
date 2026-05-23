@@ -264,7 +264,15 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 
     int size;
     int offset = 0;
+	log_debug(logger, "Leyendo el buffer para receive_credentials_list");
     void *buffer = buffer_receive(&size, socket_cliente);
+	log_debug(logger, "Buffer recibido para receive_credentials_list");
+
+	if (size == 0) {
+    free(buffer);
+    log_info(logger, "Lista de credenciales vacía");
+    return list;
+	}
 
 	while (offset < size) {
 		t_module_credentials *cred = malloc(sizeof(t_module_credentials));

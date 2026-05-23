@@ -88,10 +88,6 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	log_info(logger, "Connection successful with Kernel Memory");
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory_fd);
-	if (credentials_list == NULL) {
-		log_error(logger, "Failed to receive credentials list from Kernel Memory");
-		return EXIT_FAILURE;
-	}
 	log_info(logger, "Received credentials list from Kernel Memory with %d entries", list_size(credentials_list));
 	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)

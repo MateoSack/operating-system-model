@@ -95,9 +95,12 @@ void *handle_module(void *fd_ptr) {
             int cpu_count = list_size(list_cpu);
             pthread_mutex_unlock(&list_cpu_mutex);
 
+            log_debug(logger, "Trying to send credentials list to CPU");
             pthread_mutex_lock(&list_memory_stick_credentials_mutex);
             send_credentials_list(client_fd, list_memory_stick_credentials, logger);
             pthread_mutex_unlock(&list_memory_stick_credentials_mutex);
+
+            log_debug(logger, "Credentials list sent to CPU");
 
             log_info(logger, "## CPU %d Conectada", cpu->id);
             log_info(logger, "Total de CPUs conectadas: %d", cpu_count);
