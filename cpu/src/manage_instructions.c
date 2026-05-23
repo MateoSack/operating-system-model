@@ -7,13 +7,26 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		t_package *pkg = package_create();
 		pkg->op_code = INSTRUCTION_FETCH;
 		package_add(pkg, &pid, sizeof(uint32_t));
+		
+		pthread_mutex_lock(&kernel_memory_write_mutex); // Usar funcion general de send
 		package_send(pkg, kernel_memory_fd);
+		pthread_mutex_unlock(&kernel_memory_write_mutex);
 		package_delete(pkg);
+		
 		log_info(logger, "## PID: %d - FETCH - Program Counter: %d", pid, context->pc);
 		
-        pthread_mutex_lock(&kernel_memory_read_mutex);
-        char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
-		pthread_mutex_unlock(&kernel_memory_read_mutex);
+		// Signal kernel_memory_thread that we're ready to receive instruction
+		sem_post(&sem_instruction_fetch_ready);
+		
+		// Wait for kernel_memory_thread to deliver the instruction
+		sem_wait(&sem_instruction_response_ready);
+        
+		// Get the instruction from shared structure
+		pthread_mutex_lock(&instruction_response.mutex);
+		char *instruction = instruction_response.instruction;
+		instruction_response.instruction = NULL;
+		instruction_response.is_ready = false;
+		pthread_mutex_unlock(&instruction_response.mutex);
         
         if (instruction == NULL) {
 			log_error(logger, "Failed to receive instruction from Kernel Memory");

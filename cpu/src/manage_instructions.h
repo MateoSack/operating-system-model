@@ -8,11 +8,13 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<utils/process_utils.h>
+#include<semaphore.h>
 
 extern pthread_mutex_t interrupt_mutex;
 extern pthread_mutex_t kernel_scheduler_write_mutex;
 extern pthread_mutex_t kernel_memory_write_mutex;
-extern pthread_mutex_t kernel_memory_read_mutex;
+extern sem_t sem_instruction_fetch_ready;
+extern sem_t sem_instruction_response_ready;
 
 typedef enum {
 	NO_OP,
@@ -46,11 +48,18 @@ typedef struct {
 	size_t field_size;
 } t_register_descriptor;
 
+typedef struct {
+	char *instruction;
+	bool is_ready;
+	pthread_mutex_t mutex;
+} t_instruction_response;
+
 extern t_log *logger;
 extern int kernel_memory_fd;
 extern int kernel_scheduler_fd;
 extern bool interruptPending;
 extern t_interrupt_reason interruptReason;
+extern t_instruction_response instruction_response;
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid);
 t_instruction_type instruction_to_type(char *instruction_str);

@@ -13,9 +13,28 @@ pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_scheduler_write_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t kernel_memory_read_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+sem_t sem_instruction_fetch_ready;
+sem_t sem_instruction_response_ready;
+
+t_instruction_response instruction_response = {
+	.instruction = NULL,
+	.is_ready = false,
+	.mutex = PTHREAD_MUTEX_INITIALIZER
+};
 
 t_list *list_memory_stick;
+
+// Pending request for context seek
+typedef struct {
+	uint32_t pid;
+	t_cpu_context *context;
+	sem_t sem;
+	bool ready;
+} t_pending_request;
+
+t_pending_request *pending_request = NULL;
+pthread_mutex_t pending_request_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, char *argv[]) {
 
@@ -31,6 +50,9 @@ int main(int argc, char *argv[]) {
 	log_info(logger, "CPU started");
 	list_memory_stick = list_create();
 	cpu_identifier = strdup(argv[2]); 
+	
+	sem_init(&sem_instruction_fetch_ready, 0, 0);
+	sem_init(&sem_instruction_response_ready, 0, 0); 
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
@@ -113,29 +135,56 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 
 void *kernel_memory_thread()
 {
-	while (1)
-	{
-		// Handle connection with Kernel Memory
-		pthread_mutex_lock(&kernel_memory_read_mutex);
+	while (1) {
+		// Centralized reader for Kernel Memory
 		int op = operation_receive(kernel_memory_fd);
-		if (op == -1)
-		{
-			pthread_mutex_unlock(&kernel_memory_read_mutex);
+		if (op == -1) {
 			log_warning(logger, "Kernel Memory disconnected");
 			close(kernel_memory_fd);
 			break;
 		}
+
 		switch (op) {
+			case INSTRUCTION_FETCH: {
+				// CPU instruction fetch flow: wait until CPU thread signals readiness
+				sem_wait(&sem_instruction_fetch_ready);
+				char *instruction = message_receive(logger, kernel_memory_fd);
+
+				pthread_mutex_lock(&instruction_response.mutex);
+				instruction_response.instruction = instruction;
+				instruction_response.is_ready = true;
+				pthread_mutex_unlock(&instruction_response.mutex);
+
+				log_debug(logger, "Received instruction: %s", instruction);
+				sem_post(&sem_instruction_response_ready);
+				break;
+			}
+
+			case CONTEXT_TRANSFER: {
+				// Received context for a previous CONTEXT_SEEK -> dispatch to pending requester
+				t_cpu_context *ctx = context_receive(kernel_memory_fd);
+
+				pthread_mutex_lock(&pending_request_mutex);
+				if (pending_request != NULL) {
+					pending_request->context = ctx;
+					pending_request->ready = true;
+					sem_post(&pending_request->sem);
+				} else {
+					free(ctx);
+					log_warning(logger, "Received CONTEXT_TRANSFER but no pending request");
+				}
+				pthread_mutex_unlock(&pending_request_mutex);
+				break;
+			}
+
 			case CREDENTIALS_UPDATE: {
 				t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
-				pthread_mutex_unlock(&kernel_memory_read_mutex);
 				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
 				connect_with_memory_stick(logger, credentials);
 				break;
 			}
 
 			default: {
-				pthread_mutex_unlock(&kernel_memory_read_mutex);
 				log_warning(logger, "Received unknown operation code %d from Kernel Memory", op);
 				break;
 			}
@@ -171,10 +220,28 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				package_delete(pkg);
 
 				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
-				
-				pthread_mutex_lock(&kernel_memory_read_mutex);
-				t_cpu_context *context = context_receive(kernel_memory_fd);
-				pthread_mutex_unlock(&kernel_memory_read_mutex);
+
+				// Create pending request and wait for context from kernel_memory_thread
+				pthread_mutex_lock(&pending_request_mutex);
+				if (pending_request != NULL) {
+					log_error(logger, "Unexpected pending request already exists");
+				}
+				pending_request = malloc(sizeof(t_pending_request));
+				pending_request->pid = pid;
+				pending_request->context = NULL;
+				pending_request->ready = false;
+				sem_init(&pending_request->sem, 0, 0);
+				pthread_mutex_unlock(&pending_request_mutex);
+
+				// Wait until kernel_memory_thread posts the context
+				sem_wait(&pending_request->sem);
+				t_cpu_context *context = pending_request->context;
+
+				pthread_mutex_lock(&pending_request_mutex);
+				sem_destroy(&pending_request->sem);
+				free(pending_request);
+				pending_request = NULL;
+				pthread_mutex_unlock(&pending_request_mutex);
 
 				if (context == NULL) {
 					log_error(logger, "Failed to receive context from Kernel Memory");
