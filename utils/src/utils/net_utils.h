@@ -47,6 +47,7 @@ typedef struct {
     int fd;
     uint32_t id;
     bool is_available;
+    pthread_mutex_t internal_mutex;
     pthread_mutex_t network_mutex;
     sem_t response_sem; // Used to signal the client handler thread that a response has been received and is ready to be processed
 } t_client_info;

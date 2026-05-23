@@ -151,3 +151,14 @@ t_io_string_process *t_io_string_process_create(uint32_t pid, char *value, t_io_
 
     return io_process;
 }
+
+t_interrupt_reason t_interrupt_reason_deserialize(void *buffer, int *offset) { // Deserializes a t_interrupt_reason from a buffer, updating the offset
+	int size;
+	t_interrupt_reason value;
+	memcpy(&size, buffer + *offset, sizeof(t_interrupt_reason));
+	*offset += sizeof(t_interrupt_reason);
+	memcpy(&value, buffer + *offset, size);
+	*offset += size;
+	return value;
+}
+

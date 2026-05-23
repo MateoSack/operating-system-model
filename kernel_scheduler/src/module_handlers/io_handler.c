@@ -4,7 +4,7 @@ void io_handler (int io_fd) {
 	t_io_type io_type = t_io_type_receive(io_fd);
 	uint32_t id = id_assigner(&next_io_id, io_fd, &io_id_mutex);
 
-	t_client_info *io = malloc(sizeof(t_client_info));
+	t_client_info *io = NULL;
 
 	t_list *io_list = NULL;
 	t_list *pending_io_list = NULL;
@@ -46,32 +46,33 @@ void io_handler (int io_fd) {
 				close(io_fd);
 				remove_client_from_list(io_list, io);
 				free(io);
-				break;
+				return;
 			}
 
 			case CONFIRMATION: {
 				uint32_t pid = uint32_decode(io_fd);
 				log_info(logger, "## PID: %d - IO %d - Confirmación de finalización recibida", pid, id);
 
-				pthread_mutex_lock(&scheduler_mutex);
-				t_process *process = get_process_from_pid(pid);
-				if (process != NULL) {
-					process_set_state(process, READY, logger);
-					add_process_to_list(ready_queue, process);
-					io->is_available = true;
-					pthread_mutex_unlock(&scheduler_mutex);
+				io_finish_process(pid, io);
 
-					sem_post(&short_term_scheduler_sem);
-				} else {
-					pthread_mutex_unlock(&scheduler_mutex);
-					log_warning(logger, "Proceso %d no encontrado para confirmar finalización de IO", pid);
-				}
+				pthread_mutex_lock(&io_mutex);
 
 				t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
 
-				if (pending_process == NULL) break;
+				if (pending_process == NULL) {
+					pthread_mutex_unlock(&io_mutex);
+					break;
+				}
 
+				pthread_mutex_lock(&io->internal_mutex);
+				io->is_available = false;
+				pthread_mutex_unlock(&io->internal_mutex);
+
+				pthread_mutex_unlock(&io_mutex);
+				
+				pthread_mutex_lock(&io->network_mutex);
 				io_numeric_process_send(pending_process, standard_op, io_fd);
+				pthread_mutex_unlock(&io->network_mutex);
 
 				break;
 			}
@@ -87,27 +88,28 @@ void io_handler (int io_fd) {
 					
 				log_info(logger, "## PID: %d finalizó IO y pasa a READY / SUSP. READY", io_process->pid);
 
-				pthread_mutex_lock(&scheduler_mutex);
-				t_process *process = get_process_from_pid(io_process->pid);
-				if (process != NULL) {
-					process_set_state(process, READY, logger);
-					add_process_to_list(ready_queue, process);
-					io->is_available = true;
-					pthread_mutex_unlock(&scheduler_mutex);
-
-					sem_post(&short_term_scheduler_sem);
-				} else {
-					pthread_mutex_unlock(&scheduler_mutex);
-					log_warning(logger, "Proceso %d no encontrado para confirmar finalización de IO", io_process->pid);
-				}
+				io_finish_process(io_process->pid, io);
 
 				free(io_process);
 
+				pthread_mutex_lock(&io_mutex);
+				
 				t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
 
-				if (pending_process == NULL) break;
+				if (pending_process == NULL) {
+					pthread_mutex_unlock(&io_mutex);
+					break;
+				}
 
+				pthread_mutex_lock(&io->internal_mutex);
+				io->is_available = false;
+				pthread_mutex_unlock(&io->internal_mutex);
+
+				pthread_mutex_unlock(&io_mutex);
+				
+				pthread_mutex_lock(&io->network_mutex);
 				io_string_process_send(pending_process, standard_op, io_fd);
+				pthread_mutex_unlock(&io->network_mutex);
 
 				break;
 			}
@@ -118,4 +120,24 @@ void io_handler (int io_fd) {
 			}
 		}
 	}
+}
+
+void io_finish_process(uint32_t pid, t_client_info *io) {
+    pthread_mutex_lock(&scheduler_mutex);
+    t_process *process = get_process_from_pid(pid);
+
+    if (process != NULL) {
+        process_set_state(process, READY, logger);
+        add_process_to_list(ready_queue, process);
+        pthread_mutex_unlock(&scheduler_mutex);
+
+        pthread_mutex_lock(&io->internal_mutex);
+        io->is_available = true;
+        pthread_mutex_unlock(&io->internal_mutex);
+
+        sem_post(&short_term_scheduler_sem);
+    } else {
+        pthread_mutex_unlock(&scheduler_mutex);
+        log_warning(logger, "Proceso %d no encontrado", pid);
+    }
 }

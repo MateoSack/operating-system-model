@@ -6,6 +6,8 @@
 #include <utils.h>
 
 extern pthread_mutex_t io_id_mutex;
+extern pthread_mutex_t io_mutex;
+extern pthread_mutex_t scheduler_mutex;
 
 extern t_list *list_cpu;
 extern t_list *list_io_sleep;
@@ -25,5 +27,6 @@ extern int kernel_memory_fd;
 extern uint32_t next_io_id;
 
 void io_handler (int io_fd);
+void io_finish_process(uint32_t pid, t_client_info *io);
 
 #endif

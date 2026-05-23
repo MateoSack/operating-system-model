@@ -367,6 +367,7 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { /
 	client->fd = client_fd;
 	client->id = id;
 	client->is_available = true;
+	pthread_mutex_init(&client->internal_mutex, NULL);
 	pthread_mutex_init(&client->network_mutex, NULL);
 	sem_init(&client->response_sem, 0, 0);
     list_add(list, client);

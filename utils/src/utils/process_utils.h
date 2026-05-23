@@ -64,5 +64,6 @@ void io_string_process_send (t_io_string_process *io_process, op_code op_code, i
 t_io_string_process *io_string_process_receive(int client_socket);
 t_io_numeric_process *t_io_numeric_process_create(uint32_t pid, uint32_t value, t_io_type io_type);
 t_io_string_process *t_io_string_process_create(uint32_t pid, char *value, t_io_type io_type);
+t_interrupt_reason t_interrupt_reason_deserialize(void *buffer, int *offset);
 
 #endif

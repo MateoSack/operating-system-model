@@ -128,24 +128,34 @@ void cpu_handler (int cpu_fd) {
 				pthread_mutex_lock(&scheduler_mutex);
 				process_set_state(process, BLOCK, logger);
 				remove_process_from_list(exec_processes, process);
-				t_client_info *io = get_available_io_type(list_io_sleep);
 				pthread_mutex_unlock(&scheduler_mutex);
 
 				evict_process(process, IO_REQUEST);
+				
+				pthread_mutex_lock(&io_mutex);
+				t_client_info *io = get_available_io_type(list_io_sleep);
 
 				if (io != NULL) {
-					pthread_mutex_lock(&io->network_mutex);
+					pthread_mutex_lock(&io->internal_mutex);
 					io->is_available = false;
+					pthread_mutex_unlock(&io->internal_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					t_io_numeric_process *io_process = t_io_numeric_process_create(pid, sleep_time, IO_TYPE_SLEEP);
+
+					pthread_mutex_lock(&io->network_mutex);
 					io_numeric_process_send(io_process, SLEEP, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
+
 					log_debug(logger, "Proceso %d enviado a IO SLEEP (fd: %d) para dormir por %d ms", pid, io->fd, sleep_time);
 				} else {
-					pthread_mutex_lock(&scheduler_mutex);
 					list_add(pending_request_io_sleep, process);
-					pthread_mutex_unlock(&scheduler_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					log_debug(logger, "No hay dispositivos IO de tipo SLEEP disponibles para procesar la solicitud de sleep del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo SLEEP esté disponible.", pid);
 				}
+
+				break;
 			}
 
 			case STDIN : {
@@ -162,24 +172,32 @@ void cpu_handler (int cpu_fd) {
 				pthread_mutex_lock(&scheduler_mutex);
 				process_set_state(process, BLOCK, logger);
 				remove_process_from_list(exec_processes, process);
-				t_client_info *io = get_available_io_type(list_io_stdin);
 				pthread_mutex_unlock(&scheduler_mutex);
 
 				evict_process(process, IO_REQUEST);
+				
+				pthread_mutex_lock(&io_mutex);
+				t_client_info *io = get_available_io_type(list_io_stdin);
 
 				int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
 
 				if (io != NULL) {
-					pthread_mutex_lock(&io->network_mutex);
+					pthread_mutex_lock(&io->internal_mutex);
 					io->is_available = false;
+					pthread_mutex_unlock(&io->internal_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					t_io_numeric_process *io_process = t_io_numeric_process_create(pid, value, IO_TYPE_STDIN);
+
+					pthread_mutex_lock(&io->network_mutex);
 					io_numeric_process_send(io_process, STDIN, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
+
 					log_debug(logger, "Proceso %d enviado a IO STDIN (fd: %d)", pid, io->fd);
 				} else {
-					pthread_mutex_lock(&scheduler_mutex);
 					list_add(pending_request_io_stdin, process);
-					pthread_mutex_unlock(&scheduler_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					log_debug(logger, "No hay dispositivos IO de tipo STDIN disponibles para procesar la solicitud de stdin del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDIN esté disponible.", pid);
 				}
 				break;
@@ -199,26 +217,44 @@ void cpu_handler (int cpu_fd) {
 				pthread_mutex_lock(&scheduler_mutex);
 				process_set_state(process, BLOCK, logger);
 				remove_process_from_list(exec_processes, process);
-				t_client_info *io = get_available_io_type(list_io_stdout);
 				pthread_mutex_unlock(&scheduler_mutex);
 
 				evict_process(process, IO_REQUEST);
 
+				pthread_mutex_lock(&io_mutex);
+				t_client_info *io = get_available_io_type(list_io_stdout);
+
 				char *value = "10"; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
 
 				if (io != NULL) {
-					pthread_mutex_lock(&io->network_mutex);
+					pthread_mutex_lock(&io->internal_mutex);
 					io->is_available = false;
+					pthread_mutex_unlock(&io->internal_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					t_io_string_process *io_process = t_io_string_process_create(pid, value, IO_TYPE_STDOUT);
+
+					pthread_mutex_lock(&io->network_mutex);
 					io_string_process_send(io_process, STDOUT, io->fd);
 					pthread_mutex_unlock(&io->network_mutex);
+
 					log_debug(logger, "Proceso %d enviado a IO STDOUT (fd: %d)", pid, io->fd);
 				} else {
-					pthread_mutex_lock(&scheduler_mutex);
 					list_add(pending_request_io_stdout, process);
-					pthread_mutex_unlock(&scheduler_mutex);
+					pthread_mutex_unlock(&io_mutex);
+
 					log_debug(logger, "No hay dispositivos IO de tipo STDOUT disponibles para procesar la solicitud de stdout del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDOUT esté disponible.", pid);
 				}
+				break;
+			}
+
+			case PROCESS_INTERRUPTED: {
+				uint32_t pid;
+				t_interrupt_reason reason;
+
+				receive_interruption(&pid, &reason, cpu->fd);
+
+				log_debug(logger, "## PID %d - Recibió interrupción (reason=%s)", pid, interrupt_reason_to_string(reason));
 				break;
 			}
         }
@@ -261,10 +297,8 @@ void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd)
     int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
 
-	memcpy(pid, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(sleep_time, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
+	*pid = uint32_deserialize(buffer, &offset);
+	*sleep_time = uint32_deserialize(buffer, &offset);
 
 	free(buffer);
 }
@@ -274,12 +308,9 @@ void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, in
     int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
 
-	memcpy(pid, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(base, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(limit, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
+	*pid = uint32_deserialize(buffer, &offset);
+	*base = uint32_deserialize(buffer, &offset);
+	*limit = uint32_deserialize(buffer, &offset);
 
 	free(buffer);
 }
@@ -289,10 +320,8 @@ void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char
 	int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
 
-	memcpy(pid, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(priority, buffer + offset, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
+	*pid = uint32_deserialize(buffer, &offset);
+	*priority = uint32_deserialize(buffer, &offset);
 
 	int path_size;
 	memcpy(&path_size, buffer + offset, sizeof(int));
@@ -300,6 +329,17 @@ void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char
 	*path = malloc(path_size);
 	memcpy(*path, buffer + offset, path_size);
 	offset += path_size;
+
+	free(buffer);
+}
+
+void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd) {
+	int size;
+	int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+
+	*pid = uint32_deserialize(buffer, &offset);
+	*reason = t_interrupt_reason_deserialize(buffer, &offset);
 
 	free(buffer);
 }
