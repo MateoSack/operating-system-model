@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	t_module_id_send(kernel_scheduler_fd, MODULE_IO, logger);
+	t_io_type_send(kernel_scheduler_fd, io_type, logger);
 	io_id = uint32_receive(kernel_scheduler_fd);
 	log_info(logger, "## Conectado a Kernel Scheduler");
 	log_info(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);

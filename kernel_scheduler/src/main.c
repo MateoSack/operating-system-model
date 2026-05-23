@@ -7,7 +7,9 @@ t_scheduler_algorithm scheduler_algorithm;
 int quantum = 0;
 
 t_list *list_cpu = NULL;
-t_list *list_io = NULL;
+t_list *list_io_sleep = NULL;
+t_list *list_io_stdin = NULL;
+t_list *list_io_stdout = NULL;
 
 t_list *list_processes = NULL;
 t_list *ready_queue = NULL;
@@ -49,7 +51,9 @@ int main(int argc, char *argv[]) {
 	quantum = config_get_int_value(config, "RR_QUANTUM");
 
 	list_cpu = list_create();
-    list_io = list_create();
+    list_io_sleep = list_create();
+	list_io_stdin = list_create();
+	list_io_stdout = list_create();
 	list_processes = list_create();
 	ready_queue = list_create();
 	exec_processes = list_create();
@@ -189,7 +193,9 @@ void *shutdown_handler (void *arg) { // Waits for the shutdown signal and perfor
 	temporal_destroy(system_timer);
 
 	destroy_list_of_clients(list_cpu);
-	destroy_list_of_clients(list_io);
+	destroy_list_of_clients(list_io_sleep);
+	destroy_list_of_clients(list_io_stdin);
+	destroy_list_of_clients(list_io_stdout);
 
 	destroy_list_of_mutexes(list_mutexes);
 

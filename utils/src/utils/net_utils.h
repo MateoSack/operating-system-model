@@ -56,6 +56,12 @@ typedef enum {
     MODULE_MEMORY_STICK
 } t_module_id;
 
+typedef enum {
+    IO_TYPE_STDIN,
+    IO_TYPE_STDOUT,
+    IO_TYPE_SLEEP,
+} t_io_type;
+
 typedef struct {
     char *ip;
     char *port;
@@ -105,5 +111,8 @@ void remove_client_from_list (t_list *list, t_client_info *client);
 uint32_t uint32_decode (int client_fd);
 void send_confirmation (int client_fd);
 void wait_confirmation (int client_fd);
+void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger);
+t_io_type t_io_type_receive (int client_fd);
+t_io_type t_io_type_deserialize(void *buffer, int *offset);
 
 #endif

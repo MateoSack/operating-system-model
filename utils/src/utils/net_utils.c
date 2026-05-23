@@ -367,16 +367,50 @@ uint32_t uint32_decode (int client_fd) { //Returns uint32 from client, use only 
     return value;
 }
 
-void send_confirmation (int client_fd) {
+void send_confirmation (int client_fd) { // Sends a confirmation package to the client
 	t_package *pkg = package_create();
 	pkg->op_code = CONFIRMATION;
 	package_send(pkg, client_fd);
     package_delete(pkg);
 }
 
-void wait_confirmation (int client_fd) {
+void wait_confirmation (int client_fd) { // Waits for a confirmation package from the client, shouldnt be used because of busy waiting
 	int op_code = operation_receive(client_fd);
 	if (op_code != CONFIRMATION) {
 		log_error(logger, "Se esperaba CONFIRMATION, se recibió: %d", op_code);
 	}
+}
+
+void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger) { // Sends a t_io_type to the server as part of the handshake process
+    t_package *pkg = package_create();
+    pkg->op_code = HANDSHAKE;  // Set to HANDSHAKE instead of PACKAGE
+    package_add(pkg, &module_type, sizeof(t_io_type));
+    package_send(pkg, server_fd);
+    package_delete(pkg);
+    log_debug(logger, "t_io_type enviado a: %d", server_fd);
+}
+
+t_io_type t_io_type_receive (int client_fd) { // Receives a t_io_type from the client, returns the io_type
+    int op_code = operation_receive(client_fd);
+    if (op_code != HANDSHAKE) {
+        log_error(logger, "t_io_type_receive: se esperaba HANDSHAKE, se recibió %d", op_code);
+        return 0;
+    }
+
+	int size;
+	int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    t_io_type io_type = t_io_type_deserialize(buffer, &offset);
+    free(buffer);
+	return io_type;
+}
+
+t_io_type t_io_type_deserialize(void *buffer, int *offset) { // Deserializes a t_io_type from a buffer, updating the offset
+	int size;
+	t_io_type value;
+	memcpy(&size, buffer + *offset, sizeof(t_io_type));
+	*offset += sizeof(t_io_type);
+	memcpy(&value, buffer + *offset, size);
+	*offset += size;
+	return value;
 }

@@ -5,7 +5,6 @@
 #include <utils/server_utils.h>
 
 extern t_list *list_cpu;
-extern t_list *list_io;
 extern t_list *list_processes;
 
 extern t_log *logger;

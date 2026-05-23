@@ -19,9 +19,11 @@ void cpu_handler (int cpu_fd) {
 
 		switch (op) {
         	case PROCESS_CREATE: {
-				uint32_t pid = uint32_decode(cpu->fd);
-            	uint32_t priority = uint32_receive (cpu->fd);
-            	char *path = message_receive(logger, cpu->fd);
+				uint32_t pid;
+				uint32_t priority;
+				char *path;
+
+				receive_instruction_process_create(&pid, &priority, &path, cpu->fd);
 
 				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
             
@@ -113,6 +115,13 @@ void cpu_handler (int cpu_fd) {
 				free(mutex_name);
 				break;
 			}
+
+			case SLEEP : {
+				uint32_t pid;
+				uint32_t sleep_time;
+
+				receive_instruction_sleep(&pid, &sleep_time, cpu->fd);
+			}
         }
 	}
 }
@@ -146,4 +155,37 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	if (had_process) log_warning(logger, "CPU %d estaba ejecutando el proceso %d. Devolviéndolo al estado READY.", cpu_id, pid);
 
 	sem_post(&short_term_scheduler_sem);
+}
+
+void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+
+	memcpy(pid, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(sleep_time, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	free(buffer);
+}
+
+void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char **path, int cpu_fd) {
+	int size;
+	int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+
+	memcpy(pid, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(priority, buffer + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	int path_size;
+	memcpy(&path_size, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	*path = malloc(path_size);
+	memcpy(*path, buffer + offset, path_size);
+	offset += path_size;
+
+	free(buffer);
 }

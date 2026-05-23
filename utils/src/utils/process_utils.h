@@ -40,12 +40,6 @@ typedef struct {
     uint32_t limit;
 } t_segment;
 
-typedef enum {
-    IO_TYPE_STDIN,
-    IO_TYPE_STDOUT,
-    IO_TYPE_SLEEP,
-} t_io_type;
-
 typedef struct {
     uint32_t pid;
     uint32_t value;

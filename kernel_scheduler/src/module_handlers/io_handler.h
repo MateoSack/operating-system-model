@@ -8,7 +8,9 @@
 extern pthread_mutex_t io_id_mutex;
 
 extern t_list *list_cpu;
-extern t_list *list_io;
+extern t_list *list_io_sleep;
+extern t_list *list_io_stdin;
+extern t_list *list_io_stdout;
 extern t_list *list_processes;
 
 extern t_log *logger;
