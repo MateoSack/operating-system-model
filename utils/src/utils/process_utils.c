@@ -69,6 +69,8 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
         case HIGHER_PRIORITY: return "HIGHER_PRIORITY";
         case CORRUPT_MEMORY: return "CORRUPT_MEMORY";
         case MUTEX_LOCKED: return "MUTEX_LOCKED";
+        case IO_REQUEST: return "IO_REQUEST";
+        case PROCESS_EXIT: return "PROCESS_EXIT";
         default: return "UNKNOWN";
     }
 }

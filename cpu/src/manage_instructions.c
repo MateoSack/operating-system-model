@@ -1,14 +1,20 @@
 #include<manage_instructions.h>
 
-bool should_stop_execution = false;
+bool should_exit = false;
+bool shoudld_stop = false;
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid) {
     bool hasJumped = false;
 	while (1)
 	{
-        if(should_stop_execution) {
+        if(should_exit) {
             log_info(logger, "Finalizando proceso PID %d", pid);
-            should_stop_execution = false;
+            should_exit = false;
+            break;
+        }
+        if(shoudld_stop) {
+            log_info(logger, "Deteniendo proceso PID %d", pid);
+            shoudld_stop = false;
             break;
         }
 
@@ -50,7 +56,13 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		log_info(logger, "## PID: %d - Ejecutando: %s", pid, decoded_instruction[0]);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
-		
+
+        if (shoudld_stop) {
+            log_info(logger, "Deteniendo proceso PID %d luego de instrucción especial", pid);
+            shoudld_stop = false;
+            break;
+        }
+
         if (!hasJumped) {
             context->pc++;
         } else {
@@ -149,34 +161,34 @@ t_instruction_type instruction_to_type(char *instruction_mnemonic) {
 t_register_descriptor get_register_descriptor(t_cpu_context *context, const char *register_name) {
     t_register_descriptor descriptor = { NULL, 0 };
 
-    if (strcmp(register_name, "ax") == 0) {
+    if (strcasecmp(register_name, "ax") == 0) {
         descriptor.field_address = &context->ax;
         descriptor.field_size = sizeof(context->ax);
-    } else if (strcmp(register_name, "bx") == 0) {
+    } else if (strcasecmp(register_name, "bx") == 0) {
         descriptor.field_address = &context->bx;
         descriptor.field_size = sizeof(context->bx);
-    } else if (strcmp(register_name, "cx") == 0) {
+    } else if (strcasecmp(register_name, "cx") == 0) {
         descriptor.field_address = &context->cx;
         descriptor.field_size = sizeof(context->cx);
-    } else if (strcmp(register_name, "dx") == 0) {
+    } else if (strcasecmp(register_name, "dx") == 0) {
         descriptor.field_address = &context->dx;
         descriptor.field_size = sizeof(context->dx);
-    } else if (strcmp(register_name, "eax") == 0) {
+    } else if (strcasecmp(register_name, "eax") == 0) {
         descriptor.field_address = &context->eax;
         descriptor.field_size = sizeof(context->eax);
-    } else if (strcmp(register_name, "ebx") == 0) {
+    } else if (strcasecmp(register_name, "ebx") == 0) {
         descriptor.field_address = &context->ebx;
         descriptor.field_size = sizeof(context->ebx);
-    } else if (strcmp(register_name, "ecx") == 0) {
+    } else if (strcasecmp(register_name, "ecx") == 0) {
         descriptor.field_address = &context->ecx;
         descriptor.field_size = sizeof(context->ecx);
-    } else if (strcmp(register_name, "edx") == 0) {
+    } else if (strcasecmp(register_name, "edx") == 0) {
         descriptor.field_address = &context->edx;
         descriptor.field_size = sizeof(context->edx);
-    } else if (strcmp(register_name, "si") == 0) {
+    } else if (strcasecmp(register_name, "si") == 0) {
         descriptor.field_address = &context->si;
         descriptor.field_size = sizeof(context->si);
-    } else if (strcmp(register_name, "di") == 0) {
+    } else if (strcasecmp(register_name, "di") == 0) {
         descriptor.field_address = &context->di;
         descriptor.field_size = sizeof(context->di);
     }
@@ -395,9 +407,9 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *h
 }
 
 bool check_if_register(char *operand) {
-	if (strcmp(operand, "ax") == 0 || strcmp(operand, "bx") == 0 || strcmp(operand, "cx") == 0 || strcmp(operand, "dx") == 0 ||
-		strcmp(operand, "eax") == 0 || strcmp(operand, "ebx") == 0 || strcmp(operand, "ecx") == 0 || strcmp(operand, "edx") == 0 ||
-		strcmp(operand, "si") == 0 || strcmp(operand, "di") == 0) {
+	if (strcasecmp(operand, "ax") == 0 || strcasecmp(operand, "bx") == 0 || strcasecmp(operand, "cx") == 0 || strcasecmp(operand, "dx") == 0 ||
+		strcasecmp(operand, "eax") == 0 || strcasecmp(operand, "ebx") == 0 || strcasecmp(operand, "ecx") == 0 || strcasecmp(operand, "edx") == 0 ||
+		strcasecmp(operand, "si") == 0 || strcasecmp(operand, "di") == 0) {
 		return true;
 	}
 	return false;
@@ -476,6 +488,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &time, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+    shoudld_stop = true; // Deberia parar por generar interrupcion de IO
 }
 
 void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -499,6 +512,8 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+
+    shoudld_stop = true; // Deberia parar por generar interrupcion de IO
 }
 
 void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -522,6 +537,8 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+
+    shoudld_stop = true; // Deberia parar por generar interrupcion de IO
 }
 
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -543,7 +560,7 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     package_add(pkg, &pid, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
-    should_stop_execution = true;
+    should_exit = true;
 }
 
 /*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc

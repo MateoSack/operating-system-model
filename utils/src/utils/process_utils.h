@@ -19,6 +19,7 @@ typedef enum {
     CORRUPT_MEMORY,
     MUTEX_LOCKED,
     IO_REQUEST,
+    PROCESS_EXIT,
 } t_interrupt_reason;
 
 typedef struct {
