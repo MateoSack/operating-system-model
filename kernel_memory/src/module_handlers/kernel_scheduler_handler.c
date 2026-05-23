@@ -20,7 +20,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 // Build full path and create PCB
                 char *full_path = string_from_format("%s/%s", base_path, relative_path);
                 free(relative_path);
-                log_info(logger, "Creating process %u with instructions in: %s", pid, full_path);
+                log_info(logger, "## PID: %u - Proceso Creado", pid);
             
                 t_pcb *pcb = create_pcb(pid, full_path);
                 free(full_path);
@@ -51,7 +51,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t logical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
                 //TODO: Implementar traduccion de direccion de logica a fisica y lectura de memoria
-                log_info(logger, "Received IO_MEMORY_READ request for physical address %u with size %u", logical_address, size); // cambiar address
+                log_info(logger, "Received PID %u IO_MEMORY_READ request for physical address %u with size %u", pid, logical_address, size); // cambiar address
                 message_send("OK", client_fd); 
                 uint32_send(client_fd, 777);
                 break;
@@ -61,7 +61,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t pid = uint32_decode(client_fd);
                 uint32_t logical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
-                log_info(logger, "Received IO_MEMORY_WRITE request for physical address %u with size %u", logical_address, size); // cambiar address
+                log_info(logger, "Received PID %u IO_MEMORY_WRITE request for physical address %u with size %u", pid, logical_address, size); // cambiar address
                 message_send("OK", client_fd);
                 uint32_send(client_fd, 777);
                 break;

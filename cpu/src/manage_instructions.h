@@ -50,6 +50,7 @@ extern t_log *logger;
 extern int kernel_memory_fd;
 extern int kernel_scheduler_fd;
 extern bool interruptPending;
+extern t_interrupt_reason interruptReason;
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid);
 t_instruction_type instruction_to_type(char *instruction_str);

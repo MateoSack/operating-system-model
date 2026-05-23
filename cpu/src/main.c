@@ -5,6 +5,7 @@ t_log *logger;
 int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
 bool interruptPending = 0;
+t_interrupt_reason interruptReason = QUANTUM_EXPIRATION;
 uint32_t cpu_id;
 char *cpu_identifier = NULL;
 
@@ -193,12 +194,21 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 			}
 
 			case PROCESS_EVICT: {
-				//TODO
-			}
+				int size;
+				int offset = 0;
+				void *buffer = buffer_receive(&size, kernel_scheduler_fd);
+				if (buffer == NULL) {
+					log_error(logger, "Failed to receive PROCESS_EVICT payload");
+					break;
+				}
+				uint32_t reason_val = uint32_deserialize(buffer, &offset);
+				free(buffer);
+				t_interrupt_reason reason = (t_interrupt_reason)reason_val;
+				log_info(logger, "Received PROCESS_EVICT (reason=%s)", interrupt_reason_to_string(reason));
 
-			default: {
 				pthread_mutex_lock(&interrupt_mutex);
-				interruptPending = 1; //ahora mismo no hay otros códigos de operación que reciba el scheduler implementados
+				interruptPending = 1;
+				interruptReason = reason;
 				pthread_mutex_unlock(&interrupt_mutex);
 				break;
 			}
