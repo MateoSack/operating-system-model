@@ -88,14 +88,16 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	log_info(logger, "Connection successful with Kernel Memory");
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory_fd);
-	log_debug(logger, "Has received credentials' list");
+	if (credentials_list == NULL) {
+		log_error(logger, "Failed to receive credentials list from Kernel Memory");
+		return EXIT_FAILURE;
+	}
+	log_info(logger, "Received credentials list from Kernel Memory with %d entries", list_size(credentials_list));
 	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
 			return EXIT_FAILURE;
-	}
-	else
-	{
-		log_debug(logger, "Credentials list empty.");
+	} else {
+		log_info(logger, "Credentials list empty.");
 	}
 	// list_destroy_and_destroy_elements(credentials_list, t_module_credentials_destroyer);
 
@@ -210,18 +212,8 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 			{
 				uint32_t pid = uint32_decode(kernel_scheduler_fd);
 				log_info(logger, "Received PID %d from Kernel scheduler", pid);
-				
-				t_package *pkg = package_create();
-				pkg->op_code = CONTEXT_SEEK;
-				package_add(pkg, &pid, sizeof(uint32_t));
-				pthread_mutex_lock(&kernel_memory_write_mutex);
-				package_send(pkg, kernel_memory_fd);
-				pthread_mutex_unlock(&kernel_memory_write_mutex);
-				package_delete(pkg);
 
-				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
-
-				// Create pending request and wait for context from kernel_memory_thread
+				// Create pending request before sending CONTEXT_SEEK so the response can be delivered immediately.
 				pthread_mutex_lock(&pending_request_mutex);
 				if (pending_request != NULL) {
 					log_error(logger, "Unexpected pending request already exists");
@@ -232,6 +224,16 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				pending_request->ready = false;
 				sem_init(&pending_request->sem, 0, 0);
 				pthread_mutex_unlock(&pending_request_mutex);
+
+				t_package *pkg = package_create();
+				pkg->op_code = CONTEXT_SEEK;
+				package_add(pkg, &pid, sizeof(uint32_t));
+				pthread_mutex_lock(&kernel_memory_write_mutex);
+				package_send(pkg, kernel_memory_fd);
+				pthread_mutex_unlock(&kernel_memory_write_mutex);
+				package_delete(pkg);
+
+				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
 
 				// Wait until kernel_memory_thread posts the context
 				sem_wait(&pending_request->sem);
@@ -277,6 +279,10 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				interruptPending = 1;
 				interruptReason = reason;
 				pthread_mutex_unlock(&interrupt_mutex);
+				break;
+			}
+			default: {
+				log_warning(logger, "Received unknown operation code %d from Kernel Scheduler", op);
 				break;
 			}
 		}

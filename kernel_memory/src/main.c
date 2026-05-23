@@ -82,6 +82,7 @@ void *handle_module(void *fd_ptr) {
             kernel_scheduler_fd = client_fd;
             log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", client_fd);
             if(kernel_scheduler_handler(logger, client_fd, config) == -1) return NULL;
+            break;
         }
 
         case MODULE_CPU: {

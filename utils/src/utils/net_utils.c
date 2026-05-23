@@ -240,6 +240,7 @@ void uint32_send (int client_fd, uint32_t value) { // Sends a uint32_t to the cl
 
 void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a list of t_module_credentials to the client as part of a package
 	t_package *pkg = package_create();
+	pkg->op_code = PACKAGE;
 	for(int i = 0; i < list_size(list); i++) {
 		t_module_credentials *credentials = list_get(list, i);
 		package_add(pkg, credentials->ip, strlen(credentials->ip) + 1);
@@ -249,12 +250,13 @@ void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a li
 
 	package_send(pkg, fd);
 	package_delete(pkg);
-	log_debug(logger, "Paquete de credenciales enviado a fd: %d", fd);
+	log_info(logger, "Paquete de credenciales enviado a fd: %d, elementos: %d", fd, list_size(list));
 }
 
 t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_module_credentials from the client as part of a package, returns the list
     int op_code = operation_receive(socket_cliente);
     if (op_code != PACKAGE) {
+        log_error(logger, "receive_credentials_list: se esperaba PACKAGE, se recibió %d", op_code);
         return NULL;
     }
 
@@ -290,6 +292,8 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 
 		list_add(list, cred);
 	}
+
+	log_info(logger, "Lista de credenciales recibida con %d elementos", list_size(list));
 
     free(buffer);
     return list;
