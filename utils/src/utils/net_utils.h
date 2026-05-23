@@ -24,6 +24,7 @@ typedef enum {
     PROCESS_END,
     PROCESS_EVICT,
     PROCESS_EXECUTE,
+    PROCESS_INTERRUPTED, // Habria que ver de unificar las interrupciones como un solo código de operación y mandar un campo extra con el motivo
     CONTEXT_TRANSFER,
     CONTEXT_SEEK,
     STATE_UPDATE,

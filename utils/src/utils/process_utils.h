@@ -13,6 +13,13 @@ typedef enum {
     EXIT,
 } t_process_state;
 
+typedef enum {
+    QUANTUM_EXPIRED,
+    HIGHER_PRIORITY,
+    CORRUPT_MEMORY,
+    MUTEX_LOCKED,
+} t_interrupt_reason;
+
 typedef struct {
     uint32_t pc;
 	uint8_t ax;

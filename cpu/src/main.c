@@ -192,6 +192,10 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				break;
 			}
 
+			case PROCESS_EVICT: {
+				//TODO
+			}
+
 			default: {
 				pthread_mutex_lock(&interrupt_mutex);
 				interruptPending = 1; //ahora mismo no hay otros códigos de operación que reciba el scheduler implementados

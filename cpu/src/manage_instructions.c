@@ -21,7 +21,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		package_add(pkg, &pid, sizeof(uint32_t));
 		send_package_to_kernel_memory(pkg);
 		package_delete(pkg);
-		log_info(logger, "Sent INSTRUCTION_FETCH request to Kernel Memory");
+		log_info(logger, "## PID: %d - FETCH - Program Counter: %d", pid, context->pc);
 		
         pthread_mutex_lock(&kernel_memory_read_mutex);
         char *instruction = message_receive(logger, kernel_memory_fd); // a chequear si estan bien los parametros
@@ -35,7 +35,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
 		execute_instruction(decoded_instruction, context, pid, &hasJumped);
-		log_info(logger, "Executed instruction: %s", instruction);
+		log_info(logger, "## PID: %d - Ejecutando: %s", pid, decoded_instruction[0]);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
 		
@@ -50,18 +50,27 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
         pthread_mutex_unlock(&interrupt_mutex);
 
 		if(interrupt) {
+            log_info(logger, "## Interrupción recibida");
 			log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
 			t_package *pkg = package_create();
 			pkg->op_code = CONTEXT_TRANSFER;
 			package_add(pkg, &pid, sizeof(uint32_t));
 			pthread_mutex_lock(&kernel_memory_write_mutex);
             package_send(pkg, kernel_memory_fd);
-			context_send(context, kernel_memory_fd);
-			pthread_mutex_unlock(&kernel_memory_write_mutex);
-			package_delete(pkg);
-			log_info(logger, "Context saved to Kernel Memory");
+            context_send(context, kernel_memory_fd);
+            pthread_mutex_unlock(&kernel_memory_write_mutex);
+            package_delete(pkg);
+            log_info(logger, "Context saved to Kernel Memory");
 
-            //========== Falta implementar la parte con scheduler segun pide la consigna ==========================
+            uint32_t reason = 1; // Tengo que hacer generica
+            t_package *pkg = package_create();
+            pkg->op_code = PROCESS_INTERRUPTED;
+            package_add(pkg, &pid, sizeof(uint32_t));
+            package_add(pkg, &reason, sizeof(uint32_t));
+            send_package_to_kernel_scheduler(pkg);
+            package_delete(pkg);
+            log_info(logger, "Notified Kernel Scheduler about PID %d interruption (reason=%d)", pid, reason);
+            
 
             pthread_mutex_lock(&interrupt_mutex);
 			interruptPending = 0;
