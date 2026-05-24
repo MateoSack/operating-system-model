@@ -63,15 +63,37 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
 
         switch (op) {
             case CONTEXT_TRANSFER: {
-                uint32_t pid = receive_uint32_from_package(client_fd);
-                log_info(logger, "Received context transfer request for PID %d from CPU %d", pid, cpu_id);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                
+                t_cpu_context *ctx = malloc(sizeof(t_cpu_context));
+                ctx->pc  = uint32_deserialize(buffer, &offset);
+                ctx->ax  = uint8_deserialize(buffer, &offset);
+                ctx->bx  = uint8_deserialize(buffer, &offset);
+                ctx->cx  = uint8_deserialize(buffer, &offset);
+                ctx->dx  = uint8_deserialize(buffer, &offset);
+                ctx->eax = uint32_deserialize(buffer, &offset);
+                ctx->ebx = uint32_deserialize(buffer, &offset);
+                ctx->ecx = uint32_deserialize(buffer, &offset);
+                ctx->edx = uint32_deserialize(buffer, &offset);
+                ctx->si  = uint32_deserialize(buffer, &offset);
+                ctx->di  = uint32_deserialize(buffer, &offset);
+                free(buffer);
+
+                log_info(logger, "Received context transfer for PID %d from CPU %d", pid, cpu_id);
+                
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
+                    free(ctx);
                     break;
                 }
-                pcb->context = *context_receive(client_fd);
+                pcb->context = *ctx;
+                free(ctx);
                 log_info(logger, "Context updated correctly for PID %d", pid);
                 break;
             }

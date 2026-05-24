@@ -1,5 +1,24 @@
 #include <utils/process_utils.h>
 
+void context_send_with_pid(t_cpu_context *context, uint32_t pid, int fd) {
+    t_package *pkg = package_create();
+    pkg->op_code = CONTEXT_TRANSFER;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &context->pc, sizeof(uint32_t));
+    package_add(pkg, &context->ax, sizeof(uint8_t));
+    package_add(pkg, &context->bx, sizeof(uint8_t));
+    package_add(pkg, &context->cx, sizeof(uint8_t));
+    package_add(pkg, &context->dx, sizeof(uint8_t));
+    package_add(pkg, &context->eax, sizeof(uint32_t));
+    package_add(pkg, &context->ebx, sizeof(uint32_t));
+    package_add(pkg, &context->ecx, sizeof(uint32_t));
+    package_add(pkg, &context->edx, sizeof(uint32_t));
+    package_add(pkg, &context->si, sizeof(uint32_t));
+    package_add(pkg, &context->di, sizeof(uint32_t));
+    package_send(pkg, fd);
+    package_delete(pkg);
+}
+
 void context_send (t_cpu_context *context, int client_socket) { // Sends the CPU context to the client
     t_package *package = package_create();
 	package->op_code = CONTEXT_TRANSFER;

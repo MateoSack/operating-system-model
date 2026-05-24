@@ -13,6 +13,7 @@ pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_scheduler_write_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t process_control_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t sem_instruction_fetch_ready;
 sem_t sem_instruction_response_ready;

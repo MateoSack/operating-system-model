@@ -7,16 +7,29 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
     bool hasJumped = false;
 	while (1)
 	{
-        if(should_exit) {
+        pthread_mutex_lock(&process_control_mutex);
+        bool exit_flag = should_exit;
+        if(exit_flag) {
             log_info(logger, "Finalizando proceso PID %d", pid);
             should_exit = false;
-            break;
+            pthread_mutex_unlock(&process_control_mutex);
+            sem_post(&sem_eviction_ready);
+        } else {
+            pthread_mutex_unlock(&process_control_mutex);
         }
-        if(shoudld_stop) {
+
+        pthread_mutex_unlock(&process_control_mutex);
+        if(exit_flag) break;
+        
+        pthread_mutex_lock(&process_control_mutex);
+        bool stop_flag = shoudld_stop;
+        if(stop_flag) {
             log_info(logger, "Deteniendo proceso PID %d", pid);
             shoudld_stop = false;
-            break;
+            sem_post(&sem_eviction_ready);
         }
+        pthread_mutex_unlock(&process_control_mutex);
+        if(stop_flag) break;
 
 		t_package *pkg = package_create();
 		pkg->op_code = INSTRUCTION_FETCH;
@@ -57,11 +70,14 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		free(instruction);
 		string_array_destroy(decoded_instruction);
 
-        if (shoudld_stop) {
+        pthread_mutex_lock(&process_control_mutex);
+        bool stop_after_instr = shoudld_stop;
+        if (stop_after_instr) {
             log_debug(logger, "Deteniendo proceso PID %d luego de instrucción especial", pid);
             shoudld_stop = false;
-            break;
         }
+        pthread_mutex_unlock(&process_control_mutex);
+        if (stop_after_instr) break;
 
         if (!hasJumped) {
             context->pc++;
@@ -75,15 +91,11 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 
 		if(interrupt) {
             log_info(logger, "## Interrupción recibida");
-			log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
-			t_package *pkg = package_create();
-			pkg->op_code = CONTEXT_TRANSFER;
-			package_add(pkg, &pid, sizeof(uint32_t));
-			pthread_mutex_lock(&kernel_memory_write_mutex);
-            package_send(pkg, kernel_memory_fd);
-            context_send(context, kernel_memory_fd);
+            log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
+
+            pthread_mutex_lock(&kernel_memory_write_mutex);
+            context_send_with_pid(context, pid, kernel_memory_fd);
             pthread_mutex_unlock(&kernel_memory_write_mutex);
-            package_delete(pkg);
             log_info(logger, "Context saved to Kernel Memory");
 
             t_interrupt_reason reason_local;
@@ -95,17 +107,19 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             pkg2->op_code = PROCESS_INTERRUPTED;
             package_add(pkg2, &pid, sizeof(uint32_t));
             package_add(pkg2, &reason_local, sizeof(t_interrupt_reason));
+            pthread_mutex_lock(&kernel_scheduler_write_mutex);
             package_send(pkg2, kernel_scheduler_fd);
+            pthread_mutex_unlock(&kernel_scheduler_write_mutex);
             package_delete(pkg2);
             log_info(logger, "Notified Kernel Scheduler about PID %d interruption (reason=%s)", pid, interrupt_reason_to_string(reason_local));
-            
+
             sem_post(&sem_eviction_ready);
 
             pthread_mutex_lock(&interrupt_mutex);
-			interruptPending = 0;
+            interruptPending = 0;
             pthread_mutex_unlock(&interrupt_mutex);
 
-			break;
+            break;
 		}
 		log_info(logger, "No interrupt pending for PID %d, continuing execution", pid);
 	}
@@ -476,7 +490,9 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &time, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+    pthread_mutex_lock(&process_control_mutex);
     shoudld_stop = true; // Deberia parar por generar interrupcion de IO
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -501,7 +517,9 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
 
+    pthread_mutex_lock(&process_control_mutex);
     shoudld_stop = true; // Deberia parar por generar interrupcion de IO
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -526,7 +544,9 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
 
+    pthread_mutex_lock(&process_control_mutex);
     shoudld_stop = true; // Deberia parar por generar interrupcion de IO
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -548,7 +568,9 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     package_add(pkg, &pid, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler_fd);
     package_delete(pkg);
+    pthread_mutex_lock(&process_control_mutex);
     should_exit = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 /*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc

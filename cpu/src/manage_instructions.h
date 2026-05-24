@@ -13,6 +13,7 @@
 extern pthread_mutex_t interrupt_mutex;
 extern pthread_mutex_t kernel_scheduler_write_mutex;
 extern pthread_mutex_t kernel_memory_write_mutex;
+extern pthread_mutex_t process_control_mutex;
 extern sem_t sem_instruction_fetch_ready;
 extern sem_t sem_instruction_response_ready;
 extern sem_t sem_eviction_ready;

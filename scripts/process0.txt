@@ -1,4 +1,4 @@
-INIT_PROC infinite_loop.txt 3
+INIT_PROC sleep.txt 3
 INIT_PROC mutexTest.txt 2
 INIT_PROC sum.txt 1
 EXIT

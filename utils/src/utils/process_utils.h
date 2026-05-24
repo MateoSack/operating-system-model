@@ -54,6 +54,7 @@ typedef struct {
     t_io_type io_type;
 } t_io_string_process;
 
+void context_send_with_pid(t_cpu_context *context, uint32_t pid, int fd);
 void context_send (t_cpu_context *context, int client_socket);
 t_cpu_context *context_receive(int client_socket);
 t_process_state t_process_state_deserialize(void *buffer, int *offset);
