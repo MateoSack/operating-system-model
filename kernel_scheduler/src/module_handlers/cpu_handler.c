@@ -159,6 +159,8 @@ void cpu_handler (int cpu_fd) {
 					log_debug(logger, "No hay dispositivos IO de tipo SLEEP disponibles para procesar la solicitud de sleep del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo SLEEP esté disponible.", pid);
 				}
 
+				sem_post(&short_term_scheduler_sem);
+
 				break;
 			}
 
@@ -208,6 +210,9 @@ void cpu_handler (int cpu_fd) {
 
 					log_debug(logger, "No hay dispositivos IO de tipo STDIN disponibles para procesar la solicitud de stdin del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDIN esté disponible.", pid);
 				}
+
+				sem_post(&short_term_scheduler_sem);
+
 				break;
 			}
 
@@ -257,6 +262,9 @@ void cpu_handler (int cpu_fd) {
 
 					log_debug(logger, "No hay dispositivos IO de tipo STDOUT disponibles para procesar la solicitud de stdout del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDOUT esté disponible.", pid);
 				}
+
+				sem_post(&short_term_scheduler_sem);
+
 				break;
 			}
 

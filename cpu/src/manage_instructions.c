@@ -77,7 +77,6 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             shoudld_stop = false;
         }
         pthread_mutex_unlock(&process_control_mutex);
-        if (stop_after_instr) break;
 
         if (!hasJumped) {
             context->pc++;

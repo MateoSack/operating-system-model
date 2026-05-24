@@ -172,8 +172,8 @@ uint32_t uint32_deserialize(void *buffer, int *offset) { // Deserializes a uint3
 uint8_t uint8_deserialize(void *buffer, int *offset) { // Deserializes a uint8_t from a buffer, updating the offset
 	int size;
 	uint8_t value;
-	memcpy(&size, buffer + *offset, sizeof(uint8_t));
-	*offset += sizeof(uint8_t);
+	memcpy(&size, buffer + *offset, sizeof(int));
+	*offset += sizeof(int);
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
