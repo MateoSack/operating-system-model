@@ -296,6 +296,7 @@ void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd)
     int size;
     int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
 
 	*pid = uint32_deserialize(buffer, &offset);
 	*sleep_time = uint32_deserialize(buffer, &offset);
@@ -307,6 +308,7 @@ void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, in
     int size;
     int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
 
 	*pid = uint32_deserialize(buffer, &offset);
 	*base = uint32_deserialize(buffer, &offset);
@@ -319,6 +321,7 @@ void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char
 	int size;
 	int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
 
 	*pid = uint32_deserialize(buffer, &offset);
 	*priority = uint32_deserialize(buffer, &offset);
@@ -337,6 +340,7 @@ void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd
 	int size;
 	int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
 
 	*pid = uint32_deserialize(buffer, &offset);
 	*reason = t_interrupt_reason_deserialize(buffer, &offset);

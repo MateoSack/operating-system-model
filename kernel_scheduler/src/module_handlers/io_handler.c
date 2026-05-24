@@ -36,6 +36,8 @@ void io_handler (int io_fd) {
 		return;
 	}
 
+	handle_next_operation(io, io_type, pending_io_list, standard_op);
+
 	while (1) {
 		//Handle connection with IO
 		int op = operation_receive(io_fd);
@@ -51,28 +53,11 @@ void io_handler (int io_fd) {
 
 			case CONFIRMATION: {
 				uint32_t pid = uint32_decode(io_fd);
-				log_info(logger, "## PID: %d - IO %d - Confirmación de finalización recibida", pid, id);
+				log_info(logger, "## PID: %d finalizó IO y pasa a READY / SUSP. READY", pid);
 
 				io_finish_process(pid, io);
 
-				pthread_mutex_lock(&io_mutex);
-
-				t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
-
-				if (pending_process == NULL) {
-					pthread_mutex_unlock(&io_mutex);
-					break;
-				}
-
-				pthread_mutex_lock(&io->internal_mutex);
-				io->is_available = false;
-				pthread_mutex_unlock(&io->internal_mutex);
-
-				pthread_mutex_unlock(&io_mutex);
-				
-				pthread_mutex_lock(&io->network_mutex);
-				io_numeric_process_send(pending_process, standard_op, io_fd);
-				pthread_mutex_unlock(&io->network_mutex);
+				handle_next_operation(io, io_type, pending_io_list, standard_op);
 
 				break;
 			}
@@ -92,24 +77,7 @@ void io_handler (int io_fd) {
 
 				free(io_process);
 
-				pthread_mutex_lock(&io_mutex);
-				
-				t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
-
-				if (pending_process == NULL) {
-					pthread_mutex_unlock(&io_mutex);
-					break;
-				}
-
-				pthread_mutex_lock(&io->internal_mutex);
-				io->is_available = false;
-				pthread_mutex_unlock(&io->internal_mutex);
-
-				pthread_mutex_unlock(&io_mutex);
-				
-				pthread_mutex_lock(&io->network_mutex);
-				io_string_process_send(pending_process, standard_op, io_fd);
-				pthread_mutex_unlock(&io->network_mutex);
+				handle_next_operation(io, io_type, pending_io_list, standard_op);
 
 				break;
 			}
@@ -140,4 +108,79 @@ void io_finish_process(uint32_t pid, t_client_info *io) {
         pthread_mutex_unlock(&scheduler_mutex);
         log_warning(logger, "Proceso %d no encontrado", pid);
     }
+}
+
+void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pending_io_list, op_code op_code) {
+	switch (io_type) {
+		case IO_TYPE_SLEEP:
+			pthread_mutex_lock(&io_mutex); {
+
+			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+			pthread_mutex_lock(&io->network_mutex);
+			io_numeric_process_send(pending_process, op_code, io->fd);
+			pthread_mutex_unlock(&io->network_mutex);
+			break;
+		}
+
+		case IO_TYPE_STDOUT: {
+			pthread_mutex_lock(&io_mutex);
+
+			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+			pthread_mutex_lock(&io->network_mutex);
+			io_numeric_process_send(pending_process, op_code, io->fd);
+			pthread_mutex_unlock(&io->network_mutex);
+			break;
+		}
+
+		case IO_TYPE_STDIN: {
+			pthread_mutex_lock(&io_mutex);
+			
+			t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+			pthread_mutex_lock(&io->network_mutex);
+			io_string_process_send(pending_process, op_code, io->fd);
+			pthread_mutex_unlock(&io->network_mutex);
+			break;
+		}
+
+		default: {
+			log_error(logger, "Tipo de IO desconocido: %d", io_type);
+			return;
+		}
+	}
 }

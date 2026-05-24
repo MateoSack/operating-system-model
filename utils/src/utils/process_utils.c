@@ -90,14 +90,13 @@ t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receive
     int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_socket);
+    if (buffer == NULL) return NULL;
+
     t_io_numeric_process *io_process = malloc(sizeof(t_io_numeric_process));
 
-    memcpy(&io_process->pid, buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-    memcpy(&io_process->value, buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-    memcpy(&io_process->io_type, buffer + offset, sizeof(t_io_type));
-    offset += sizeof(t_io_type);
+    io_process->pid = uint32_deserialize(buffer, &offset);
+    io_process->value = uint32_deserialize(buffer, &offset);
+    io_process->io_type = t_io_type_deserialize(buffer, &offset);
 
     free(buffer);
     return io_process;
@@ -119,18 +118,16 @@ t_io_string_process *io_string_process_receive(int client_socket) { // Receives 
     int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, client_socket);
+    if (buffer == NULL) return NULL;
+
     t_io_string_process *io_process = malloc(sizeof(t_io_string_process));
 
-    memcpy(&io_process->pid, buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
-    uint32_t value_length;
-    memcpy(&value_length, buffer + offset, sizeof(uint32_t));
-    offset += sizeof(uint32_t);
+    io_process->pid = uint32_deserialize(buffer, &offset);
+    uint32_t value_length = uint32_deserialize(buffer, &offset);
     io_process->value = malloc(value_length);
     memcpy(io_process->value, buffer + offset, value_length);
     offset += value_length;
-    memcpy(&io_process->io_type, buffer + offset, sizeof(t_io_type));
-    offset += sizeof(t_io_type);
+    io_process->io_type = t_io_type_deserialize(buffer, &offset);
 
     free(buffer);
     return io_process;

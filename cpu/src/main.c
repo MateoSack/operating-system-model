@@ -139,9 +139,10 @@ void *kernel_memory_thread()
 		// Centralized reader for Kernel Memory
 		int op = operation_receive(kernel_memory_fd);
 		if (op == -1) {
-			log_warning(logger, "Kernel Memory disconnected");
+			log_error(logger, "Kernel Memory disconnected");
+			close(kernel_scheduler_fd);
 			close(kernel_memory_fd);
-			break;
+			exit(EXIT_FAILURE);
 		}
 
 		switch (op) {
@@ -204,9 +205,10 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 		int op = operation_receive(kernel_scheduler_fd);
 		if (op == -1)
 		{
-			log_warning(logger, "Kernel Scheduler disconnected");
+			log_error(logger, "Kernel Scheduler disconnected");
 			close(kernel_scheduler_fd);
-			break;
+			close(kernel_memory_fd);
+			exit(EXIT_FAILURE);
 		}
 		switch (op) {
 			case PROCESS_EXECUTE:

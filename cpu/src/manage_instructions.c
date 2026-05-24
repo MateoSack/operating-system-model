@@ -58,7 +58,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		string_array_destroy(decoded_instruction);
 
         if (shoudld_stop) {
-            log_info(logger, "Deteniendo proceso PID %d luego de instrucción especial", pid);
+            log_debug(logger, "Deteniendo proceso PID %d luego de instrucción especial", pid);
             shoudld_stop = false;
             break;
         }

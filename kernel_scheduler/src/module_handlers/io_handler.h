@@ -28,5 +28,6 @@ extern uint32_t next_io_id;
 
 void io_handler (int io_fd);
 void io_finish_process(uint32_t pid, t_client_info *io);
+void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pending_io_list, op_code op_code);
 
 #endif

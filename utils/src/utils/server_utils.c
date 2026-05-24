@@ -118,6 +118,9 @@ void destroy_list_of_clients (t_list *list) { // Destroys a list of clients, clo
 	void _destroy_client(void *ptr) {
 		t_client_info *client = (t_client_info*)ptr;
 		close(client->fd);
+		pthread_mutex_destroy(&client->network_mutex);
+		pthread_mutex_destroy(&client->internal_mutex);
+		sem_destroy(&client->response_sem);
 		free(client);
 	}
 
