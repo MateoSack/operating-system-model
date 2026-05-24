@@ -18,7 +18,7 @@ extern sem_t sem_instruction_response_ready;
 extern sem_t sem_eviction_ready;
 
 typedef enum {
-	NO_OP,
+	NOOP,
 	SET,
 	MOV_IN,
 	MOV_OUT,

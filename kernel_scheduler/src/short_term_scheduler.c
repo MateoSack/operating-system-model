@@ -93,7 +93,7 @@ void send_pid_to_execute (uint32_t pid, int cpu_fd) { // Sends the process execu
 }
 
 void *quantum_manager (void *arg) { // Manages the quantum expiration for processes in the EXEC state
-    int time_to_sleep = (quantum * 1000) / 20; // Sleep for a fraction of the quantum to check for expirations more frequently
+    int time_to_sleep = (quantum * 1000) / 50; // Sleep for a fraction of the quantum to check for expirations more frequently
     if (time_to_sleep < 1000) time_to_sleep = 1000; // Sleep at least 1 ms to avoid busy waiting in very low quantum scenarios
 
     while (1) {

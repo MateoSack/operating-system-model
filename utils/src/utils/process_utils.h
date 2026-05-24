@@ -14,7 +14,7 @@ typedef enum {
 } t_process_state;
 
 typedef enum {
-    QUANTUM_EXPIRATION,
+    QUANTUM_EXPIRED,
     HIGHER_PRIORITY,
     CORRUPT_MEMORY,
     MUTEX_LOCKED,

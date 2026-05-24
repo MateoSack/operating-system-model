@@ -432,29 +432,17 @@ void *process_execution_handler(void *args) {
 
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_CREATE operation to kernel scheduler
-    t_package *pkg = package_create();
-    pkg->op_code = MUTEX_CREATE;
-    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
-    package_delete(pkg);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_CREATE, kernel_scheduler_fd);
 }
 
 void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_LOCK operation to kernel scheduler
-    t_package *pkg = package_create();
-    pkg->op_code = MUTEX_LOCK;
-    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
-    package_delete(pkg);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_LOCK, kernel_scheduler_fd);
 }
 
 void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_UNLOCK operation to kernel scheduler
-    t_package *pkg = package_create();
-    pkg->op_code = MUTEX_UNLOCK;
-    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
-    package_delete(pkg);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_UNLOCK, kernel_scheduler_fd);
 }
 
 void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
