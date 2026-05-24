@@ -117,7 +117,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
 
                 pthread_mutex_unlock(&scheduler_mutex);
 
-                evict_process((t_process*)process, QUANTUM_EXPIRATION);
+                evict_process((t_process*)process, QUANTUM_EXPIRED);
                 log_info(logger, "## (%d) - Desalojado por fin de quantum", process->pid);
 
                 sem_post(&short_term_scheduler_sem);

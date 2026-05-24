@@ -5,7 +5,7 @@ t_log *logger;
 int kernel_scheduler_fd = -1;
 int kernel_memory_fd = -1;
 bool interruptPending = 0;
-t_interrupt_reason interruptReason = QUANTUM_EXPIRATION;
+t_interrupt_reason interruptReason = QUANTUM_EXPIRED;
 uint32_t cpu_id;
 char *cpu_identifier = NULL;
 

@@ -117,8 +117,8 @@ char **decode_instruction(char *content) {
 }
 
 t_instruction_type instruction_to_type(char *instruction_mnemonic) {
-	if (strcmp(instruction_mnemonic, "NO_OP") == 0)
-		return NO_OP;
+	if (strcmp(instruction_mnemonic, "NOOP") == 0)
+		return NOOP;
 	else if (strcmp(instruction_mnemonic, "SET") == 0)
 		return SET;
 	else if (strcmp(instruction_mnemonic, "MOV_IN") == 0)
@@ -228,8 +228,8 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
 	
 	switch (instruction) {
-		case NO_OP: {
-			log_info(logger, "NO_OP executed");
+		case NOOP: {
+			log_info(logger, "NOOP executed");
 			break;
 		}
 
