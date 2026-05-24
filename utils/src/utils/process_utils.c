@@ -84,6 +84,8 @@ void io_numeric_process_send (t_io_numeric_process *io_process, op_code op_code,
 
     package_send(package, client_socket);
     package_delete(package);
+
+    log_debug(logger, "Sending IO Numeric Process - PID: %d, Value: %d, IO Type: %d", io_process->pid, io_process->value, io_process->io_type);
 }
 
 t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receives an IO process request with a numeric value
@@ -97,6 +99,8 @@ t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receive
     io_process->pid = uint32_deserialize(buffer, &offset);
     io_process->value = uint32_deserialize(buffer, &offset);
     io_process->io_type = t_io_type_deserialize(buffer, &offset);
+
+    log_debug(logger, "Deserialized IO Process - PID: %d, Value: %d, IO Type: %d", io_process->pid, io_process->value, io_process->io_type);
 
     free(buffer);
     return io_process;

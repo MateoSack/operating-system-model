@@ -7,7 +7,7 @@ void *kernel_memory_handler (void *arg) {
 		if (op == -1) {
 			log_warning(logger, "Kernel Memory desconectado");
 			close(kernel_memory_fd);
-			break;
+			exit(EXIT_FAILURE);
 		}
 	}
 	return NULL;

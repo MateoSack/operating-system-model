@@ -45,6 +45,8 @@ int main(int argc, char *argv[]) {
 	while (1) {
 		int op = operation_receive(kernel_scheduler_fd);
 
+		log_debug(logger, "Operacion recibida de Kernel Scheduler: %d", op);
+
 		switch (op) {
 			case -1: {
 				log_warning(logger, "Kernel Scheduler desconectado");
@@ -92,9 +94,9 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			if (io_process != NULL) {
 				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_stdout(io_process->pid, io_process->value);
+				send_confirmation(io_process->pid, kernel_scheduler_fd);
 				free(io_process->value);
 				free(io_process);
-				send_confirmation(io_process->pid, kernel_scheduler_fd);
 			}
 			break;
 		}
@@ -105,8 +107,8 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			if (io_process != NULL) {
 				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_sleep_ms(io_process->pid, io_process->value);
-				free(io_process);
 				send_confirmation(io_process->pid, kernel_scheduler_fd);
+				free(io_process);
 			}
 			break;
 		}
@@ -135,7 +137,7 @@ void io_stdout(uint32_t pid,char *output){
 	return;
 }
 
-void io_sleep_ms(uint32_t pid,uint32_t ms) {
+void io_sleep_ms(uint32_t pid, uint32_t ms) {
 	log_info(logger, "## PID: %d - Haciendo sleep por %d milisegundos.", pid, ms);
 	usleep(ms*1000); 
 	log_info(logger, "## PID:  %d - Fin de IO", pid);
