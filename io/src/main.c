@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
 		switch (op) {
 			case -1: {
-				log_warning(logger, "Kernel Scheduler desconectado");
+				log_error(logger, "Kernel Scheduler desconectado");
 				close(kernel_scheduler_fd);
 				return EXIT_FAILURE;
 			}
