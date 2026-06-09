@@ -52,3 +52,11 @@ bool find_by_pid(void *element) {
     t_pcb *pcb = (t_pcb *) element;
     return pcb->pid == target_pid;
 }
+
+void send_memory_update(int ks_fd, uint32_t new_total) {
+    t_package *pkg = package_create();
+    pkg->op_code = MEMORY_UPDATE;
+    package_add(pkg, &new_total, sizeof(uint32_t));
+    package_send(pkg, ks_fd);
+    package_delete(pkg);
+}

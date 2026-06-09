@@ -6,6 +6,10 @@ t_config *config = NULL;
 int kernel_scheduler_fd = -1;
 int swap_fd = -1;
 
+uint32_t total_memory_size = 0;
+
+pthread_mutex_t total_memory_size_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t kernel_scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_cpu_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_memory_stick_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_memory_stick_credentials_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -79,8 +83,19 @@ void *handle_module(void *fd_ptr) {
     /*-------------------Handle new module-------------------*/
     switch (module_id) {
         case MODULE_KERNEL_SCHEDULER: {
+            pthread_mutex_lock(&kernel_scheduler_mutex);
             kernel_scheduler_fd = client_fd;
+            uint32_t current_total = 0;
+            pthread_mutex_lock(&total_memory_size_mutex);
+            current_total = total_memory_size;
+            pthread_mutex_unlock(&total_memory_size_mutex);
+            if (current_total > 0) send_memory_update(kernel_scheduler_fd, current_total);
+            pthread_mutex_unlock(&kernel_scheduler_mutex);
+
             log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", client_fd);
+            
+            if (current_total > 0) log_debug(logger, "Sent initial memory update to Kernel Scheduler: %d bytes", current_total);
+
             if(kernel_scheduler_handler(logger, client_fd, config) == -1) return NULL;
             break;
         }
@@ -163,6 +178,16 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
 
     uint32_send(client_fd, ms_id);
     uint32_t ms_size = uint32_receive(client_fd);
+
+    pthread_mutex_lock(&total_memory_size_mutex);
+    total_memory_size += ms_size;
+    uint32_t current_total = total_memory_size;
+    pthread_mutex_unlock(&total_memory_size_mutex);
+
+    pthread_mutex_lock(&kernel_scheduler_mutex);
+    if (kernel_scheduler_fd != -1) send_memory_update(kernel_scheduler_fd, current_total);
+    pthread_mutex_unlock(&kernel_scheduler_mutex);
+    if (kernel_scheduler_fd != -1) log_debug(logger, "Sent memory update to Kernel Scheduler: %d bytes", current_total);
 
 	t_memory_stick_info *memory_stick = malloc(sizeof(t_memory_stick_info));
     memory_stick->fd = client_fd;

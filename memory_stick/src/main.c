@@ -8,7 +8,6 @@ int kernel_memory_fd;
 uint32_t size = 0;
 
 int main(int argc, char *argv[]) {
-	printf("Arrancando mstick...\n");
 	/*-------------------Initial Setup-------------------*/
     if (argc < 3) {
         printf("Mode of use: ./bin/memory_stick <config_file> <size>\n");

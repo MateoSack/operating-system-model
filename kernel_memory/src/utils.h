@@ -23,5 +23,6 @@ extern uint32_t target_pid;
 t_pcb *create_pcb(uint32_t pid, char *path);
 bool find_by_pid(void *element);
 char **get_instructions_from_file(char *path);
+void send_memory_update(int ks_fd, uint32_t new_total);
 
 #endif
