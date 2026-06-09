@@ -11,6 +11,13 @@ typedef struct {
     t_list *segment_table;
 } t_pcb;
 
+typedef struct {
+    int fd;
+    uint32_t id;
+    uint32_t size;
+    uint32_t base_address; // CHEQUEAR SI ES NECESARIO
+} t_memory_stick_info;
+
 extern uint32_t target_pid;
 
 t_pcb *create_pcb(uint32_t pid, char *path);

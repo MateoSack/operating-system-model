@@ -1,16 +1,27 @@
 #include <main.h>
 
+
 t_log *logger;
 t_list *list_cpu = NULL;
 uint32_t mem_stick_id;
 int kernel_memory_fd;
+uint32_t size = 0;
 
-int main(void) {
+int main(int argc, char *argv[]) {
+	printf("Arrancando mstick...\n");
+	/*-------------------Initial Setup-------------------*/
+    if (argc < 3) {
+        printf("Mode of use: ./bin/memory_stick <config_file> <size>\n");
+        return EXIT_FAILURE;
+    }
+
+    t_config *config = config_create(argv[1]);
+    if(config == NULL) return EXIT_FAILURE;
+    logger = start_logger(config);
+
+	size = atoi(argv[2]);
+
 	list_cpu = list_create();
-	
-	t_config *config = config_create("mem_stick.config");
-	if(config == NULL) return EXIT_FAILURE;
-	logger = start_logger(config);
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
@@ -83,6 +94,7 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 
 	t_module_id_send(kernel_memory_fd, MODULE_MEMORY_STICK, logger);
 	mem_stick_id = uint32_receive(kernel_memory_fd);
+	uint32_send(kernel_memory_fd, size);
 	log_info(logger, "## Conectado a Kernel Memory");
 	log_info(logger, "MEMORY STICK ID: %d", mem_stick_id);
 

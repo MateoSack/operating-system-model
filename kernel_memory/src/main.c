@@ -162,15 +162,20 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     pthread_mutex_unlock(&next_memory_stick_id_mutex);
 
     uint32_send(client_fd, ms_id);
+    uint32_t ms_size = uint32_receive(client_fd);
 
-	t_client_info *memory_stick = NULL;
+	t_memory_stick_info *memory_stick = malloc(sizeof(t_memory_stick_info));
+    memory_stick->fd = client_fd;
+    memory_stick->id = ms_id;
+    memory_stick->size = ms_size;
+
     pthread_mutex_lock(&list_memory_stick_mutex);
-    memory_stick = add_client_to_list(list_memory_stick, client_fd, ms_id);
-    int ms_count = list_size(list_memory_stick);
+    list_add(list_memory_stick, memory_stick);
+    int ms_count = list_size(list_memory_stick); // Total number of memory sticks connected
     pthread_mutex_unlock(&list_memory_stick_mutex);
     
-    log_info(logger, "## Memory Stick de <TAMAÑO> bytes Conectada"); // FALTA RECIBIR TAMAÑO REAL
-    log_info(logger, "Total de Memory Sticks conectadas: %d", ms_count);
+    log_info(logger, "## Memory Stick de %d bytes Conectada", ms_size);
+    log_debug(logger, "Total de Memory Sticks conectadas: %d", ms_count);
 
     t_module_credentials *client = malloc(sizeof(t_module_credentials));
     client->ip = message_receive(logger, client_fd);
