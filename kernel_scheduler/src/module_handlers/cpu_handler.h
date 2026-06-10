@@ -6,6 +6,7 @@
 #include <schedulers/long_term_scheduler.h>
 #include <schedulers/short_term_scheduler.h>
 #include <managers/mutex_manager.h>
+#include <managers/io_manager.h>
 #include <utils.h>
 
 extern t_scheduler_algorithm scheduler_algorithm;
@@ -13,19 +14,10 @@ extern t_scheduler_algorithm scheduler_algorithm;
 extern sem_t short_term_scheduler_sem;
 
 extern pthread_mutex_t cpu_id_mutex;
-extern pthread_mutex_t io_mutex;
 
 extern t_list *list_cpu;
 extern t_list *list_processes;
 extern t_list **ready_queue;
-
-extern t_list *list_io_sleep;
-extern t_list *list_io_stdin;
-extern t_list *list_io_stdout;
-
-extern t_list *pending_request_io_sleep;
-extern t_list *pending_request_io_stdin;
-extern t_list *pending_request_io_stdout;
 
 extern t_log *logger;
 extern int kernel_memory_fd;

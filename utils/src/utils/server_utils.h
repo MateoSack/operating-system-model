@@ -9,6 +9,7 @@ int server_client_wait (int socket_server);
 char* get_port_from_fd (int fd, t_log *logger);
 char* get_ip_from_fd (int fd, t_log *logger);
 uint32_t id_assigner (uint32_t *current_max_id, int fd, pthread_mutex_t *mutex);
+void destroy_client(void *ptr);
 void destroy_list_of_clients (t_list *list);
 
 #endif

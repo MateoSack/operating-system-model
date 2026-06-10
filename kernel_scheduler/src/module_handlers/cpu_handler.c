@@ -125,41 +125,11 @@ void cpu_handler (int cpu_fd) {
 
 				log_info(logger, "## (%d) - Solicitó syscall: SLEEP (Tiempo: %d ms)", pid, sleep_time);
 
-				pthread_mutex_lock(&scheduler_mutex);
-				process_set_state(process, BLOCK, logger);
-				remove_process_from_list(exec_processes, process);
-				pthread_mutex_unlock(&scheduler_mutex);
-
-				evict_process(process, IO_REQUEST);
-
-				pthread_mutex_lock(&cpu->internal_mutex);
-				cpu->is_available = true;
-				pthread_mutex_unlock(&cpu->internal_mutex);
-				
-				t_io_numeric_process *io_process = t_io_numeric_process_create(pid, sleep_time, IO_TYPE_SLEEP);
-
-				pthread_mutex_lock(&io_mutex);
-				t_client_info *io = get_available_io_type(list_io_sleep);
-
-				if (io != NULL) {
-					pthread_mutex_lock(&io->internal_mutex);
-					io->is_available = false;
-					pthread_mutex_unlock(&io->internal_mutex);
-					pthread_mutex_unlock(&io_mutex);
-
-					pthread_mutex_lock(&io->network_mutex);
-					io_numeric_process_send(io_process, SLEEP, io->fd);
-					pthread_mutex_unlock(&io->network_mutex);
-
-					log_debug(logger, "Proceso %d enviado a IO SLEEP (fd: %d) para dormir por %d ms", pid, io->fd, sleep_time);
+				if (process != NULL) {
+					sleep_syscall_manager(process, cpu, sleep_time);
 				} else {
-					list_add(pending_request_io_sleep, io_process);
-					pthread_mutex_unlock(&io_mutex);
-
-					log_debug(logger, "No hay dispositivos IO de tipo SLEEP disponibles para procesar la solicitud de sleep del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo SLEEP esté disponible.", pid);
+					log_error(logger, "Proceso con PID %d no encontrado para ejecutar SLEEP", pid);
 				}
-
-				sem_post(&short_term_scheduler_sem);
 
 				break;
 			}
@@ -175,43 +145,11 @@ void cpu_handler (int cpu_fd) {
 				
 				log_info(logger, "## (%d) - Solicitó syscall: STDIN (Base: %d, Limit: %d)", pid, base, limit);
 
-				pthread_mutex_lock(&scheduler_mutex);
-				process_set_state(process, BLOCK, logger);
-				remove_process_from_list(exec_processes, process);
-				pthread_mutex_unlock(&scheduler_mutex);
-
-				evict_process(process, IO_REQUEST);
-
-				pthread_mutex_lock(&cpu->internal_mutex);
-				cpu->is_available = true;
-				pthread_mutex_unlock(&cpu->internal_mutex);
-				
-				int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
-
-				t_io_numeric_process *io_process = t_io_numeric_process_create(pid, value, IO_TYPE_STDIN);
-
-				pthread_mutex_lock(&io_mutex);
-				t_client_info *io = get_available_io_type(list_io_stdin);
-
-				if (io != NULL) {
-					pthread_mutex_lock(&io->internal_mutex);
-					io->is_available = false;
-					pthread_mutex_unlock(&io->internal_mutex);
-					pthread_mutex_unlock(&io_mutex);
-
-					pthread_mutex_lock(&io->network_mutex);
-					io_numeric_process_send(io_process, STDIN, io->fd);
-					pthread_mutex_unlock(&io->network_mutex);
-
-					log_debug(logger, "Proceso %d enviado a IO STDIN (fd: %d)", pid, io->fd);
+				if (process != NULL) {
+					stdin_syscall_manager(process, cpu, base, limit);
 				} else {
-					list_add(pending_request_io_stdin, io_process);
-					pthread_mutex_unlock(&io_mutex);
-
-					log_debug(logger, "No hay dispositivos IO de tipo STDIN disponibles para procesar la solicitud de stdin del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDIN esté disponible.", pid);
+					log_error(logger, "Proceso con PID %d no encontrado para ejecutar STDIN", pid);
 				}
-
-				sem_post(&short_term_scheduler_sem);
 
 				break;
 			}
@@ -227,43 +165,11 @@ void cpu_handler (int cpu_fd) {
 				
 				log_info(logger, "## (%d) - Solicitó syscall: STDOUT", pid);
 
-				pthread_mutex_lock(&scheduler_mutex);
-				process_set_state(process, BLOCK, logger);
-				remove_process_from_list(exec_processes, process);
-				pthread_mutex_unlock(&scheduler_mutex);
-
-				evict_process(process, IO_REQUEST);
-
-				pthread_mutex_lock(&cpu->internal_mutex);
-				cpu->is_available = true;
-				pthread_mutex_unlock(&cpu->internal_mutex);
-
-				char *value = "10"; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
-
-				t_io_string_process *io_process = t_io_string_process_create(pid, value, IO_TYPE_STDOUT);
-
-				pthread_mutex_lock(&io_mutex);
-				t_client_info *io = get_available_io_type(list_io_stdout);
-
-				if (io != NULL) {
-					pthread_mutex_lock(&io->internal_mutex);
-					io->is_available = false;
-					pthread_mutex_unlock(&io->internal_mutex);
-					pthread_mutex_unlock(&io_mutex);
-
-					pthread_mutex_lock(&io->network_mutex);
-					io_string_process_send(io_process, STDOUT, io->fd);
-					pthread_mutex_unlock(&io->network_mutex);
-
-					log_debug(logger, "Proceso %d enviado a IO STDOUT (fd: %d)", pid, io->fd);
+				if (process != NULL) {
+					stdout_syscall_manager(process, cpu, base, limit);
 				} else {
-					list_add(pending_request_io_stdout, io_process);
-					pthread_mutex_unlock(&io_mutex);
-
-					log_debug(logger, "No hay dispositivos IO de tipo STDOUT disponibles para procesar la solicitud de stdout del proceso %d. El proceso quedará bloqueado hasta que un dispositivo IO de tipo STDOUT esté disponible.", pid);
+					log_error(logger, "Proceso con PID %d no encontrado para ejecutar STDOUT", pid);
 				}
-
-				sem_post(&short_term_scheduler_sem);
 
 				break;
 			}
@@ -305,7 +211,7 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	
 	pthread_mutex_unlock(&scheduler_mutex);
 	
-	free(cpu);
+	destroy_client(cpu);
 	
 	if (had_process) log_warning(logger, "CPU %d estaba ejecutando el proceso %d. Devolviéndolo al estado READY.", cpu_id, pid);
 
