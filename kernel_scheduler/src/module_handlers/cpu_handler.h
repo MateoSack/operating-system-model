@@ -3,9 +3,9 @@
 
 #include <commons/log.h>
 #include <utils/server_utils.h>
-#include <long_term_scheduler.h>
-#include <short_term_scheduler.h>
-#include <mutex_manager.h>
+#include <schedulers/long_term_scheduler.h>
+#include <schedulers/short_term_scheduler.h>
+#include <managers/mutex_manager.h>
 #include <utils.h>
 
 extern t_scheduler_algorithm scheduler_algorithm;

@@ -1,4 +1,4 @@
-#include <long_term_scheduler.h>
+#include <schedulers/long_term_scheduler.h>
 
 int long_term_scheduler (char *path, uint8_t priority) {
     pthread_mutex_lock(&scheduler_mutex);

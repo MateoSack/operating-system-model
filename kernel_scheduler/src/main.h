@@ -2,7 +2,7 @@
 #define MAIN_H
 
 #include <utils.h>
-#include <long_term_scheduler.h>
+#include <schedulers/long_term_scheduler.h>
 #include "module_handlers/kernel_memory_handler.h"
 #include "module_handlers/cpu_handler.h"
 #include "module_handlers/io_handler.h"

@@ -2,7 +2,7 @@
 #define LONG_TERM_SCHEDULER_H_
 
 #include <utils.h>
-#include <short_term_scheduler.h>
+#include <schedulers/short_term_scheduler.h>
 
 extern t_log *logger;
 extern int kernel_memory_fd;

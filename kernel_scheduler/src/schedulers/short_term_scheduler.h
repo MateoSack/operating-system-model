@@ -2,7 +2,7 @@
 #define SHORT_TERM_SCHEDULER_H_
 
 #include <utils.h>
-#include<commons/temporal.h>
+#include <commons/temporal.h>
 
 extern t_log *logger;
 extern int kernel_memory_fd;

@@ -1,4 +1,4 @@
-#include <short_term_scheduler.h>
+#include <schedulers/short_term_scheduler.h>
 
 void *short_term_scheduler_main (void *arg) { // Main function for the short-term scheduler
     while (1) {
