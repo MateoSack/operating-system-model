@@ -2,6 +2,7 @@
 #define UTILS_PROCESS_UTILS_H_
 
 #include <utils/net_utils.h>
+#include <utils/memory_utils.h>
 
 typedef enum {
     NEW,
@@ -36,11 +37,7 @@ typedef struct {
     uint32_t di;
 } t_cpu_context;
 
-typedef struct {
-    uint32_t segment_id;
-    uint32_t base;
-    uint32_t limit;
-} t_segment;
+// `t_segment` is defined in <utils/memory_utils.h>
 
 typedef struct {
     uint32_t pid;

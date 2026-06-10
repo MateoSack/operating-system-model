@@ -1,6 +1,9 @@
 #include "kernel_scheduler_handler.h"
 
 extern t_list *list_processes;
+extern pthread_mutex_t list_processes_mutex;
+extern uint32_t target_pid;
+extern sem_t compaction_sem;
 
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
     char *base_path = config_get_string_value(config, "SCRIPTS_BASEPATH");
@@ -39,8 +42,11 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             case PROCESS_END: {
                 uint32_t pid = uint32_decode(client_fd);
                 log_info(logger, "Ending process PID:%u", pid);
+                
+                pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
                 t_pcb *pcb_to_remove = list_find(list_processes, find_by_pid);
+                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb_to_remove != NULL) {
                     //TODO: Liberar recursos del proceso (segmentos, etc)
                     list_remove_element(list_processes, pcb_to_remove);
@@ -51,6 +57,35 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 }
                 
                 break;
+            }
+
+            case SEGMENT_CREATE: {
+                uint32_t pid = uint32_decode(client_fd);
+                uint32_t segment_id = uint32_decode(client_fd);
+                uint32_t segment_size = uint32_decode(client_fd);
+                log_debug(logger, "Received SEGMENT_CREATE request for PID %u - Segment ID %u - Size %u", pid, segment_id, segment_size);
+
+                t_segment_result result = segment_create(pid, segment_id, segment_size, config);
+                
+                switch (result) {
+                    case SEGMENT_OK:
+                        log_info(logger, "## PID: %u - Segmento Creado %u - Tamaño: %u", pid, segment_id, segment_size);
+                        break;
+                    case SEGMENT_NO_SPACE:
+                        log_warning(logger, "PID: %u - No hay espacio para crear segmento %u de tamaño %u", pid, segment_id, segment_size);
+                        break;
+                    case SEGMENT_ERROR:
+                        log_error(logger, "No se pudo crear el segmento");
+                        break;
+                }
+                break;
+            }
+
+            case COMPACTION_READY: {
+            // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
+            log_debug(logger, "Received COMPACTION_READY from Kernel Scheduler");
+            sem_post(&compaction_sem);
+            break;
             }
 
             case IO_MEMORY_READ: { // TODO: Volver esto un paquete (mismo paquete en IO_MEMORY_READy IO_MEMORY_WRITE)

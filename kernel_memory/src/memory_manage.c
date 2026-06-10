@@ -1,0 +1,181 @@
+#include "memory_manage.h"
+
+extern t_list *list_processes;
+extern pthread_mutex_t list_processes_mutex;
+extern uint32_t total_memory_size;
+extern t_log *logger;
+extern int kernel_scheduler_fd;
+extern pthread_mutex_t kernel_scheduler_mutex;
+extern uint32_t target_pid;
+extern sem_t compaction_sem;
+
+// ver de sacarla de aca
+static bool comparar_por_base(void *a, void *b) {
+    return ((t_hole *)a)->base < ((t_hole *)b)->base;
+}
+
+t_list *get_free_holes(void) {
+    t_list *occupied = list_create();
+
+    pthread_mutex_lock(&list_processes_mutex);
+    for (int i = 0; i < list_size(list_processes); i++) {
+        t_pcb *pcb = list_get(list_processes, i);
+        for (int j = 0; j < list_size(pcb->segment_table); j++) {
+            t_segment *seg = list_get(pcb->segment_table, j);
+            t_hole *occ    = malloc(sizeof(t_hole));
+            occ->base      = seg->base;
+            occ->size      = seg->size;
+            list_add(occupied, occ);
+        }
+    }
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    list_sort(occupied, comparar_por_base);
+
+    t_list  *holes = list_create();
+    uint32_t cursor = 0;
+
+    for (int i = 0; i < list_size(occupied); i++) { // get all holes between occupied segments
+        t_hole *occ = list_get(occupied, i);
+        if (occ->base > cursor) {
+            t_hole *hole = malloc(sizeof(t_hole));
+            hole->base   = cursor;
+            hole->size   = occ->base - cursor;
+            list_add(holes, hole);
+        }
+        cursor = occ->base + occ->size; // skip the occupied space
+    }
+
+    if (cursor < total_memory_size) { // add a final hole if there's free space after the last occupied segment
+        t_hole *hole = malloc(sizeof(t_hole));
+        hole->base   = cursor;
+        hole->size   = total_memory_size - cursor;
+        list_add(holes, hole);
+    }
+
+    list_destroy_and_destroy_elements(occupied, free);
+    return holes;
+}
+
+t_hole *best_fit(t_list *holes, uint32_t size) { // the best fit is the smallest hole that can fit the segment
+    t_hole *best = NULL;
+    for (int i = 0; i < list_size(holes); i++) {
+        t_hole *hole = list_get(holes, i);
+        if (hole->size >= size) { // if the hole is big enough
+            if (best == NULL || hole->size < best->size)
+                best = hole;
+        }
+    }
+    return best;
+}
+
+t_hole *worst_fit(t_list *holes, uint32_t size) { // the worst fit is the biggest hole that can fit the segment
+    t_hole *worst = NULL;
+    for (int i = 0; i < list_size(holes); i++) {
+        t_hole *hole = list_get(holes, i);
+        if (hole->size >= size) { // if the hole is big enough
+            if (worst == NULL || hole->size > worst->size)
+                worst = hole;
+        }
+    }
+    return worst;
+}
+
+t_hole *select_hole(t_list *holes, uint32_t size, t_config *config) {
+    char *strategy = config_get_string_value(config, "ALLOCATION_STRATEGY");
+    if (strcmp(strategy, "BEST") == 0) {
+        return best_fit(holes, size);
+    } else {
+        return worst_fit(holes, size);
+    }
+}
+
+void compact_memory(void) {
+    log_debug(logger, "Inicio de compactación");
+
+    pthread_mutex_lock(&list_processes_mutex);
+    uint32_t cursor = 0;
+    for (int i = 0; i < list_size(list_processes); i++) {
+        t_pcb *pcb = list_get(list_processes, i);
+        for (int j = 0; j < list_size(pcb->segment_table); j++) {
+            t_segment *seg = list_get(pcb->segment_table, j);
+            // TODO: mover físicamente los bytes en los memory sticks
+            // cuando esté implementada lectura/escritura en MS
+            // y actualizar las listas de segmentos de todos los procesos con las nuevas direcciones base
+            seg->base = cursor;
+            cursor   += seg->size;
+        }
+    }
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    log_debug(logger, "Fin de compactación");
+}
+
+void request_and_compact(void) { // Send compaction request to Kernel Scheduler and wait for confirmation, then perform compaction
+    pthread_mutex_lock(&kernel_scheduler_mutex);
+    t_package *pkg = package_create();
+    pkg->op_code   = COMPACTION_REQUEST;
+    package_send(pkg, kernel_scheduler_fd);
+    package_delete(pkg);
+    pthread_mutex_unlock(&kernel_scheduler_mutex);
+
+    sem_wait(&compaction_sem);
+
+    compact_memory();
+}
+
+t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size, t_config *config) {
+    t_list *holes = get_free_holes();
+
+    uint32_t total_free_space = 0;
+    for (int i = 0; i < list_size(holes); i++) {
+        total_free_space += ((t_hole *)list_get(holes, i))->size;
+    }
+    if (total_free_space < size) {
+        list_destroy_and_destroy_elements(holes, free);
+        return SEGMENT_NO_SPACE;
+    }
+
+    // Try to find continuous space for the segment
+    t_hole *chosen = select_hole(holes, size, config);
+
+    if (chosen == NULL) { // No continuous space available, need to compact
+        list_destroy_and_destroy_elements(holes, free);
+
+        request_and_compact();
+
+        holes  = get_free_holes();
+        chosen = select_hole(holes, size, config);
+
+        if (chosen == NULL) {
+            // No debería pasar, pero por las dudas
+            list_destroy_and_destroy_elements(holes, free);
+            log_error(logger, "segment_create: No se pudo encontrar espacio para el segmento PID %u - Segment ID %u - Size %u incluso después de compactar", pid, segment_id, size);
+            return SEGMENT_ERROR;
+        }
+    }
+
+    // Create the segment in the chosen hole
+    t_segment *seg  = malloc(sizeof(t_segment));
+    seg->segment_id = segment_id;
+    seg->base       = chosen->base;
+    seg->size       = size;
+
+    pthread_mutex_lock(&list_processes_mutex);
+    target_pid = pid;
+    t_pcb *pcb = list_find(list_processes, find_by_pid);
+    pthread_mutex_unlock(&list_processes_mutex);
+    if (pcb == NULL) {
+        log_error(logger, "segment_create: PID %u no encontrado", pid);
+        free(seg);
+        list_destroy_and_destroy_elements(holes, free);
+        return SEGMENT_ERROR;
+    }
+
+    pthread_mutex_lock(&list_processes_mutex);
+    list_add(pcb->segment_table, seg);
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    list_destroy_and_destroy_elements(holes, free);
+    return SEGMENT_OK;
+}

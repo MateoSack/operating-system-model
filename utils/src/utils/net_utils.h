@@ -21,7 +21,6 @@ typedef enum {
     HANDSHAKE,
     CONFIRMATION,
     CREDENTIALS_UPDATE,
-    MEMORY_UPDATE,
     PROCESS_CREATE,
     PROCESS_END,
     PROCESS_EVICT,
@@ -42,6 +41,11 @@ typedef enum {
     MUTEX_CREATE,
     MUTEX_LOCK,
     MUTEX_UNLOCK,
+    CORRUPTED_MEMORY,
+    MEMORY_UPDATE,
+    SEGMENT_CREATE, // Fijarse si se puede unificar con MEM_ALLOC (ya que kenrel_memory no usa MEM_ALLOC y creo que solo se crea segmento post MEM_ALLOC)
+    COMPACTION_REQUEST,
+    COMPACTION_READY
 } op_code;
 
 typedef struct {

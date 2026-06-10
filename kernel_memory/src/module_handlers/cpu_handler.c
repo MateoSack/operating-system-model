@@ -3,6 +3,9 @@
 extern t_list *list_cpu;
 extern t_list *list_processes;
 
+extern pthread_mutex_t list_processes_mutex;
+extern uint32_t target_pid;
+
 // Helper function to receive a single uint32_t from a package
 static uint32_t receive_uint32_from_package(int client_fd) {
     int buffer_size;
@@ -85,8 +88,10 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
 
                 log_info(logger, "Received context transfer for PID %d from CPU %d", pid, cpu_id);
                 
+                pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
+                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
                     free(ctx);
@@ -101,8 +106,11 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             case CONTEXT_SEEK: {
                 uint32_t pid = receive_uint32_from_package(client_fd);
                 log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
+                
+                pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
+                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
                     break;
@@ -118,10 +126,11 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                 receive_two_uint32_from_package(client_fd, &pid, &pc);
                 log_debug(logger, "PID recibido: %d", pid);
                 log_debug(logger, "PC recibido: %d", pc);
+                
+                pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
-
-                log_debug(logger, "Buscando instruccion para PID %d - PC %d", pid, pc);
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
+                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb == NULL) {
                     log_error(logger, "Process with PID %d not found", pid);
                     break;
