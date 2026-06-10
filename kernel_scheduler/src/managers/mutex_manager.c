@@ -72,7 +72,7 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
         pthread_mutex_lock(&scheduler_mutex);
         process_set_state(next_process, READY, logger);
-        add_process_to_list(ready_queue, next_process);
+        add_process_to_ready_queue(next_process);
         
         pthread_mutex_unlock(&scheduler_mutex);
         

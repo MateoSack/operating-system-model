@@ -4,7 +4,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
     while (1) {
         sem_wait(&short_term_scheduler_sem);
 
-        log_debug(logger, "Scheduler woke: ready_queue=%d, cpus=%d", list_size(ready_queue), list_size(list_cpu));
+        log_debug(logger, "Scheduler woke: ready_queue_size=%d, cpus=%d", ready_queue_size(), list_size(list_cpu));
 
         bool no_processes = false;
         bool no_cpus = false;
@@ -23,7 +23,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
                 break;
             }
 
-            list_remove(ready_queue, 0); // Remove the process from the ready queue
+            remove_process_from_ready_queue(process); // Remove the process from the ready queue
 
             cpu->is_available = false;
 
@@ -49,14 +49,14 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
 t_process *get_next_process_to_execute () { // Returns the next process to execute based on the scheduling algorithm
     t_process *process = NULL;
 
-    if (list_is_empty(ready_queue)) return NULL;
+    if (ready_queue_size() == 0) return NULL;
 
     switch (scheduler_algorithm) {
         case FIFO:
-            process = (t_process*) list_get(ready_queue, 0); // Get the first process in the list
+            process = (t_process*) list_get(ready_queue[0], 0); // Get the first process in the list
             break;
         case RR:
-            process = (t_process*) list_get(ready_queue, 0); // Get the first process in the list
+            process = (t_process*) list_get(ready_queue[0], 0); // Get the first process in the list
             break;
         case CMN:
             /* code */
@@ -110,7 +110,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
             if (elapsed >= quantum) {
                 remove_process_from_list(exec_processes, process);
                 process_set_state(process, READY, logger);
-                add_process_to_list(ready_queue, process);
+                add_process_to_ready_queue(process);
                 process->cpu->is_available = true;
 
                 i--;

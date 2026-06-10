@@ -7,7 +7,7 @@ extern t_log *logger;
 extern pthread_mutex_t scheduler_mutex;
 extern pthread_mutex_t list_mutex_mutex;
 extern sem_t short_term_scheduler_sem;
-extern t_list *ready_queue;
+extern t_list **ready_queue;
 extern t_list *list_mutexes;
 
 typedef struct {

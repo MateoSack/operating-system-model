@@ -96,7 +96,7 @@ void io_finish_process(uint32_t pid, t_client_info *io) {
 
     if (process != NULL) {
         process_set_state(process, READY, logger);
-        add_process_to_list(ready_queue, process);
+        add_process_to_ready_queue(process);
         pthread_mutex_unlock(&scheduler_mutex);
 
         pthread_mutex_lock(&io->internal_mutex);

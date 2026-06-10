@@ -8,11 +8,6 @@
 #include <commons/config.h>
 #include <semaphore.h>
 
-extern pthread_mutex_t scheduler_mutex;
-extern t_list *list_processes;
-extern t_list *ready_queue;
-extern t_list *exec_processes;
-
 typedef struct {
     uint32_t pid;
     t_process_state state;
@@ -27,12 +22,22 @@ typedef enum {
     CMN,
 } t_scheduler_algorithm;
 
+extern t_scheduler_algorithm scheduler_algorithm;
+extern int queue_algorithms_count;
+extern pthread_mutex_t scheduler_mutex;
+extern t_list *list_processes;
+extern t_list **ready_queue;
+extern t_list *exec_processes;
+
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
 void process_set_cpu (t_process *process, t_client_info *cpu);
 t_process *create_process (uint32_t pid, uint8_t priority);
 void add_process_to_list (t_list *list_processes, t_process *process);
+void add_process_to_ready_queue (t_process *process);
 void remove_process_from_list (t_list *list_processes, t_process *process);
+void remove_process_from_ready_queue (t_process *process);
 void destroy_list_of_processes (t_list *list);
+int ready_queue_size ();
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd);
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str);
 t_process *get_process_from_pid (uint32_t pid);

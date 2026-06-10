@@ -295,7 +295,7 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	if (had_process) {
 		process_set_state(process, READY, logger);
 		process_set_cpu(process, NULL);
-		add_process_to_list(ready_queue, process);
+		add_process_to_ready_queue(process);
 		remove_process_from_list(exec_processes, process);
 		pid = process->pid;
 		process->start_exec_time = 0;

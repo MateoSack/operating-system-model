@@ -3,13 +3,14 @@
 
 #include <utils.h>
 #include <schedulers/long_term_scheduler.h>
-#include "module_handlers/kernel_memory_handler.h"
-#include "module_handlers/cpu_handler.h"
-#include "module_handlers/io_handler.h"
+#include <module_handlers/kernel_memory_handler.h>
+#include <module_handlers/cpu_handler.h>
+#include <module_handlers/io_handler.h>
 
 int kernel_memory_connection (t_log *logger, t_config *config, char *process0);
 void *client_handler_selector(void *fd_ptr);
 t_log *start_logger(t_config *config);
+int setup (char *config_path);
 void *shutdown_handler (void *arg);
 
 #endif

@@ -24,8 +24,42 @@ void add_process_to_list (t_list *list_processes, t_process *process) { // Add a
     list_add(list_processes, process);
 }
 
+void add_process_to_ready_queue (t_process *process) { // Add a process to the ready queue based on its priority and scheduling algorithm
+    if (scheduler_algorithm == CMN) {
+        int queue_index;
+
+        if (process->priority >= queue_algorithms_count) {
+            log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Agregándolo a la última cola.", process->pid, process->priority, queue_algorithms_count);
+            queue_index = queue_algorithms_count - 1; // If the priority is greater than the number of queues, assign it to the last queue
+        } else {
+            queue_index = process->priority;
+        }
+
+        add_process_to_list(ready_queue[queue_index], process);
+    } else {
+        add_process_to_list(ready_queue[0], process); // For FIFO and RR, we can use a single ready queue
+    }
+}
+
 void remove_process_from_list (t_list *list_processes, t_process *process) { // Remove a process from the list of processes
     list_remove_element(list_processes, process);
+}
+
+void remove_process_from_ready_queue (t_process *process) { // Remove a process from the ready queue
+    if (scheduler_algorithm == CMN) {
+        int queue_index;
+
+        if (process->priority >= queue_algorithms_count) {
+            log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Buscando en la última cola.", process->pid, process->priority, queue_algorithms_count);
+            queue_index = queue_algorithms_count - 1; // If the priority is greater than the number of queues, search in the last queue
+        } else {
+            queue_index = process->priority;
+        }
+
+        remove_process_from_list(ready_queue[queue_index], process);
+    } else {
+        remove_process_from_list(ready_queue[0], process); // For FIFO and RR, we can use a single ready queue
+    }
 }
 
 void destroy_list_of_processes (t_list *list) { // Destroys a list of processes, freeing their memory
@@ -35,6 +69,18 @@ void destroy_list_of_processes (t_list *list) { // Destroys a list of processes,
     }
 
     list_destroy_and_destroy_elements(list, _destroy_process);
+}
+
+int ready_queue_size () { // Get the total size of the ready queue(s) based on the scheduling algorithm
+    if (scheduler_algorithm == CMN) {
+        int total_size = 0;
+        for (int i = 0; i < queue_algorithms_count; i++) {
+            total_size += list_size(ready_queue[i]);
+        }
+        return total_size;
+    } else {
+        return list_size(ready_queue[0]); // For FIFO and RR, we can use a single ready queue
+    }
 }
 
 void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd) { // Send the process creation information to Kernel Memory
@@ -116,7 +162,7 @@ void evict_all_processes (t_interrupt_reason reason) {
 
         remove_process_from_list(exec_processes, process);
         process_set_state(process, READY, logger);
-        add_process_to_list(ready_queue, process);
+        add_process_to_ready_queue(process);
 
         pthread_mutex_unlock(&scheduler_mutex);
 

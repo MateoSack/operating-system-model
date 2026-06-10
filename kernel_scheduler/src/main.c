@@ -6,6 +6,9 @@ t_config *config;
 t_scheduler_algorithm scheduler_algorithm;
 int quantum = 0;
 
+t_scheduler_algorithm *queue_algorithms = NULL;
+int queue_algorithms_count = 1;
+
 t_list *list_cpu = NULL;
 
 t_list *list_io_sleep = NULL;
@@ -17,7 +20,7 @@ t_list *pending_request_io_stdin = NULL;
 t_list *pending_request_io_stdout = NULL;
 
 t_list *list_processes = NULL;
-t_list *ready_queue = NULL;
+t_list **ready_queue = NULL; // In CMN, this is an array of ready queues, one per priority level. In FIFO and RR, this is a single ready queue at index 0.
 t_list *exec_processes = NULL;
 
 t_list *list_mutexes = NULL;
@@ -48,49 +51,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-	config = config_create(argv[1]);
-	if(config == NULL) return EXIT_FAILURE;
-	logger = start_logger(config);
-
-	scheduler_algorithm = scheduler_algorithm_from_string(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
-	quantum = config_get_int_value(config, "RR_QUANTUM");
-
-	list_cpu = list_create();
-
-    list_io_sleep = list_create();
-	list_io_stdin = list_create();
-	list_io_stdout = list_create();
-
-	pending_request_io_sleep = list_create();
-	pending_request_io_stdin = list_create();
-	pending_request_io_stdout = list_create();
-
-	list_processes = list_create();
-
-	ready_queue = list_create();
-
-	exec_processes = list_create();
-
-	list_mutexes = list_create();
-
-	sem_init(&short_term_scheduler_sem, 0, 0);
-	sem_init(&shutdown_sem, 0, 0);
-
-	pthread_t shutdown_thread;
-	pthread_create(&shutdown_thread, NULL, shutdown_handler, NULL);
-	pthread_detach(shutdown_thread);
-
-	pthread_t short_term_scheduler_thread;
-	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler_main, NULL);
-	pthread_detach(short_term_scheduler_thread);
-
-	if (scheduler_algorithm == RR) {
-		system_timer = temporal_create();
-
-        pthread_t quantum_thread;
-        pthread_create(&quantum_thread, NULL, quantum_manager, NULL);
-        pthread_detach(quantum_thread);
-	}
+	if (setup(argv[1]) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Connection with Kernel Memory-------------------*/
 	if(kernel_memory_connection(logger, config, strdup(argv[2])) == EXIT_FAILURE) return EXIT_FAILURE;
@@ -131,7 +92,7 @@ int main(int argc, char *argv[]) {
 	return EXIT_SUCCESS;
 }
 
-int kernel_memory_connection (t_log *logger, t_config *config, char *process0) {
+int kernel_memory_connection (t_log *logger, t_config *config, char *process0) { // Establishes connection with Kernel Memory and initializes process0
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
@@ -165,8 +126,8 @@ int kernel_memory_connection (t_log *logger, t_config *config, char *process0) {
 	return EXIT_SUCCESS;
 }
 
-void *client_handler_selector (void *fd_ptr) {
-	int client_fd = *(int *)fd_ptr; //trato fd_ptr como puntero a int y obtengo el valor para client_fd
+void *client_handler_selector (void *fd_ptr) { // Receives the client fd, performs the handshake to identify the module type, and calls the appropriate handler
+	int client_fd = *(int *)fd_ptr;
 	free(fd_ptr);
 
 	t_module_id module_id = handshake_receiver(client_fd);
@@ -191,11 +152,92 @@ void *client_handler_selector (void *fd_ptr) {
 	return NULL;
 }
 
-t_log *start_logger(t_config *config) {
+t_log *start_logger(t_config *config) { // Initializes the logger based on the configuration file
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
 	t_log_level level = log_level_from_string(level_str);
 	t_log *logger = log_create("log.log", "Kernel_Scheduler", 1, level);
 	return logger;
+}
+
+int setup (char *config_path) { // Initializes the configuration, logger, scheduler algorithm, quantum, lists, semaphores, and threads for the short term scheduler and shutdown handler
+	config = config_create(config_path);
+	if(config == NULL) return EXIT_FAILURE;
+	logger = start_logger(config);
+
+	char *scheduler_algorithm_str = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+	log_debug(logger, "Algoritmo de planificación: %s", scheduler_algorithm_str);
+
+	scheduler_algorithm = scheduler_algorithm_from_string(scheduler_algorithm_str);
+	quantum = config_get_int_value(config, "RR_QUANTUM");
+
+	free(scheduler_algorithm_str);
+
+	bool has_rr = false;
+
+	if (scheduler_algorithm == CMN) {
+		char **queue_algorithms_strs = config_get_array_value(config, "QUEUES_ALGORITHMS");
+
+		queue_algorithms_count = string_array_size(queue_algorithms_strs);
+
+		queue_algorithms = malloc(queue_algorithms_count * sizeof(t_scheduler_algorithm));
+
+		for (int i = 0; i < queue_algorithms_count; i++) {
+			queue_algorithms[i] = scheduler_algorithm_from_string(queue_algorithms_strs[i]);
+			log_debug(logger, "Algoritmo de la cola %d: %s", i, queue_algorithms_strs[i]);
+
+			if (queue_algorithms[i] == RR) has_rr = true;
+
+			if (queue_algorithms[i] == CMN) {
+				string_array_destroy(queue_algorithms_strs);
+				log_error(logger, "No se puede usar CMN como algoritmo de una cola");
+				return EXIT_FAILURE;
+			}
+		}
+		
+		string_array_destroy(queue_algorithms_strs);
+	}
+
+	ready_queue = malloc(queue_algorithms_count * sizeof(t_list*));
+	for (int i = 0; i < queue_algorithms_count; i++) {
+		ready_queue[i] = list_create();
+	}
+
+	list_cpu = list_create();
+
+    list_io_sleep = list_create();
+	list_io_stdin = list_create();
+	list_io_stdout = list_create();
+
+	pending_request_io_sleep = list_create();
+	pending_request_io_stdin = list_create();
+	pending_request_io_stdout = list_create();
+
+	list_processes = list_create();
+
+	exec_processes = list_create();
+
+	list_mutexes = list_create();
+
+	sem_init(&short_term_scheduler_sem, 0, 0);
+	sem_init(&shutdown_sem, 0, 0);
+
+	pthread_t shutdown_thread;
+	pthread_create(&shutdown_thread, NULL, shutdown_handler, NULL);
+	pthread_detach(shutdown_thread);
+
+	pthread_t short_term_scheduler_thread;
+	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler_main, NULL);
+	pthread_detach(short_term_scheduler_thread);
+
+	if (scheduler_algorithm == RR || has_rr) {
+		system_timer = temporal_create();
+
+        pthread_t quantum_thread;
+        pthread_create(&quantum_thread, NULL, quantum_manager, NULL);
+        pthread_detach(quantum_thread);
+	}
+
+	return EXIT_SUCCESS;
 }
 
 void *shutdown_handler (void *arg) { // Waits for the shutdown signal and performs cleanup
@@ -221,10 +263,15 @@ void *shutdown_handler (void *arg) { // Waits for the shutdown signal and perfor
 	destroy_list_of_mutexes(list_mutexes);
 
 	destroy_list_of_processes(list_processes);
-	destroy_list_of_processes(ready_queue);
+	for (int i = 0; i < queue_algorithms_count; i++) {
+		destroy_list_of_processes(ready_queue[i]);
+	}
 	destroy_list_of_processes(exec_processes);
+
+	free(queue_algorithms);
+	free(ready_queue);
 
 	// Should add cleanup to everything that arises
 
-	exit(EXIT_SUCCESS);
+	exit(EXIT_FAILURE);
 }
