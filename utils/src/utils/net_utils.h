@@ -45,7 +45,11 @@ typedef enum {
     MEMORY_UPDATE,
     SEGMENT_CREATE, // Fijarse si se puede unificar con MEM_ALLOC (ya que kenrel_memory no usa MEM_ALLOC y creo que solo se crea segmento post MEM_ALLOC)
     COMPACTION_REQUEST,
-    COMPACTION_READY
+    COMPACTION_READY,
+    MS_READ,
+    MS_WRITE,
+    MS_READ_RESPONSE, // Ver de unificar con MS_READ
+    MS_WRITE_OK,
 } op_code;
 
 typedef struct {

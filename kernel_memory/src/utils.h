@@ -15,7 +15,12 @@ typedef struct {
     int fd;
     uint32_t id;
     uint32_t size;
-    uint32_t base_address; // CHEQUEAR SI ES NECESARIO
+    uint32_t base_address;
+    pthread_mutex_t mutex;
+    sem_t response_sem;
+    int last_op_result;
+    void *last_read_buffer;
+    int last_read_size;
 } t_memory_stick_info;
 
 extern uint32_t target_pid;

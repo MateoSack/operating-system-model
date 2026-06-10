@@ -8,6 +8,8 @@ extern int kernel_scheduler_fd;
 extern pthread_mutex_t kernel_scheduler_mutex;
 extern uint32_t target_pid;
 extern sem_t compaction_sem;
+extern t_list *list_memory_stick;
+extern pthread_mutex_t list_memory_stick_mutex;
 
 // ver de sacarla de aca
 static bool comparar_por_base(void *a, void *b) {
@@ -99,11 +101,21 @@ void compact_memory(void) {
         t_pcb *pcb = list_get(list_processes, i);
         for (int j = 0; j < list_size(pcb->segment_table); j++) {
             t_segment *seg = list_get(pcb->segment_table, j);
-            // TODO: mover físicamente los bytes en los memory sticks
-            // cuando esté implementada lectura/escritura en MS
-            // y actualizar las listas de segmentos de todos los procesos con las nuevas direcciones base
-            seg->base = cursor;
-            cursor   += seg->size;
+
+            if (seg->base != cursor) {
+                // Read data and write it to the new position continuously, then update the segment's base
+                pthread_mutex_unlock(&list_processes_mutex);
+                void *data = memory_read(seg->base, seg->size);
+                if (data != NULL) {
+                    memory_write(cursor, data, seg->size);
+                    free(data);
+                }
+                pthread_mutex_lock(&list_processes_mutex);
+
+                seg->base = cursor;
+            }
+
+            cursor += seg->size;
         }
     }
     pthread_mutex_unlock(&list_processes_mutex);
@@ -179,3 +191,70 @@ t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size
     list_destroy_and_destroy_elements(holes, free);
     return SEGMENT_OK;
 }
+
+t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint32_t *local_offset) { // Returns the memory stick that corresponds to the given physical address and calculates the local offset within that stick, NULL if out of bounds
+    uint32_t cursor = 0;
+    pthread_mutex_lock(&list_memory_stick_mutex);
+    for (int i = 0; i < list_size(list_memory_stick); i++) {
+        t_memory_stick_info *ms = list_get(list_memory_stick, i);
+        if (physical_address < cursor + ms->size) {
+            *local_offset = physical_address - cursor;
+            pthread_mutex_unlock(&list_memory_stick_mutex);
+            return ms;
+        }
+        cursor += ms->size;
+    }
+    pthread_mutex_unlock(&list_memory_stick_mutex);
+    return NULL;
+}
+
+void *memory_read(uint32_t physical_address, uint32_t size) { // Reads `size` bytes from `physical_address`, returns a buffer with the data or NULL if error
+    uint32_t local_offset;
+    t_memory_stick_info *ms = get_memory_stick_by_address(physical_address, &local_offset);
+    if (ms == NULL) {
+        log_error(logger, "memory_read: dirección física %u fuera de rango", physical_address);
+        return NULL;
+    }
+
+    t_package *pkg = package_create();
+    pkg->op_code = MS_READ;
+    package_add(pkg, &local_offset, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
+    package_send(pkg, ms->fd);
+    package_delete(pkg);
+
+    // Waits for response delivered by the memory stick handler thread
+    sem_wait(&ms->response_sem);
+    pthread_mutex_lock(&ms->mutex);
+    void *buffer = ms->last_read_buffer;
+    // reset stored buffer so handler doesn't leak ownership/conflict
+    ms->last_read_buffer = NULL;
+    pthread_mutex_unlock(&ms->mutex);
+    return buffer;
+}
+
+bool memory_write(uint32_t physical_address, void *data, uint32_t size) { // Writes `size` bytes to `physical_address`, returns true if successful, false if error
+    uint32_t local_offset;
+    t_memory_stick_info *ms = get_memory_stick_by_address(physical_address, &local_offset);
+    if (ms == NULL) {
+        log_error(logger, "memory_write: dirección física %u fuera de rango", physical_address);
+        return false;
+    }
+
+    t_package *pkg = package_create();
+    pkg->op_code = MS_WRITE;
+    package_add(pkg, &local_offset, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
+    package_add(pkg, data, size);
+    pthread_mutex_lock(&ms->mutex);
+    package_send(pkg, ms->fd);
+    package_delete(pkg);
+
+    // Waits for the memory stick handler to post the response
+    sem_wait(&ms->response_sem);
+    bool isOk = (ms->last_op_result == MS_WRITE_OK);
+    pthread_mutex_unlock(&ms->mutex);
+    return isOk;
+}
+
+

@@ -66,6 +66,10 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 log_debug(logger, "Received SEGMENT_CREATE request for PID %u - Segment ID %u - Size %u", pid, segment_id, segment_size);
 
                 t_segment_result result = segment_create(pid, segment_id, segment_size, config);
+
+                // =============================================================
+                // VER SI ES NECESARIO ENVIARLE EL RESULTADO AL KERNEL SCHEDULER
+                // =============================================================
                 
                 switch (result) {
                     case SEGMENT_OK:

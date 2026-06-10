@@ -197,6 +197,8 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     memory_stick->fd = client_fd;
     memory_stick->id = ms_id;
     memory_stick->size = ms_size;
+    pthread_mutex_init(&memory_stick->mutex, NULL);
+    sem_init(&memory_stick->response_sem, 0, 0);
 
     pthread_mutex_lock(&list_memory_stick_mutex);
     list_add(list_memory_stick, memory_stick);
