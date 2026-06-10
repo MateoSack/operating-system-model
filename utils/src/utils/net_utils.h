@@ -44,6 +44,7 @@ typedef enum {
     CORRUPTED_MEMORY,
     MEMORY_UPDATE,
     SEGMENT_CREATE, // Fijarse si se puede unificar con MEM_ALLOC (ya que kenrel_memory no usa MEM_ALLOC y creo que solo se crea segmento post MEM_ALLOC)
+    SEGMENT_DELETE, // Fijarse si se puede unificar con MEM_FREE
     COMPACTION_REQUEST,
     COMPACTION_READY,
     MS_READ,

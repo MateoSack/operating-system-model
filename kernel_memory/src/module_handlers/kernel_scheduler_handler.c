@@ -85,6 +85,27 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 break;
             }
 
+            case SEGMENT_DELETE: {
+                uint32_t pid = uint32_decode(client_fd);
+                uint32_t segment_id = uint32_decode(client_fd);
+                log_debug(logger, "Pedido de SEGMENT_DELETE para PID %u - Segmento ID %u", pid, segment_id);
+
+                t_segment_result result = segment_delete(pid, segment_id);
+
+                switch (result) {
+                    case SEGMENT_OK:
+                        log_debug(logger, "PID: %u - Segmento Eliminado %u", pid, segment_id);
+                        break;
+                    case SEGMENT_ERROR:
+                        log_error(logger, "No se pudo eliminar el segmento");
+                        break;
+                    default:
+                        log_error(logger, "Resultado de segment_delete no esperado");
+                        break;
+                }
+                break;
+            }
+
             case COMPACTION_READY: {
             // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
             log_debug(logger, "Received COMPACTION_READY from Kernel Scheduler");
