@@ -252,17 +252,42 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 			break;
 		}
 
-		case MOV_IN:{
-            //Llamar a mmu dir_logica → dir_fisica
-            log_info(logger, "Memory operations not yet implemented. OK for now.");
-            break;
-        }
+		case MOV_IN: {
+    uint32_t logical_addr = read_register_value(context, "si");
+    uint32_t size = sizeof(uint32_t);
 
-		case MOV_OUT: {
-            //Llamar a mmu dir_logica → dir_fisica
-			log_info(logger, "Memory operations not yet implemented. OK for now.");
-			break;
-        }
+    int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
+    if (physical_addr == -1) {
+        send_segfault_to_scheduler(pid);
+        return;
+    }
+
+    uint32_t value = 0;
+    if (mmu_read(physical_addr, size, &value,
+                 stick_size, memory_stick_fds, stick_count) != 0) return;
+
+    write_register_value(context, decoded_instruction[1], value);
+    log_info(logger, "MOV_IN ejecutado");
+    break;
+}
+
+case MOV_OUT: {
+    uint32_t logical_addr = read_register_value(context, "di");
+    uint32_t value        = read_register_value(context, decoded_instruction[1]);
+    uint32_t size         = sizeof(uint32_t);
+
+    int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
+    if (physical_addr == -1) {
+        send_segfault_to_scheduler(pid);
+        return;
+    }
+
+    mmu_write(physical_addr, size, &value,
+              stick_size, memory_stick_fds, stick_count);
+    log_info(logger, "MOV_OUT ejecutado");
+    break;
+}
+
 		
 		case SUM: {
 			instruction_sum(decoded_instruction, context);
@@ -283,10 +308,30 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 		}
 
         case COPY_MEM: {
-           //Llamar a mmu dir_logica → dir_fisica
-			log_info(logger, "Memory operations not yet implemented. OK for now.");
-			break;
-        }
+    uint32_t src_logical  = read_register_value(context, "si");
+    uint32_t dst_logical  = read_register_value(context, "di");
+    uint32_t size         = read_register_value(context, decoded_instruction[1]);
+
+    int32_t src_physical = mmu_translate(context, src_logical, size, SEGMENT_MAX_SIZE);
+    int32_t dst_physical = mmu_translate(context, dst_logical, size, SEGMENT_MAX_SIZE);
+
+    if (src_physical == -1 || dst_physical == -1) {
+        send_segfault_to_scheduler(pid);
+        return;
+    }
+
+    void *buffer = malloc(size);
+    if (mmu_read(src_physical, size, buffer,
+                 stick_size, memory_stick_fds, stick_count) != 0) {
+        free(buffer);
+        return;
+    }
+    mmu_write(dst_physical, size, buffer,
+              stick_size, memory_stick_fds, stick_count);
+    free(buffer);
+    log_info(logger, "COPY_MEM ejecutado");
+    break;
+}
 
 		case INS_MUTEX_CREATE: {
 			instruction_mutex_create(decoded_instruction, context);
@@ -594,3 +639,134 @@ int32_t mmu_translate(t_cpu_context *context, uint32_t dir_logica, uint32_t size
     return seg.base + desplazamiento;
 }
 */
+// Un segmento en la tabla del proceso
+typedef struct {
+    uint32_t id;
+    uint32_t base;   // dirección física absoluta (ya sumando offset del stick)
+    uint32_t limit;  // tamaño del segmento
+} t_segment;
+
+// Tabla de segmentos del proceso (deberia llegar de Kernel Memory)
+typedef struct {
+    t_segment *segments;
+    uint32_t   count;
+} t_segment_table;
+// Devuelve la dirección física, o -1 si hay segfault
+int32_t mmu_translate(t_cpu_context *context, uint32_t logical_addr,
+                      uint32_t size, uint32_t segment_max_size) {
+    uint32_t num_segmento   = logical_addr / segment_max_size;
+    uint32_t desplazamiento = logical_addr % segment_max_size;
+
+    // Buscar el segmento por índice en la tabla
+    if (num_segmento >= context->segment_table.count) {
+        log_error(logger, "SEG_FAULT PID %d: segmento %d no existe",
+                  context->pid, num_segmento);
+        return -1;
+    }
+
+    t_segment seg = context->segment_table.segments[num_segmento];
+
+    if (desplazamiento + size > seg.limit) {
+        log_error(logger, "SEG_FAULT PID %d: acceso fuera del segmento %d "
+                  "(desp=%d, size=%d, limit=%d)",
+                  context->pid, num_segmento, desplazamiento, size, seg.limit);
+        return -1;
+    }
+
+    return (int32_t)(seg.base + desplazamiento);
+}
+// Lee `size` bytes desde dirección física, partiendo entre sticks si hace falta
+// Devuelve 0 OK, -1 error
+int mmu_read(uint32_t physical_addr, uint32_t size, void *buffer,
+             uint32_t stick_size, int *memory_stick_fds, uint32_t stick_count) {
+    uint32_t bytes_read = 0;
+
+    while (bytes_read < size) {
+        uint32_t cur_addr  = physical_addr + bytes_read;
+        uint32_t stick_idx = cur_addr / stick_size;
+        uint32_t stick_off = cur_addr % stick_size;
+
+        if (stick_idx >= stick_count) {
+            log_error(logger, "mmu_read: dirección física %d fuera de rango", cur_addr);
+            return -1;
+        }
+
+        // Cuánto puedo leer de este stick sin pasarme
+        uint32_t available  = stick_size - stick_off;
+        uint32_t chunk_size = (size - bytes_read) < available
+                              ? (size - bytes_read)
+                              : available;
+
+        // Armar paquete de lectura hacia el Memory Stick
+        t_package *pkg = package_create();
+        pkg->op_code = MEMORY_READ;
+        package_add(pkg, &stick_off,   sizeof(uint32_t));
+        package_add(pkg, &chunk_size,  sizeof(uint32_t));
+        package_send(pkg, memory_stick_fds[stick_idx]);
+        package_delete(pkg);
+
+        // Recibir los bytes leídos
+        // (asumiendo que recibes un buffer con los bytes del stick)
+        uint32_t bytes_received = 0;
+        void *chunk = receive_buffer(memory_stick_fds[stick_idx], &bytes_received);
+        if (chunk == NULL || bytes_received != chunk_size) {
+            log_error(logger, "mmu_read: error leyendo del stick %d", stick_idx);
+            free(chunk);
+            return -1;
+        }
+
+        memcpy((uint8_t *)buffer + bytes_read, chunk, chunk_size);
+        free(chunk);
+
+        log_info(logger, "PID: - Acción: LEER - Dirección Física: %d - Valor: %.*s",
+                 cur_addr, chunk_size, (char*)((uint8_t*)buffer + bytes_read));
+
+        bytes_read += chunk_size;
+    }
+
+    return 0;
+}
+
+// Escribe `size` bytes en dirección física, partiendo entre sticks si hace falta
+int mmu_write(uint32_t physical_addr, uint32_t size, void *buffer,
+              uint32_t stick_size, int *memory_stick_fds, uint32_t stick_count) {
+    uint32_t bytes_written = 0;
+
+    while (bytes_written < size) {
+        uint32_t cur_addr  = physical_addr + bytes_written;
+        uint32_t stick_idx = cur_addr / stick_size;
+        uint32_t stick_off = cur_addr % stick_size;
+
+        if (stick_idx >= stick_count) {
+            log_error(logger, "mmu_write: dirección física %d fuera de rango", cur_addr);
+            return -1;
+        }
+
+        uint32_t available  = stick_size - stick_off;
+        uint32_t chunk_size = (size - bytes_written) < available
+                              ? (size - bytes_written)
+                              : available;
+
+        t_package *pkg = package_create();
+        pkg->op_code = MEMORY_WRITE;
+        package_add(pkg, &stick_off, sizeof(uint32_t));
+        package_add(pkg, &chunk_size, sizeof(uint32_t));
+        package_add(pkg, (uint8_t *)buffer + bytes_written, chunk_size);
+        package_send(pkg, memory_stick_fds[stick_idx]);
+        package_delete(pkg);
+
+        // Esperar confirmación
+        int ok = receive_ack(memory_stick_fds[stick_idx]);
+        if (!ok) {
+            log_error(logger, "mmu_write: error escribiendo en stick %d", stick_idx);
+            return -1;
+        }
+
+        log_info(logger, "PID: - Acción: ESCRIBIR - Dirección Física: %d - Valor: %.*s",
+                 cur_addr, chunk_size, (char*)((uint8_t*)buffer + bytes_written));
+
+        bytes_written += chunk_size;
+    }
+
+    return 0;
+}
