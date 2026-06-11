@@ -111,6 +111,8 @@ uint32_t id_assigner (uint32_t *current_max_id, int fd, pthread_mutex_t *mutex) 
 
     uint32_send(fd, id, mutex);
 
+	log_debug(logger, "Asignado ID %d al cliente con fd %d", id, fd);
+
     return id;
 }
 
