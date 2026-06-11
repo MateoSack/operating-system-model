@@ -6,6 +6,7 @@ t_list *list_cpu = NULL;
 uint32_t mem_stick_id;
 t_client_info *kernel_memory = NULL;
 uint32_t size = 0;
+void *memory = NULL;
 
 int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
@@ -19,19 +20,34 @@ int main(int argc, char *argv[]) {
     logger = start_logger(config);
 
 	size = atoi(argv[2]);
+    if (size == 0) {
+        fprintf(stderr, "Tamaño inválido: %s\n", argv[2]);
+        return EXIT_FAILURE;
+    }
+
+    // Reservar la memoria que representa este memory stick
+    memory = malloc(size);
+    if (memory == NULL) {
+        fprintf(stderr, "Error: no se pudo reservar %u bytes\n", size);
+        return EXIT_FAILURE;
+    }
+    memset(memory, 0, size);
 
 	list_cpu = list_create();
 
 	/*-------------------Connection with Kernel Memory-------------------*/
-	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
-
+	if (kernel_memory_handler(logger, config) == EXIT_FAILURE) {
+        free(memory);
+        return EXIT_FAILURE;
+    }
 	/*-------------------Server setup-------------------*/
 	int server_fd = server_setup(logger, kernel_memory->fd);
 
 	if (server_fd == -1) {
-		log_error(logger, "No se pudo iniciar el servidor");
-		return EXIT_FAILURE;
-	}
+        log_error(logger, "No se pudo iniciar el servidor");
+        free(memory);
+        return EXIT_FAILURE;
+    }
 
 	log_info(logger, "Memory Stick listo, esperando conexiones...");
 
@@ -54,6 +70,7 @@ int main(int argc, char *argv[]) {
         pthread_detach(thread);
 	}
 
+	free(memory);
 	log_destroy(logger);
     config_destroy(config);
 	return EXIT_SUCCESS;
@@ -94,6 +111,7 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	t_module_id_send(kernel_memory->fd, MODULE_MEMORY_STICK, logger, &kernel_memory->network_mutex);
 	mem_stick_id = uint32_receive(kernel_memory->fd);
 	uint32_send(kernel_memory->fd, size, &kernel_memory->network_mutex);
+	
 	log_info(logger, "## Conectado a Kernel Memory");
 	log_info(logger, "MEMORY STICK ID: %d", mem_stick_id);
 
@@ -106,17 +124,29 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-void *kernel_memory_thread () {
-	while (1) {
-		//Handle connection with Kernel Memory
-		int op = operation_receive(kernel_memory->fd);
-		if (op == -1) {
-			log_warning(logger, "Kernel Memory desconectado");
-			destroy_client(kernel_memory);
-			break;
-		}
-	}
-	return NULL;
+void *kernel_memory_thread(void *arg) {
+    while (1) {
+        int op = operation_receive(kernel_memory->fd);
+        if (op == -1) {
+            log_warning(logger, "Kernel Memory desconectado");
+            destroy_client(kernel_memory);
+            kernel_memory = NULL;
+            break;
+        }
+
+        switch (op) {
+            case MS_READ:
+                handle_read(kernel_memory->fd, &kernel_memory->network_mutex);
+                break;
+            case MS_WRITE:
+                handle_write(kernel_memory->fd, &kernel_memory->network_mutex);
+                break;
+            default:
+                log_error(logger, "KM: operación desconocida: %d", op);
+                break;
+        }
+    }
+    return NULL;
 }
 
 void *cpu_handler (void *fd_ptr) {
@@ -131,26 +161,92 @@ void *cpu_handler (void *fd_ptr) {
 	}
 
 	uint32_t id = uint32_receive(cpu_fd);
-	log_debug(logger, "Se recibió cpu_id: %d", id);
 
-	add_client_to_list(list_cpu, cpu_fd, id);
+	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "## CPU %d Conectada", id);
 	log_info(logger, "Total de CPUs conectadas: %d", list_size(list_cpu));
-
-	t_client_info *cpu = malloc(sizeof(t_client_info));
-	cpu->fd = cpu_fd;
-	cpu->id = id;
 
 	while (1) {
 		//Handle connection with CPU
 		int op = operation_receive(cpu_fd);
-        if (op == -1) {
-            log_warning(logger, "CPU %d desconectada", id);
-			close(cpu_fd);
-			remove_client_from_list(list_cpu, cpu);
-			free(cpu);
+		if (op == -1) {
+			log_warning(logger, "CPU %d desconectada", id);
+            remove_client_from_list(list_cpu, cpu);
+            destroy_client(cpu);
             break;
-        }
+		}
+
+		switch (op) {
+			case MS_WRITE:
+				handle_write(cpu_fd, &cpu->network_mutex);
+				break;
+			case MS_READ:
+				handle_read(cpu_fd, &cpu->network_mutex);
+				break;
+			default:
+				log_error(logger, "Operación desconocida: %d", op);
+				break;
+		}
 	}
 	return NULL;
+}
+
+void handle_write(int fd, pthread_mutex_t *net_mutex) {
+    int total_size;
+    int offset = 0;
+    void *buffer = buffer_receive(&total_size, fd);
+    if (buffer == NULL) {
+        log_error(logger, "handle_write: no se recibieron datos");
+        return;
+    }
+
+    uint32_t local_offset = uint32_deserialize(buffer, &offset);
+    uint32_t write_size   = uint32_deserialize(buffer, &offset);
+
+    int data_field_size;
+    memcpy(&data_field_size, buffer + offset, sizeof(int));
+    offset += sizeof(int);
+    void *data = buffer + offset;
+
+    if (local_offset + write_size > size) { // Acá implementar escribir hasta donde se pueda y avisar al cliente que no se escribió todo
+        log_error(logger, "handle_write: escritura fuera de rango (offset=%u size=%u total=%u)",
+                  local_offset, write_size, size);
+        free(buffer);
+        return;
+    }
+
+    memcpy(memory + local_offset, data, write_size);
+    free(buffer);
+
+    log_info(logger, "## Escritura de %u bytes", write_size);
+
+    send_confirmation(0, fd, net_mutex);
+}
+
+void handle_read(int fd, pthread_mutex_t *net_mutex) {
+    int total_size;
+    int offset = 0;
+    void *buffer = buffer_receive(&total_size, fd);
+    if (buffer == NULL) {
+        log_error(logger, "handle_read: no se recibieron datos");
+        return;
+    }
+
+    uint32_t local_offset = uint32_deserialize(buffer, &offset);
+    uint32_t read_size    = uint32_deserialize(buffer, &offset);
+    free(buffer);
+
+    if (local_offset + read_size > size) {
+        log_error(logger, "handle_read: lectura fuera de rango (offset=%u size=%u total=%u)",
+                  local_offset, read_size, size);
+        return;
+    }
+
+    log_info(logger, "## Lectura de %u bytes", read_size);
+
+    t_package *pkg = package_create();
+    pkg->op_code = MS_READ;
+    package_add(pkg, memory + local_offset, read_size);
+    package_send(pkg, fd, net_mutex);
+    package_delete(pkg);
 }

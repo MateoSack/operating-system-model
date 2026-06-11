@@ -11,7 +11,7 @@ extern t_list *list_memory_stick;
 extern pthread_mutex_t list_memory_stick_mutex;
 
 // ver de sacarla de aca
-static bool comparar_por_base(void *a, void *b) {
+static bool compare_by_base(void *a, void *b) {
     return ((t_hole *)a)->base < ((t_hole *)b)->base;
 }
 
@@ -38,7 +38,7 @@ t_list *get_free_holes(void) {
     }
     pthread_mutex_unlock(&list_processes_mutex);
 
-    list_sort(occupied, comparar_por_base);
+    list_sort(occupied, compare_by_base);
 
     t_list  *holes = list_create();
     uint32_t cursor = 0;
@@ -257,6 +257,7 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) { // Wri
 
     // Waits for the memory stick handler to post the response
     sem_wait(&ms->response_sem);
+    pthread_mutex_lock(&ms->mutex);
     bool isOk = (ms->last_op_result == MS_WRITE_OK);
     pthread_mutex_unlock(&ms->mutex);
     return isOk;
