@@ -22,7 +22,7 @@ extern t_list *pending_request_io_stdin;
 extern t_list *pending_request_io_stdout;
 
 extern t_log *logger;
-extern int kernel_memory_fd;
+extern t_client_info *kernel_memory;
 
 extern uint32_t next_io_id;
 

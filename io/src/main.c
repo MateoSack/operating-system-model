@@ -3,7 +3,7 @@
 
 t_log *logger;
 uint32_t io_id;
-int kernel_scheduler_fd;
+t_client_info *kernel_scheduler = NULL;
 
 int main(int argc, char *argv[]) {
 	if (argc < 3) {
@@ -29,33 +29,33 @@ int main(int argc, char *argv[]) {
 
 	log_info(logger, "IO started");
 
-	kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
+	kernel_scheduler = create_client_info(connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger), 0);
 
-	if (kernel_scheduler_fd == -1) {
+	if (kernel_scheduler->fd == -1) {
 		log_error(logger, "Conexión con Kernel scheduler fallida");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send(kernel_scheduler_fd, MODULE_IO, logger);
-	t_io_type_send(kernel_scheduler_fd, io_type, logger);
-	io_id = uint32_receive(kernel_scheduler_fd);
+	t_module_id_send(kernel_scheduler->fd, MODULE_IO, logger, &kernel_scheduler->network_mutex);
+	t_io_type_send(kernel_scheduler->fd, io_type, logger, &kernel_scheduler->network_mutex);
+	io_id = uint32_receive(kernel_scheduler->fd);
 	log_info(logger, "## Conectado a Kernel Scheduler");
 	log_info(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);
 
 	while (1) {
-		int op = operation_receive(kernel_scheduler_fd);
+		int op = operation_receive(kernel_scheduler->fd);
 
 		log_debug(logger, "Operacion recibida de Kernel Scheduler: %d", op);
 
 		switch (op) {
 			case -1: {
 				log_error(logger, "Kernel Scheduler desconectado");
-				close(kernel_scheduler_fd);
+				destroy_client(kernel_scheduler);
 				return EXIT_FAILURE;
 			}
 
 			default: {
-				handle_operation(kernel_scheduler_fd, io_type);
+				handle_operation(kernel_scheduler->fd, io_type);
 			}
 		}
 	}
@@ -81,7 +81,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				char *output = io_stdin(io_process->pid, io_process->value);
 				t_io_string_process *string_process = t_io_string_process_create(io_process->pid, output, IO_TYPE_STDIN);
-				io_string_process_send(string_process, STDIN, kernel_scheduler_fd);
+				io_string_process_send(string_process, STDIN, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
 				free(io_process);
 				free(output);
 			}
@@ -94,7 +94,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			if (io_process != NULL) {
 				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_stdout(io_process->pid, io_process->value);
-				send_confirmation(io_process->pid, kernel_scheduler_fd);
+				send_confirmation(io_process->pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
 				free(io_process->value);
 				free(io_process);
 			}
@@ -107,7 +107,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 			if (io_process != NULL) {
 				log_info(logger, "## PID:  %d - Inicio de IO", io_process->pid);
 				io_sleep_ms(io_process->pid, io_process->value);
-				send_confirmation(io_process->pid, kernel_scheduler_fd);
+				send_confirmation(io_process->pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
 				free(io_process);
 			}
 			break;

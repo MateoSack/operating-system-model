@@ -120,7 +120,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 //TODO: Implementar traduccion de direccion de logica a fisica y lectura de memoria
                 log_info(logger, "Received PID %u IO_MEMORY_READ request for physical address %u with size %u", pid, logical_address, size); // cambiar address
                 message_send("OK", client_fd); 
-                uint32_send(client_fd, 777);
+                uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la lectura
                 break;
             }
 
@@ -130,7 +130,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t size = uint32_decode(client_fd);
                 log_info(logger, "Received PID %u IO_MEMORY_WRITE request for physical address %u with size %u", pid, logical_address, size); // cambiar address
                 message_send("OK", client_fd);
-                uint32_send(client_fd, 777);
+                uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la escritura
                 break;
             }
         }

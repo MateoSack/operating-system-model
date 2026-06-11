@@ -5,7 +5,7 @@
 
 extern t_log *logger;
 
-extern int kernel_memory_fd;
+extern t_client_info *kernel_memory;
 
 extern pthread_mutex_t io_mutex;
 

@@ -4,7 +4,7 @@
 t_log *logger;
 t_list *list_cpu = NULL;
 uint32_t mem_stick_id;
-int kernel_memory_fd;
+t_client_info *kernel_memory = NULL;
 uint32_t size = 0;
 
 int main(int argc, char *argv[]) {
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 	if(kernel_memory_handler(logger, config) == EXIT_FAILURE) return EXIT_FAILURE;
 
 	/*-------------------Server setup-------------------*/
-	int server_fd = server_setup(logger, kernel_memory_fd);
+	int server_fd = server_setup(logger, kernel_memory->fd);
 
 	if (server_fd == -1) {
 		log_error(logger, "No se pudo iniciar el servidor");
@@ -84,16 +84,16 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
-	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+	kernel_memory = create_client_info(connection_create(kernel_memory_ip, kernel_memory_port, logger), 0);
 
-	if (kernel_memory_fd == -1) {
+	if (kernel_memory->fd == -1) {
 		log_error(logger, "No se pudo conectar con Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send(kernel_memory_fd, MODULE_MEMORY_STICK, logger);
-	mem_stick_id = uint32_receive(kernel_memory_fd);
-	uint32_send(kernel_memory_fd, size);
+	t_module_id_send(kernel_memory->fd, MODULE_MEMORY_STICK, logger, &kernel_memory->network_mutex);
+	mem_stick_id = uint32_receive(kernel_memory->fd);
+	uint32_send(kernel_memory->fd, size, &kernel_memory->network_mutex);
 	log_info(logger, "## Conectado a Kernel Memory");
 	log_info(logger, "MEMORY STICK ID: %d", mem_stick_id);
 
@@ -109,10 +109,10 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 void *kernel_memory_thread () {
 	while (1) {
 		//Handle connection with Kernel Memory
-		int op = operation_receive(kernel_memory_fd);
+		int op = operation_receive(kernel_memory->fd);
 		if (op == -1) {
 			log_warning(logger, "Kernel Memory desconectado");
-			close(kernel_memory_fd);
+			destroy_client(kernel_memory);
 			break;
 		}
 	}

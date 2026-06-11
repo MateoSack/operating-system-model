@@ -48,17 +48,14 @@ static void receive_two_uint32_from_package(int client_fd, uint32_t *pid, uint32
     free(buffer);
 }
 
-int cpu_handler (t_log *logger, int client_fd, int cpu_id){
+int cpu_handler (t_log *logger, t_client_info *cpu) {
     while (1) {
-        int op = operation_receive(client_fd);
+        int op = operation_receive(cpu->fd);
         if (op == -1) {
-            t_client_info *cpu = malloc(sizeof(t_client_info));
-	        cpu->fd = client_fd;
-	        cpu->id = cpu_id;
             remove_client_from_list(list_cpu, cpu);
-            free(cpu);
+            destroy_client(cpu);
             
-            log_error(logger, "CPU %d disconnected", cpu_id);
+            log_error(logger, "CPU %d disconnected", cpu->id);
 
             //Llamar función de fallo y shutdown
             break;
@@ -68,7 +65,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             case CONTEXT_TRANSFER: {
                 int size;
                 int offset = 0;
-                void *buffer = buffer_receive(&size, client_fd);
+                void *buffer = buffer_receive(&size, cpu->fd);
                 
                 uint32_t pid = uint32_deserialize(buffer, &offset);
                 
@@ -86,7 +83,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                 ctx->di  = uint32_deserialize(buffer, &offset);
                 free(buffer);
 
-                log_info(logger, "Received context transfer for PID %d from CPU %d", pid, cpu_id);
+                log_info(logger, "Received context transfer for PID %d from CPU %d", pid, cpu->id);
                 
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
@@ -104,8 +101,8 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             }
 
             case CONTEXT_SEEK: {
-                uint32_t pid = receive_uint32_from_package(client_fd);
-                log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu_id);
+                uint32_t pid = receive_uint32_from_package(cpu->fd);
+                log_info(logger, "Received context seek request for PID %d from CPU %d", pid, cpu->id);
                 
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
@@ -115,7 +112,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                     log_error(logger, "Process with PID %d not found", pid);
                     break;
                 }
-                context_send(&pcb->context, client_fd);
+                context_send(&pcb->context, cpu->fd, &cpu->network_mutex);
                 log_info(logger, "Context sent correctly for PID %d", pid);
                 break;
             }
@@ -123,7 +120,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
             case INSTRUCTION_FETCH: {
                 log_debug(logger, "Pedido de INSTRUCTION_FETCH recibido de CPU");
                 uint32_t pid, pc;
-                receive_two_uint32_from_package(client_fd, &pid, &pc);
+                receive_two_uint32_from_package(cpu->fd, &pid, &pc);
                 log_debug(logger, "PID recibido: %d", pid);
                 log_debug(logger, "PC recibido: %d", pc);
                 
@@ -143,7 +140,7 @@ int cpu_handler (t_log *logger, int client_fd, int cpu_id){
                 
                 char *instruction = pcb->instructions[pc];
                 log_info(logger, "## PID: %u - Obtener instruccion: %u - Instruccion: %s", pid, pc, instruction);
-                message_send_with_op_code(instruction, INSTRUCTION_FETCH, client_fd);
+                message_send_with_op_code(instruction, INSTRUCTION_FETCH, cpu->fd);
                 log_debug(logger, "Instruccion enviada correctamente a PID %d: %s", pid, instruction);
                 break;
             }

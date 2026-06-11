@@ -8,7 +8,7 @@ extern t_list *list_cpu;
 extern t_list *list_processes;
 
 extern t_log *logger;
-extern int kernel_memory_fd;
+extern t_client_info *kernel_memory;
 
 void *kernel_memory_handler ();
 

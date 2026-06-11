@@ -6,7 +6,7 @@ int long_term_scheduler (char *path, uint8_t priority) {
     pthread_mutex_unlock(&scheduler_mutex);
 
     log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", pid);
-    send_process_create_info(pid, path, kernel_memory_fd);
+    send_process_create_info(pid, path, kernel_memory->fd, &kernel_memory->network_mutex);
     free(path);
     
     t_process *process = create_process(pid, priority);

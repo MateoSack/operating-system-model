@@ -4,8 +4,7 @@ extern t_list *list_processes;
 extern pthread_mutex_t list_processes_mutex;
 extern uint32_t total_memory_size;
 extern t_log *logger;
-extern int kernel_scheduler_fd;
-extern pthread_mutex_t kernel_scheduler_mutex;
+extern t_client_info *kernel_scheduler;
 extern uint32_t target_pid;
 extern sem_t compaction_sem;
 extern t_list *list_memory_stick;
@@ -131,12 +130,10 @@ void compact_memory(void) {
 }
 
 void request_and_compact(void) { // Send compaction request to Kernel Scheduler and wait for confirmation, then perform compaction
-    pthread_mutex_lock(&kernel_scheduler_mutex);
     t_package *pkg = package_create();
     pkg->op_code   = COMPACTION_REQUEST;
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
-    pthread_mutex_unlock(&kernel_scheduler_mutex);
 
     sem_wait(&compaction_sem);
 
@@ -227,7 +224,7 @@ void *memory_read(uint32_t physical_address, uint32_t size) { // Reads `size` by
     pkg->op_code = MS_READ;
     package_add(pkg, &local_offset, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, ms->fd);
+    package_send(pkg, ms->fd, &ms->mutex);
     package_delete(pkg);
 
     // Waits for response delivered by the memory stick handler thread
@@ -253,9 +250,10 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) { // Wri
     package_add(pkg, &local_offset, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
     package_add(pkg, data, size);
-    pthread_mutex_lock(&ms->mutex);
-    package_send(pkg, ms->fd);
+    package_send(pkg, ms->fd, &ms->mutex);
     package_delete(pkg);
+
+    pthread_mutex_lock(&ms->mutex);
 
     // Waits for the memory stick handler to post the response
     sem_wait(&ms->response_sem);

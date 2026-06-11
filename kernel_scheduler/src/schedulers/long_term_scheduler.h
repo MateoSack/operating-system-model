@@ -5,7 +5,7 @@
 #include <schedulers/short_term_scheduler.h>
 
 extern t_log *logger;
-extern int kernel_memory_fd;
+extern t_client_info *kernel_memory;
 extern t_list *list_processes;
 extern t_list **ready_queue;
 extern uint32_t current_max_pid;

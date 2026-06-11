@@ -1,10 +1,10 @@
 #include <main.h>
 
 t_log *logger;
+t_client_info *kernel_memory = NULL;
 
 int main(void) {
     /*-------------------Connection with Kernel Memory-------------------*/
-	int kernel_memory_fd;
 	
 	t_config *config = config_create("swap.config");
     if(config == NULL) return EXIT_FAILURE;
@@ -15,7 +15,9 @@ int main(void) {
 
     log_info(logger, "SWAP started");
 
-    kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+    int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+
+    kernel_memory = create_client_info(kernel_memory_fd, 0);
 
     if(kernel_memory_fd == -1)
     {
@@ -23,14 +25,14 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
-    t_module_id_send(kernel_memory_fd, MODULE_SWAP, logger);
+    t_module_id_send(kernel_memory->fd, MODULE_SWAP, logger, &kernel_memory->network_mutex);
     log_info(logger, "## Conectado a Kernel Memory");
 
     while (1) {
-		int op = operation_receive(kernel_memory_fd);
+		int op = operation_receive(kernel_memory->fd);
         if (op == -1) {
             log_warning(logger, "Kernel Memory desconectado");
-			close(kernel_memory_fd);
+			destroy_client(kernel_memory);
             break;
         }
 	}

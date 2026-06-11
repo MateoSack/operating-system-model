@@ -25,7 +25,7 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
         pthread_mutex_unlock(&io_mutex);
 
         pthread_mutex_lock(&io->network_mutex);
-        io_numeric_process_send(io_process, SLEEP, io->fd);
+        io_numeric_process_send(io_process, SLEEP, io->fd, &io->network_mutex);
         pthread_mutex_unlock(&io->network_mutex);
 
         log_debug(logger, "Proceso %d enviado a IO SLEEP (fd: %d) para dormir por %d ms", pid, io->fd, sleep_time);
@@ -68,7 +68,7 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base
         pthread_mutex_unlock(&io_mutex);
 
         pthread_mutex_lock(&io->network_mutex);
-        io_numeric_process_send(io_process, STDIN, io->fd);
+        io_numeric_process_send(io_process, STDIN, io->fd, &io->network_mutex);
         pthread_mutex_unlock(&io->network_mutex);
 
         log_debug(logger, "Proceso %d enviado a IO STDIN (fd: %d)", pid, io->fd);
@@ -111,7 +111,7 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t bas
         pthread_mutex_unlock(&io_mutex);
 
         pthread_mutex_lock(&io->network_mutex);
-        io_string_process_send(io_process, STDOUT, io->fd);
+        io_string_process_send(io_process, STDOUT, io->fd, &io->network_mutex);
         pthread_mutex_unlock(&io->network_mutex);
 
         log_debug(logger, "Proceso %d enviado a IO STDOUT (fd: %d)", pid, io->fd);

@@ -37,7 +37,7 @@ sem_t short_term_scheduler_sem;
 
 sem_t shutdown_sem;
 
-int kernel_memory_fd = -1;
+t_client_info *kernel_memory = NULL;
 
 uint32_t next_cpu_id = 0;
 uint32_t next_io_id = 0;
@@ -97,14 +97,22 @@ int kernel_memory_connection (t_log *logger, t_config *config, char *process0) {
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
 	log_debug(logger, "Intentando conexión con ip: %s, puerto: %s", kernel_memory_ip, kernel_memory_port);
-	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+	int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+
+	kernel_memory = malloc(sizeof(t_client_info));
+	kernel_memory->fd = kernel_memory_fd;
+	kernel_memory->id = 0;
+	kernel_memory->is_available = true;
+	pthread_mutex_init(&kernel_memory->internal_mutex, NULL);
+	pthread_mutex_init(&kernel_memory->network_mutex, NULL);
+	sem_init(&kernel_memory->response_sem, 0, 0);
 
 	if (kernel_memory_fd == -1) {
 		log_error(logger, "No se pudo conectar con Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send (kernel_memory_fd, MODULE_KERNEL_SCHEDULER, logger);
+	t_module_id_send (kernel_memory->fd, MODULE_KERNEL_SCHEDULER, logger, &kernel_memory->network_mutex);
 
 	log_info(logger, "## Conectado a Kernel Memory");
 	

@@ -37,7 +37,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		package_add(pkg, &context->pc, sizeof(uint32_t));
 		
 		pthread_mutex_lock(&kernel_memory_write_mutex); // Usar funcion general de send
-		package_send(pkg, kernel_memory_fd);
+		package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
 		pthread_mutex_unlock(&kernel_memory_write_mutex);
 		package_delete(pkg);
 		
@@ -93,7 +93,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
 
             pthread_mutex_lock(&kernel_memory_write_mutex);
-            context_send_with_pid(context, pid, kernel_memory_fd);
+            context_send_with_pid(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
             pthread_mutex_unlock(&kernel_memory_write_mutex);
             log_info(logger, "Context saved to Kernel Memory");
 
@@ -107,7 +107,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             package_add(pkg2, &pid, sizeof(uint32_t));
             package_add(pkg2, &reason_local, sizeof(t_interrupt_reason));
             pthread_mutex_lock(&kernel_scheduler_write_mutex);
-            package_send(pkg2, kernel_scheduler_fd);
+            package_send(pkg2, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
             pthread_mutex_unlock(&kernel_scheduler_write_mutex);
             package_delete(pkg2);
             log_info(logger, "Notified Kernel Scheduler about PID %d interruption (reason=%s)", pid, interrupt_reason_to_string(reason_local));
@@ -252,42 +252,43 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 			break;
 		}
 
-		case MOV_IN: {
-    uint32_t logical_addr = read_register_value(context, "si");
-    uint32_t size = sizeof(uint32_t);
+		case MOV_IN: { /*
+            uint32_t logical_addr = read_register_value(context, "si");
+            uint32_t size = sizeof(uint32_t);
 
-    int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
-    if (physical_addr == -1) {
-        send_segfault_to_scheduler(pid);
-        return;
-    }
+            int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
+            if (physical_addr == -1) {
+                send_segfault_to_scheduler(pid);
+                return;
+            }
 
-    uint32_t value = 0;
-    if (mmu_read(physical_addr, size, &value,
-                 stick_size, memory_stick_fds, stick_count) != 0) return;
+            uint32_t value = 0;
+            if (mmu_read(physical_addr, size, &value,
+                        stick_size, memory_stick_fds, stick_count) != 0) return;
 
-    write_register_value(context, decoded_instruction[1], value);
-    log_info(logger, "MOV_IN ejecutado");
-    break;
-}
+            write_register_value(context, decoded_instruction[1], value);
+            log_info(logger, "MOV_IN ejecutado");
+            */
+            break;
+        }
 
-case MOV_OUT: {
-    uint32_t logical_addr = read_register_value(context, "di");
-    uint32_t value        = read_register_value(context, decoded_instruction[1]);
-    uint32_t size         = sizeof(uint32_t);
+        case MOV_OUT: { /*
+            uint32_t logical_addr = read_register_value(context, "di");
+            uint32_t value        = read_register_value(context, decoded_instruction[1]);
+            uint32_t size         = sizeof(uint32_t);
 
-    int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
-    if (physical_addr == -1) {
-        send_segfault_to_scheduler(pid);
-        return;
-    }
+            int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
+            if (physical_addr == -1) {
+                send_segfault_to_scheduler(pid);
+                return;
+            }
 
-    mmu_write(physical_addr, size, &value,
-              stick_size, memory_stick_fds, stick_count);
-    log_info(logger, "MOV_OUT ejecutado");
-    break;
-}
-
+            mmu_write(physical_addr, size, &value,
+                    stick_size, memory_stick_fds, stick_count);
+            log_info(logger, "MOV_OUT ejecutado");
+            */
+            break;
+        }
 		
 		case SUM: {
 			instruction_sum(decoded_instruction, context);
@@ -308,30 +309,32 @@ case MOV_OUT: {
 		}
 
         case COPY_MEM: {
-    uint32_t src_logical  = read_register_value(context, "si");
-    uint32_t dst_logical  = read_register_value(context, "di");
-    uint32_t size         = read_register_value(context, decoded_instruction[1]);
+        /*
+            uint32_t src_logical  = read_register_value(context, "si");
+            uint32_t dst_logical  = read_register_value(context, "di");
+            uint32_t size         = read_register_value(context, decoded_instruction[1]);
 
-    int32_t src_physical = mmu_translate(context, src_logical, size, SEGMENT_MAX_SIZE);
-    int32_t dst_physical = mmu_translate(context, dst_logical, size, SEGMENT_MAX_SIZE);
+            int32_t src_physical = mmu_translate(context, src_logical, size, SEGMENT_MAX_SIZE);
+            int32_t dst_physical = mmu_translate(context, dst_logical, size, SEGMENT_MAX_SIZE);
 
-    if (src_physical == -1 || dst_physical == -1) {
-        send_segfault_to_scheduler(pid);
-        return;
-    }
+            if (src_physical == -1 || dst_physical == -1) {
+                send_segfault_to_scheduler(pid);
+                return;
+            }
 
-    void *buffer = malloc(size);
-    if (mmu_read(src_physical, size, buffer,
-                 stick_size, memory_stick_fds, stick_count) != 0) {
-        free(buffer);
-        return;
-    }
-    mmu_write(dst_physical, size, buffer,
-              stick_size, memory_stick_fds, stick_count);
-    free(buffer);
-    log_info(logger, "COPY_MEM ejecutado");
-    break;
-}
+            void *buffer = malloc(size);
+            if (mmu_read(src_physical, size, buffer,
+                        stick_size, memory_stick_fds, stick_count) != 0) {
+                free(buffer);
+                return;
+            }
+            mmu_write(dst_physical, size, buffer,
+                    stick_size, memory_stick_fds, stick_count);
+            free(buffer);
+            log_info(logger, "COPY_MEM ejecutado");
+            */
+            break;
+        }
 
 		case INS_MUTEX_CREATE: {
 			instruction_mutex_create(decoded_instruction, context);
@@ -490,17 +493,17 @@ void *process_execution_handler(void *args) {
 
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_CREATE operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_CREATE, kernel_scheduler_fd);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_CREATE, kernel_scheduler->fd);
 }
 
 void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_LOCK operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_LOCK, kernel_scheduler_fd);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_LOCK, kernel_scheduler->fd);
 }
 
 void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_UNLOCK operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_UNLOCK, kernel_scheduler_fd);
+    message_send_with_op_code(decoded_instruction[1], MUTEX_UNLOCK, kernel_scheduler->fd);
 }
 
 void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -510,7 +513,7 @@ void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, u
     pkg->op_code = MEM_ALLOC;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }
 
@@ -521,7 +524,7 @@ void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, ui
     pkg->op_code = MEM_FREE;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &address, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }
 
@@ -532,7 +535,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     pkg->op_code = SLEEP;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &time, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
     pthread_mutex_lock(&process_control_mutex);
     shoudld_stop = true; // Deberia parar por generar interrupcion de IO
@@ -558,7 +561,7 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &logical_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
@@ -585,7 +588,7 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &logical_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
@@ -601,7 +604,7 @@ void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, u
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &priority, sizeof(uint32_t));
     package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }
 
@@ -610,7 +613,7 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_END;
     package_add(pkg, &pid, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
     pthread_mutex_lock(&process_control_mutex);
     should_exit = true;
@@ -640,17 +643,14 @@ int32_t mmu_translate(t_cpu_context *context, uint32_t dir_logica, uint32_t size
 }
 */
 // Un segmento en la tabla del proceso
-typedef struct {
-    uint32_t id;
-    uint32_t base;   // dirección física absoluta (ya sumando offset del stick)
-    uint32_t limit;  // tamaño del segmento
-} t_segment;
 
 // Tabla de segmentos del proceso (deberia llegar de Kernel Memory)
 typedef struct {
     t_segment *segments;
     uint32_t   count;
 } t_segment_table;
+
+/*
 // Devuelve la dirección física, o -1 si hay segfault
 int32_t mmu_translate(t_cpu_context *context, uint32_t logical_addr,
                       uint32_t size, uint32_t segment_max_size) {
@@ -702,7 +702,7 @@ int mmu_read(uint32_t physical_addr, uint32_t size, void *buffer,
         pkg->op_code = MEMORY_READ;
         package_add(pkg, &stick_off,   sizeof(uint32_t));
         package_add(pkg, &chunk_size,  sizeof(uint32_t));
-        package_send(pkg, memory_stick_fds[stick_idx]);
+        package_send(pkg, memory_stick_fds[stick_idx], NULL); // ???????
         package_delete(pkg);
 
         // Recibir los bytes leídos
@@ -770,3 +770,5 @@ int mmu_write(uint32_t physical_addr, uint32_t size, void *buffer,
 
     return 0;
 }
+
+*/

@@ -1,6 +1,6 @@
 #include <utils/process_utils.h>
 
-void context_send_with_pid(t_cpu_context *context, uint32_t pid, int fd) {
+void context_send_with_pid(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
     pkg->op_code = CONTEXT_TRANSFER;
     package_add(pkg, &pid, sizeof(uint32_t));
@@ -15,11 +15,11 @@ void context_send_with_pid(t_cpu_context *context, uint32_t pid, int fd) {
     package_add(pkg, &context->edx, sizeof(uint32_t));
     package_add(pkg, &context->si, sizeof(uint32_t));
     package_add(pkg, &context->di, sizeof(uint32_t));
-    package_send(pkg, fd);
+    package_send(pkg, fd, mutex);
     package_delete(pkg);
 }
 
-void context_send (t_cpu_context *context, int client_socket) { // Sends the CPU context to the client
+void context_send (t_cpu_context *context, int client_socket, pthread_mutex_t *mutex) { // Sends the CPU context to the client
     t_package *package = package_create();
 	package->op_code = CONTEXT_TRANSFER;
     package_add(package, &context->pc, sizeof(uint32_t));
@@ -33,7 +33,7 @@ void context_send (t_cpu_context *context, int client_socket) { // Sends the CPU
 	package_add(package, &context->edx, sizeof(uint32_t));
     package_add(package, &context->si, sizeof(uint32_t));
     package_add(package, &context->di, sizeof(uint32_t));
-    package_send(package, client_socket);
+    package_send(package, client_socket, mutex);
     package_delete(package);
 }
 
@@ -85,7 +85,7 @@ const char* process_state_to_string(t_process_state state) { // Converts a t_pro
 const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts a t_interrupt_reason to a string, for logging purposes
     switch(reason) {
         case QUANTUM_EXPIRED: return "QUANTUM_EXPIRED";
-        case HIGHER_PRIORITY: return "HIGHER_PRIORITY";
+        case PRIORITY_PREEMPTION: return "PRIORITY_PREEMPTION";
         case CORRUPT_MEMORY: return "CORRUPT_MEMORY";
         case MUTEX_LOCKED: return "MUTEX_LOCKED";
         case IO_REQUEST: return "IO_REQUEST";
@@ -94,14 +94,14 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
     }
 }
 
-void io_numeric_process_send (t_io_numeric_process *io_process, op_code op_code, int client_socket) { // Sends an IO process with a numeric value request
+void io_numeric_process_send (t_io_numeric_process *io_process, op_code op_code, int client_socket, pthread_mutex_t *mutex) { // Sends an IO process with a numeric value request
     t_package *package = package_create();
     package->op_code = op_code;
     package_add(package, &io_process->pid, sizeof(uint32_t));
     package_add(package, &io_process->value, sizeof(uint32_t));
     package_add(package, &io_process->io_type, sizeof(t_io_type));
 
-    package_send(package, client_socket);
+    package_send(package, client_socket, mutex);
     package_delete(package);
 
     log_debug(logger, "Sending IO Numeric Process - PID: %d, Value: %d, IO Type: %d", io_process->pid, io_process->value, io_process->io_type);
@@ -125,7 +125,7 @@ t_io_numeric_process *io_numeric_process_receive(int client_socket) { // Receive
     return io_process;
 }
 
-void io_string_process_send (t_io_string_process *io_process, op_code op_code, int client_socket) { // Sends an IO process request with a string value
+void io_string_process_send (t_io_string_process *io_process, op_code op_code, int client_socket, pthread_mutex_t *mutex) { // Sends an IO process request with a string value
     t_package *package = package_create();
     package->op_code = op_code;
     package_add(package, &io_process->pid, sizeof(uint32_t));
@@ -133,7 +133,7 @@ void io_string_process_send (t_io_string_process *io_process, op_code op_code, i
     package_add(package, &value_length, sizeof(uint32_t));
     package_add(package, io_process->value, value_length);
     package_add(package, &io_process->io_type, sizeof(t_io_type));
-    package_send(package, client_socket);
+    package_send(package, client_socket, mutex);
     package_delete(package);
 }
 

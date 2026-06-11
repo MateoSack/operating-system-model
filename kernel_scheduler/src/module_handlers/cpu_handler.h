@@ -20,7 +20,7 @@ extern t_list *list_processes;
 extern t_list **ready_queue;
 
 extern t_log *logger;
-extern int kernel_memory_fd;
+extern t_client_info *kernel_memory;
 
 extern uint32_t next_cpu_id;
 

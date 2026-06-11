@@ -83,11 +83,11 @@ int ready_queue_size () { // Get the total size of the ready queue(s) based on t
     }
 }
 
-void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd) { // Send the process creation information to Kernel Memory
+void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd, pthread_mutex_t *mutex) { // Send the process creation information to Kernel Memory
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_CREATE;
     package_add(pkg, &pid, sizeof(uint32_t));
-	package_send(pkg, kernel_memory_fd);
+	package_send(pkg, kernel_memory_fd, mutex);
     package_delete(pkg);
 
     message_send(path, kernel_memory_fd);
@@ -104,6 +104,24 @@ t_scheduler_algorithm scheduler_algorithm_from_string(const char *str) { // Conv
         log_warning(logger, "Algoritmo de planificación desconocido: %s. Estableciendo FIFO.", str);
         return FIFO; // Default to FIFO if unknown
     }
+}
+
+bool process_has_quantum (t_process *process) { // Check if a process has quantum assigned based on the scheduling algorithm
+    if (scheduler_algorithm == RR) return true;
+    if (scheduler_algorithm == FIFO) return false;
+
+    bool has_quantum = false;
+
+    int priority = process->priority;
+
+    if (priority >= queue_algorithms_count) {
+        log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Usando última cola.", process->pid, process->priority, queue_algorithms_count);
+        priority = queue_algorithms_count - 1; // If the priority is greater than the number of queues, assume it has quantum assigned according to the last queue
+    }
+
+    has_quantum = queue_algorithms[priority] == RR;
+
+    return has_quantum;
 }
 
 t_process *get_process_from_pid (uint32_t pid) { // Get a process from the list of processes based on its PID, returns NULL if not found
@@ -128,22 +146,52 @@ t_process *get_process_from_cpu (t_client_info *cpu) { // Get a process from the
     return process;
 }
 
+t_process *get_highest_priority_process_from_ready_queue () { // Get the highest priority process from the ready queue, returns NULL if the ready queue is empty. Use under mutex
+    t_process *highest_priority_process = NULL;
+
+    for (int i = 0; i < queue_algorithms_count; i++) {
+        if (!list_is_empty(ready_queue[i])) {
+            highest_priority_process = list_get(ready_queue[i], 0); // Get the first process in the queue, which is the highest priority one
+            break;
+        }
+    }
+
+    return highest_priority_process;
+}
+
+t_process *get_lowest_priority_process (t_list *process_list) { // Get the lowest priority process from a list of processes, returns NULL if the list is empty. Use under mutex
+    if (list_is_empty(process_list)) return NULL;
+
+    t_process *lowest_priority_process = list_get(process_list, 0);
+
+    for (int i = 1; i < list_size(process_list); i++) {
+        t_process *current_process = list_get(process_list, i);
+        if (current_process->priority > lowest_priority_process->priority) { // 0 is the highest priority, so we look for the process with the greatest priority value
+            lowest_priority_process = current_process;
+        }
+    }
+
+    return lowest_priority_process;
+}
+
 void evict_process (t_process *process, t_interrupt_reason reason) { // Evict a process from the CPU
-    int cpu_fd = -1;
+    t_client_info *cpu = NULL;
 
     pthread_mutex_lock(&scheduler_mutex);
     if (process->cpu != NULL) {
-        cpu_fd = process->cpu->fd;
+        cpu = process->cpu;
         process_set_cpu(process, NULL);
     }
     pthread_mutex_unlock(&scheduler_mutex);
 
-    if (cpu_fd == -1) return;
+    if (cpu == NULL) return;
 
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EVICT;
     package_add(pkg, &reason, sizeof(t_interrupt_reason));
-    package_send(pkg, cpu_fd);
+
+    package_send(pkg, cpu->fd, &cpu->network_mutex);
+
     package_delete(pkg);
 
     //wait_confirmation(cpu_fd); //TODO: Implement confirmation with semaphores to avoid busy waiting and the posibility that the next operation may not necesarily be a CONFIRMATION

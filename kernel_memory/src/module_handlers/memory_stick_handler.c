@@ -1,14 +1,4 @@
-#include <commons/collections/list.h>
-#include <utils/server_utils.h>
-#include <utils.h>
-
-extern t_list *list_memory_stick;
-extern t_list *list_memory_stick_credentials;
-extern int kernel_scheduler_fd;
-extern pthread_mutex_t kernel_scheduler_mutex;
-extern pthread_mutex_t list_memory_stick_mutex;
-extern uint32_t total_memory_size;
-extern pthread_mutex_t total_memory_size_mutex;
+#include "memory_stick_handler.h"
 
 int memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *client){
     while (1) {
@@ -38,9 +28,7 @@ int memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *cl
                     // Notify Kernel Scheduler (if exists) memory corruption
                     t_package *pkg = package_create();
                     pkg->op_code = CORRUPTED_MEMORY;
-                    pthread_mutex_lock(&kernel_scheduler_mutex);
-                    if (kernel_scheduler_fd != -1) package_send(pkg, kernel_scheduler_fd);
-                    pthread_mutex_unlock(&kernel_scheduler_mutex);
+                    if (kernel_scheduler->fd != -1) package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                     package_delete(pkg);
 
                     free(ms_corrupted);

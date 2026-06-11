@@ -2,8 +2,8 @@
 
 t_log *logger;
 
-int kernel_scheduler_fd = -1;
-int kernel_memory_fd = -1;
+t_client_info *kernel_scheduler = NULL;
+t_client_info *kernel_memory = NULL;
 bool interruptPending = 0;
 t_interrupt_reason interruptReason = QUANTUM_EXPIRED;
 uint32_t cpu_id;
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 	if (connect_kernel_memory(logger, config) == EXIT_FAILURE)
 		return EXIT_FAILURE;
 
-	kernel_scheduler_handler(kernel_scheduler_fd, kernel_memory_fd);
+	kernel_scheduler_handler(kernel_scheduler);
 
 	log_destroy(logger);
 	config_destroy(config);
@@ -78,19 +78,21 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
-	kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
+	int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
 		log_info(logger, "Couldnt connect with Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send(kernel_memory_fd, MODULE_CPU, logger);
-	uint32_send(kernel_memory_fd, cpu_id);
+	kernel_memory = create_client_info(kernel_memory_fd, 0); // ID is not relevant for kernel memory, set to 0
+
+	t_module_id_send(kernel_memory->fd, MODULE_CPU, logger, &kernel_memory->network_mutex);
+	uint32_send(kernel_memory->fd, cpu_id, &kernel_memory->network_mutex);
 
 	log_info(logger, "Connection successful with Kernel Memory");
 
-	t_list *credentials_list = receive_credentials_list(kernel_memory_fd);
+	t_list *credentials_list = receive_credentials_list(kernel_memory->fd);
 	log_info(logger, "Received credentials list from Kernel Memory with %d entries", list_size(credentials_list));
 	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
@@ -115,7 +117,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
 	log_debug(logger, "Attempting connection with %s:%s", kernel_scheduler_ip, kernel_scheduler_port);
-	kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
+	int kernel_scheduler_fd = connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger);
 
 	if (kernel_scheduler_fd == -1)
 	{
@@ -123,10 +125,12 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 		return EXIT_FAILURE;
 	}
 
-	log_debug(logger, "Attempting to send t_module_id to %d", kernel_scheduler_fd);
-	t_module_id_send(kernel_scheduler_fd, MODULE_CPU, logger);
+	kernel_scheduler = create_client_info(kernel_scheduler_fd, 0); // ID is not relevant for kernel scheduler, set to 0
 
-	cpu_id = uint32_receive(kernel_scheduler_fd);
+	log_debug(logger, "Attempting to send t_module_id to %d", kernel_scheduler_fd);
+	t_module_id_send(kernel_scheduler->fd, MODULE_CPU, logger, &kernel_scheduler->network_mutex);
+
+	cpu_id = uint32_receive(kernel_scheduler->fd);
 	log_info(logger, "Connection successful to Kernel Scheduler, CPU ID: %d", cpu_id);
 
 	free(kernel_scheduler_ip);
@@ -138,11 +142,13 @@ void *kernel_memory_thread()
 {
 	while (1) {
 		// Centralized reader for Kernel Memory
-		int op = operation_receive(kernel_memory_fd);
+		int op = operation_receive(kernel_memory->fd);
 		if (op == -1) {
 			log_error(logger, "Kernel Memory disconnected");
-			close(kernel_scheduler_fd);
-			close(kernel_memory_fd);
+			close(kernel_scheduler->fd);
+			close(kernel_memory->fd);
+
+			destroy_client(kernel_scheduler);
 			exit(EXIT_FAILURE);
 		}
 
@@ -152,7 +158,7 @@ void *kernel_memory_thread()
 				log_debug(logger, "Received INSTRUCTION_FETCH request from CPU thread, waiting for CPU to be ready");
 				sem_wait(&sem_instruction_fetch_ready);
 				log_debug(logger, "CPU thread is ready for instruction, receiving instruction from Kernel Memory");
-				char *instruction = message_decode(kernel_memory_fd);
+				char *instruction = message_decode(kernel_memory->fd);
 				log_debug(logger, "Instruction received from Kernel Memory");
 
 				pthread_mutex_lock(&instruction_response.mutex);
@@ -167,7 +173,7 @@ void *kernel_memory_thread()
 
 			case CONTEXT_TRANSFER: {
 				// Received context for a previous CONTEXT_SEEK -> dispatch to pending requester
-				t_cpu_context *ctx = context_receive(kernel_memory_fd);
+				t_cpu_context *ctx = context_receive(kernel_memory->fd);
 
 				pthread_mutex_lock(&pending_request_mutex);
 				if (pending_request != NULL) {
@@ -183,7 +189,7 @@ void *kernel_memory_thread()
 			}
 
 			case CREDENTIALS_UPDATE: {
-				t_module_credentials *credentials = receive_credentials(kernel_memory_fd);
+				t_module_credentials *credentials = receive_credentials(kernel_memory->fd);
 				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
 				connect_with_memory_stick(logger, credentials);
 				break;
@@ -198,17 +204,17 @@ void *kernel_memory_thread()
 	return NULL;
 }
 
-void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
+void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 {
 	while (1)
 	{
 		// Handle connection with Kernel Scheduler
-		int op = operation_receive(kernel_scheduler_fd);
+		int op = operation_receive(kernel_scheduler->fd);
 		if (op == -1)
 		{
 			log_error(logger, "Kernel Scheduler disconnected");
-			close(kernel_scheduler_fd);
-			close(kernel_memory_fd);
+			destroy_client(kernel_scheduler);
+			destroy_client(kernel_memory);
 			exit(EXIT_FAILURE);
 		}
 		switch (op) {
@@ -222,7 +228,7 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
         			sem_wait(&sem_eviction_ready);
     			}
 
-				uint32_t pid = uint32_decode(kernel_scheduler_fd);
+				uint32_t pid = uint32_decode(kernel_scheduler->fd);
 				log_info(logger, "Received PID %d from Kernel scheduler", pid);
 
 				// Create pending request before sending CONTEXT_SEEK so the response can be delivered immediately.
@@ -241,7 +247,7 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 				pkg->op_code = CONTEXT_SEEK;
 				package_add(pkg, &pid, sizeof(uint32_t));
 				pthread_mutex_lock(&kernel_memory_write_mutex);
-				package_send(pkg, kernel_memory_fd);
+				package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
 				pthread_mutex_unlock(&kernel_memory_write_mutex);
 				package_delete(pkg);
 
@@ -277,7 +283,7 @@ void kernel_scheduler_handler(int kernel_scheduler_fd, int kernel_memory_fd)
 			case PROCESS_EVICT: {
 				int size;
 				int offset = 0;
-				void *buffer = buffer_receive(&size, kernel_scheduler_fd);
+				void *buffer = buffer_receive(&size, kernel_scheduler->fd);
 				if (buffer == NULL) {
 					log_error(logger, "Failed to receive PROCESS_EVICT payload");
 					break;
@@ -328,18 +334,19 @@ int connect_with_memory_stick(t_log *logger, t_module_credentials *credentials)
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);
 
-	if (memory_stick_fd == -1)
-	{
+	if (memory_stick_fd == -1) {
 		log_error(logger, "Couldnt connect with Memory Stick");
 		return EXIT_FAILURE;
 	}
 
-	t_module_id_send(memory_stick_fd, MODULE_CPU, logger);
-	uint32_send(memory_stick_fd, cpu_id);
+	t_client_info *mem_stick = create_client_info(memory_stick_fd, credentials->id);
+
+	t_module_id_send(memory_stick_fd, MODULE_CPU, logger, &mem_stick->network_mutex);
+	uint32_send(memory_stick_fd, cpu_id, &mem_stick->network_mutex);
 	log_debug(logger, "Sent MODULE_CPU and cpu_id = %d to Memory Stick", cpu_id);
 	
 	pthread_mutex_lock(&memory_stick_list_mutex);
-	t_client_info *mem_stick = add_client_to_list(list_memory_stick, memory_stick_fd, credentials->id);
+	list_add(list_memory_stick, mem_stick);
 	int mem_stick_count = list_size(list_memory_stick);
 	pthread_mutex_unlock(&memory_stick_list_mutex);
 

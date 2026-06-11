@@ -57,8 +57,8 @@ typedef struct {
 } t_instruction_response;
 
 extern t_log *logger;
-extern int kernel_memory_fd;
-extern int kernel_scheduler_fd;
+extern t_client_info *kernel_memory;
+extern t_client_info *kernel_scheduler;
 extern bool interruptPending;
 extern t_interrupt_reason interruptReason;
 extern t_instruction_response instruction_response;

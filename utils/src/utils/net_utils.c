@@ -144,11 +144,13 @@ void package_add (t_package *package, void *value, int size) { // Adds a value t
 	package->buffer->size += size + sizeof(int);
 }
 
-void package_send (t_package *package, int client_socket) { // Sends a package to the client
+void package_send (t_package *package, int client_socket, pthread_mutex_t *mutex) { // Sends a package to the client, uses a mutex to ensure that the sending operation is thread-safe
 	int bytes = package->buffer->size + 2 * sizeof(int);
 	void *to_send = package_serialize(package, bytes);
 
+	pthread_mutex_lock(mutex);
 	send(client_socket, to_send, bytes, 0);
+	pthread_mutex_unlock(mutex);
 
 	free(to_send);
 }
@@ -203,11 +205,11 @@ void *package_serialize(t_package *package, int bytes) { // Serializes a package
 	return buffer;
 }
 
-void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger) { // Sends a t_module_id to the server as part of the handshake process
+void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger, pthread_mutex_t *mutex) { // Sends a t_module_id to the server as part of the handshake process
     t_package *pkg = package_create();
     pkg->op_code = HANDSHAKE;  // Set to HANDSHAKE instead of PACKAGE
     package_add(pkg, &module_id, sizeof(t_module_id));
-    package_send(pkg, server_fd);
+    package_send(pkg, server_fd, mutex);
     package_delete(pkg);
     log_debug(logger, "t_module_id enviado a: %d", server_fd);
 }
@@ -236,14 +238,14 @@ uint32_t uint32_receive (int client_fd) { // Receives a uint32_t from the client
 	return value;
 }
 
-void uint32_send (int client_fd, uint32_t value) { // Sends a uint32_t to the client as part of a package
+void uint32_send (int client_fd, uint32_t value, pthread_mutex_t *mutex) { // Sends a uint32_t to the client as part of a package
 	t_package *pkg = package_create();
     package_add(pkg, &value, sizeof(uint32_t));
-	package_send(pkg, client_fd);
+	package_send(pkg, client_fd, mutex);
     package_delete(pkg);
 }
 
-void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a list of t_module_credentials to the client as part of a package
+void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex) { // Sends a list of t_module_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = PACKAGE;
 	for(int i = 0; i < list_size(list); i++) {
@@ -253,7 +255,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger) { // Sends a li
 		package_add(pkg, &credentials->id, sizeof(credentials->id));
 	}
 
-	package_send(pkg, fd);
+	package_send(pkg, fd, mutex);
 	package_delete(pkg);
 	log_info(logger, "Paquete de credenciales enviado a fd: %d, elementos: %d", fd, list_size(list));
 }
@@ -312,13 +314,13 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
     return list;
 }
 
-void send_credentials (int fd, t_module_credentials *cred, t_log *logger) { // Sends a t_module_credentials to the client as part of a package
+void send_credentials (int fd, t_module_credentials *cred, t_log *logger, pthread_mutex_t *mutex) { // Sends a t_module_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = CREDENTIALS_UPDATE;
 	package_add(pkg, cred->ip, strlen(cred->ip) + 1);
 	package_add(pkg, cred->port, strlen(cred->port) + 1);
 	package_add(pkg, &cred->id, sizeof(cred->id));
-	package_send(pkg, fd);
+	package_send(pkg, fd, mutex);
 	package_delete(pkg);
 	log_debug(logger, "Credenciales enviadas a fd: %d", fd);
 }
@@ -363,6 +365,13 @@ void t_module_credentials_destroyer (void *ptr) { // Destroys a t_module_credent
 }
 
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { // Adds a client to the list of clients, returns the client info
+	t_client_info *client = create_client_info(client_fd, id);
+    list_add(list, client);
+	log_debug(logger, "Cliente agregado a la lista con fd: %d, id: %d", client_fd, id);
+	return client;
+}
+
+t_client_info *create_client_info (int client_fd, uint32_t id) { // Creates a t_client_info struct, returns the pointer to the struct
 	t_client_info *client = malloc(sizeof(t_client_info));
 	client->fd = client_fd;
 	client->id = id;
@@ -370,9 +379,16 @@ t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id) { /
 	pthread_mutex_init(&client->internal_mutex, NULL);
 	pthread_mutex_init(&client->network_mutex, NULL);
 	sem_init(&client->response_sem, 0, 0);
-    list_add(list, client);
-	log_debug(logger, "Cliente agregado a la lista con fd: %d, id: %d", client_fd, id);
 	return client;
+}
+
+void destroy_client(void *ptr) { // Destroys a client_info struct, closing the connection and freeing memory
+		t_client_info *client = (t_client_info*)ptr;
+		close(client->fd);
+		pthread_mutex_destroy(&client->network_mutex);
+		pthread_mutex_destroy(&client->internal_mutex);
+		sem_destroy(&client->response_sem);
+		free(client);
 }
 
 void remove_client_from_list (t_list *list, t_client_info *client) { // Removes a client from the list of clients
@@ -388,11 +404,11 @@ uint32_t uint32_decode (int client_fd) { //Returns uint32 from client, use only 
     return value;
 }
 
-void send_confirmation (uint32_t pid, int client_fd) { // Sends a confirmation package to the client, can be used to signal that a response is ready to be processed
+void send_confirmation (uint32_t pid, int client_fd, pthread_mutex_t *mutex) { // Sends a confirmation package to the client, can be used to signal that a response is ready to be processed
 	t_package *pkg = package_create();
 	pkg->op_code = CONFIRMATION;
 	package_add(pkg, &pid, sizeof(uint32_t));
-	package_send(pkg, client_fd);
+	package_send(pkg, client_fd, mutex);
     package_delete(pkg);
 }
 
@@ -403,11 +419,11 @@ void wait_confirmation (int client_fd) { // Waits for a confirmation package fro
 	}
 }
 
-void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger) { // Sends a t_io_type to the server as part of the handshake process
+void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger, pthread_mutex_t *mutex) { // Sends a t_io_type to the server as part of the handshake process
     t_package *pkg = package_create();
     pkg->op_code = HANDSHAKE;  // Set to HANDSHAKE instead of PACKAGE
     package_add(pkg, &module_type, sizeof(t_io_type));
-    package_send(pkg, server_fd);
+    package_send(pkg, server_fd, mutex);
     package_delete(pkg);
     log_debug(logger, "t_io_type enviado a: %d", server_fd);
 }

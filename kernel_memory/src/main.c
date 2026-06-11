@@ -3,13 +3,12 @@
 t_log *logger;
 t_config *config = NULL;
 
-int kernel_scheduler_fd = -1;
+t_client_info *kernel_scheduler = NULL;
 int swap_fd = -1;
 
 uint32_t total_memory_size = 0;
 
 pthread_mutex_t total_memory_size_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t kernel_scheduler_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_cpu_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_memory_stick_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_memory_stick_credentials_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -87,14 +86,15 @@ void *handle_module(void *fd_ptr) {
     /*-------------------Handle new module-------------------*/
     switch (module_id) {
         case MODULE_KERNEL_SCHEDULER: {
-            pthread_mutex_lock(&kernel_scheduler_mutex);
-            kernel_scheduler_fd = client_fd;
             uint32_t current_total = 0;
+
+            kernel_scheduler = create_client_info(client_fd, 0); // ID no necesario para Kernel Scheduler, se puede setear en 0
+
             pthread_mutex_lock(&total_memory_size_mutex);
             current_total = total_memory_size;
             pthread_mutex_unlock(&total_memory_size_mutex);
-            if (current_total > 0) send_memory_update(kernel_scheduler_fd, current_total);
-            pthread_mutex_unlock(&kernel_scheduler_mutex);
+
+            if (current_total > 0) send_memory_update(current_total);
 
             log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", client_fd);
             
@@ -116,7 +116,7 @@ void *handle_module(void *fd_ptr) {
 
             log_debug(logger, "Trying to send credentials list to CPU");
             pthread_mutex_lock(&list_memory_stick_credentials_mutex);
-            send_credentials_list(client_fd, list_memory_stick_credentials, logger);
+            send_credentials_list(cpu->fd, list_memory_stick_credentials, logger, &cpu->network_mutex);
             pthread_mutex_unlock(&list_memory_stick_credentials_mutex);
 
             log_debug(logger, "Credentials list sent to CPU");
@@ -124,7 +124,7 @@ void *handle_module(void *fd_ptr) {
             log_info(logger, "## CPU %d Conectada", cpu->id);
             log_info(logger, "Total de CPUs conectadas: %d", cpu_count);
 
-            if(cpu_handler(logger, client_fd, cpu_id) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero
+            if(cpu_handler(logger, cpu) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero
             break;
         }
 
@@ -168,7 +168,7 @@ void update_cpu_list(t_module_credentials *new_cred) {
     for (int i = 0; i < cpu_count; i++) {
         t_client_info *cpu = list_get(cpu_list_copy, i);
         log_debug(logger, "Retreived from list fd: %d, id: %d", cpu->fd, cpu->id);
-        send_credentials(cpu->fd, new_cred, logger);
+        send_credentials(cpu->fd, new_cred, logger, &cpu->network_mutex);
     }
 
     list_destroy(cpu_list_copy);
@@ -180,25 +180,26 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     next_memory_stick_id++;
     pthread_mutex_unlock(&next_memory_stick_id_mutex);
 
-    uint32_send(client_fd, ms_id);
+	t_memory_stick_info *memory_stick = malloc(sizeof(t_memory_stick_info));
+    memory_stick->fd = client_fd;
+    memory_stick->id = ms_id;
+    pthread_mutex_init(&memory_stick->mutex, NULL);
+    pthread_mutex_init(&memory_stick->network_mutex, NULL);
+    sem_init(&memory_stick->response_sem, 0, 0);
+    
+    uint32_send(client_fd, ms_id, &memory_stick->network_mutex);
     uint32_t ms_size = uint32_receive(client_fd);
-
+    memory_stick->size = ms_size;
+    
     pthread_mutex_lock(&total_memory_size_mutex);
     total_memory_size += ms_size;
     uint32_t current_total = total_memory_size;
     pthread_mutex_unlock(&total_memory_size_mutex);
 
-    pthread_mutex_lock(&kernel_scheduler_mutex);
-    if (kernel_scheduler_fd != -1) send_memory_update(kernel_scheduler_fd, current_total);
-    pthread_mutex_unlock(&kernel_scheduler_mutex);
-    if (kernel_scheduler_fd != -1) log_debug(logger, "Sent memory update to Kernel Scheduler: %d bytes", current_total);
-
-	t_memory_stick_info *memory_stick = malloc(sizeof(t_memory_stick_info));
-    memory_stick->fd = client_fd;
-    memory_stick->id = ms_id;
-    memory_stick->size = ms_size;
-    pthread_mutex_init(&memory_stick->mutex, NULL);
-    sem_init(&memory_stick->response_sem, 0, 0);
+    if (kernel_scheduler != NULL && kernel_scheduler->fd != -1) {
+        send_memory_update(current_total);
+        log_debug(logger, "Sent memory update to Kernel Scheduler: %d bytes", current_total);
+    }
 
     pthread_mutex_lock(&list_memory_stick_mutex);
     list_add(list_memory_stick, memory_stick);

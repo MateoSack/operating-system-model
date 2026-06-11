@@ -109,18 +109,9 @@ uint32_t id_assigner (uint32_t *current_max_id, int fd, pthread_mutex_t *mutex) 
     (*current_max_id)++;
     pthread_mutex_unlock(mutex);
 
-    uint32_send(fd, id);
+    uint32_send(fd, id, mutex);
 
     return id;
-}
-
-void destroy_client(void *ptr) {
-		t_client_info *client = (t_client_info*)ptr;
-		close(client->fd);
-		pthread_mutex_destroy(&client->network_mutex);
-		pthread_mutex_destroy(&client->internal_mutex);
-		sem_destroy(&client->response_sem);
-		free(client);
 }
 
 void destroy_list_of_clients (t_list *list) { // Destroys a list of clients, closing their connections and freeing their memory

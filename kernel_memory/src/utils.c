@@ -53,10 +53,21 @@ bool find_by_pid(void *element) {
     return pcb->pid == target_pid;
 }
 
-void send_memory_update(int ks_fd, uint32_t new_total) {
+void send_memory_update(uint32_t new_total) {
     t_package *pkg = package_create();
     pkg->op_code = MEMORY_UPDATE;
     package_add(pkg, &new_total, sizeof(uint32_t));
-    package_send(pkg, ks_fd);
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
+}
+
+t_memory_stick_info *create_memory_stick_info(int fd, uint32_t id) {
+    t_memory_stick_info *memory_stick = malloc(sizeof(t_memory_stick_info));
+    memory_stick->fd = fd;
+    memory_stick->id = id;
+    memory_stick->size = 0; // 
+    pthread_mutex_init(&memory_stick->mutex, NULL);
+    pthread_mutex_init(&memory_stick->network_mutex, NULL);
+    sem_init(&memory_stick->response_sem, 0, 0);
+    return memory_stick;
 }

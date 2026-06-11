@@ -129,7 +129,7 @@ void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pendin
 			pthread_mutex_unlock(&io_mutex);
 			
 			pthread_mutex_lock(&io->network_mutex);
-			io_numeric_process_send(pending_process, op_code, io->fd);
+			io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
 			pthread_mutex_unlock(&io->network_mutex);
 			break;
 		}
@@ -151,7 +151,7 @@ void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pendin
 			pthread_mutex_unlock(&io_mutex);
 			
 			pthread_mutex_lock(&io->network_mutex);
-			io_numeric_process_send(pending_process, op_code, io->fd);
+			io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
 			pthread_mutex_unlock(&io->network_mutex);
 			break;
 		}
@@ -173,7 +173,7 @@ void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pendin
 			pthread_mutex_unlock(&io_mutex);
 			
 			pthread_mutex_lock(&io->network_mutex);
-			io_string_process_send(pending_process, op_code, io->fd);
+			io_string_process_send(pending_process, op_code, io->fd, &io->network_mutex);
 			pthread_mutex_unlock(&io->network_mutex);
 			break;
 		}
