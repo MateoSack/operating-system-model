@@ -89,9 +89,8 @@ t_hole *worst_fit(t_list *holes, uint32_t size) { // the worst fit is the bigges
     return worst;
 }
 
-t_hole *select_hole(t_list *holes, uint32_t size, t_config *config) {
-    char *strategy = config_get_string_value(config, "ALLOCATION_STRATEGY");
-    if (strcmp(strategy, "BEST") == 0) {
+t_hole *select_hole(t_list *holes, uint32_t size) {
+    if (strcmp(allocation_strategy, "BEST") == 0) {
         return best_fit(holes, size);
     } else {
         return worst_fit(holes, size);
@@ -140,7 +139,7 @@ void request_and_compact(void) { // Send compaction request to Kernel Scheduler 
     compact_memory();
 }
 
-t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size, t_config *config) {
+t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size) {
     t_list *holes = get_free_holes();
 
     uint32_t total_free_space = 0;
@@ -153,7 +152,7 @@ t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size
     }
 
     // Try to find continuous space for the segment
-    t_hole *chosen = select_hole(holes, size, config);
+    t_hole *chosen = select_hole(holes, size);
 
     if (chosen == NULL) { // No continuous space available, need to compact
         list_destroy_and_destroy_elements(holes, free);
@@ -161,7 +160,7 @@ t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size
         request_and_compact();
 
         holes  = get_free_holes();
-        chosen = select_hole(holes, size, config);
+        chosen = select_hole(holes, size);
 
         if (chosen == NULL) {
             // No debería pasar, pero por las dudas
@@ -212,55 +211,104 @@ t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint
     return NULL;
 }
 
-void *memory_read(uint32_t physical_address, uint32_t size) { // Reads `size` bytes from `physical_address`, returns a buffer with the data or NULL if error
-    uint32_t local_offset;
-    t_memory_stick_info *ms = get_memory_stick_by_address(physical_address, &local_offset);
-    if (ms == NULL) {
-        log_error(logger, "memory_read: dirección física %u fuera de rango", physical_address);
-        return NULL;
+void *memory_read(uint32_t physical_address, uint32_t size) {
+    void *result = malloc(size);
+    if (result == NULL) return NULL;
+
+    uint32_t bytes_done = 0;
+
+    while (bytes_done < size) {
+        uint32_t local_offset;
+        t_memory_stick_info *ms = get_memory_stick_by_address(
+            physical_address + bytes_done, &local_offset);
+
+        if (ms == NULL) {
+            log_error(logger, "memory_read: dirección %u fuera de rango", physical_address + bytes_done);
+            free(result);
+            return NULL;
+        }
+
+        // Number of bytes we can read from this stick starting at local_offset
+        uint32_t available_in_stick = ms->size - local_offset;
+        uint32_t remaining = size - bytes_done;
+        uint32_t chunk;
+        if (remaining < available_in_stick) {
+            chunk = remaining;        // This iteration we can read all the remaining bytes (will be the last iteration)
+        } else {
+            chunk = available_in_stick;  // The segment is in multiple memory sticks (will iterate again)
+        }
+
+        t_package *pkg = package_create();
+        pkg->op_code = MS_READ;
+        package_add(pkg, &local_offset, sizeof(uint32_t));
+        package_add(pkg, &chunk, sizeof(uint32_t));
+        package_send(pkg, ms->fd, &ms->mutex);
+        package_delete(pkg);
+
+        sem_wait(&ms->response_sem);
+        pthread_mutex_lock(&ms->mutex);
+        void *chunk_data = ms->last_read_buffer;
+        ms->last_read_buffer = NULL;
+        pthread_mutex_unlock(&ms->mutex);
+
+        if (chunk_data == NULL) {
+            log_error(logger, "memory_read: chunk NULL en MS id=%d", ms->id);
+            free(result);
+            return NULL;
+        }
+
+        memcpy(result + bytes_done, chunk_data, chunk);
+        free(chunk_data);
+        bytes_done += chunk;
     }
 
-    t_package *pkg = package_create();
-    pkg->op_code = MS_READ;
-    package_add(pkg, &local_offset, sizeof(uint32_t));
-    package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, ms->fd, &ms->mutex);
-    package_delete(pkg);
-
-    // Waits for response delivered by the memory stick handler thread
-    sem_wait(&ms->response_sem);
-    pthread_mutex_lock(&ms->mutex);
-    void *buffer = ms->last_read_buffer;
-    // reset stored buffer so handler doesn't leak ownership/conflict
-    ms->last_read_buffer = NULL;
-    pthread_mutex_unlock(&ms->mutex);
-    return buffer;
+    return result;
 }
 
-bool memory_write(uint32_t physical_address, void *data, uint32_t size) { // Writes `size` bytes to `physical_address`, returns true if successful, false if error
-    uint32_t local_offset;
-    t_memory_stick_info *ms = get_memory_stick_by_address(physical_address, &local_offset);
-    if (ms == NULL) {
-        log_error(logger, "memory_write: dirección física %u fuera de rango", physical_address);
-        return false;
+bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
+    uint32_t bytes_done = 0;
+
+    while (bytes_done < size) {
+        uint32_t local_offset;
+        t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
+
+        if (ms == NULL) {
+            log_error(logger, "memory_write: dirección %u fuera de rango", physical_address + bytes_done);
+            return false;
+        }
+
+        uint32_t available_in_stick = ms->size - local_offset;
+        uint32_t remaining = size - bytes_done;
+        uint32_t chunk;
+        if (remaining < available_in_stick) {
+            chunk = remaining;
+        } else {
+            chunk = available_in_stick;
+        }
+
+        t_package *pkg = package_create();
+        pkg->op_code = MS_WRITE;
+        package_add(pkg, &local_offset, sizeof(uint32_t));
+        package_add(pkg, &chunk, sizeof(uint32_t));
+        package_add(pkg, data + bytes_done, chunk); // Only writes bytes that enter in the current memory stick, if iterates multiple times will write continuisly and won't repeat data using data+bytes_done
+        package_send(pkg, ms->fd, &ms->mutex);
+        package_delete(pkg);
+
+        sem_wait(&ms->response_sem);
+        pthread_mutex_lock(&ms->mutex);
+        bool chunk_ok = (ms->last_op_result == MS_WRITE_OK);
+        ms->last_op_result = -1;
+        pthread_mutex_unlock(&ms->mutex);
+
+        if (!chunk_ok) {
+            log_error(logger, "memory_write: falló escritura en MS id=%d desde el offset=%u con chunk=%u", ms->id, local_offset, chunk);
+            return false;
+        }
+
+        bytes_done += chunk;
     }
 
-    t_package *pkg = package_create();
-    pkg->op_code = MS_WRITE;
-    package_add(pkg, &local_offset, sizeof(uint32_t));
-    package_add(pkg, &size, sizeof(uint32_t));
-    package_add(pkg, data, size);
-    package_send(pkg, ms->fd, &ms->mutex);
-    package_delete(pkg);
-
-    pthread_mutex_lock(&ms->mutex);
-
-    // Waits for the memory stick handler to post the response
-    sem_wait(&ms->response_sem);
-    pthread_mutex_lock(&ms->mutex);
-    bool isOk = (ms->last_op_result == MS_WRITE_OK);
-    pthread_mutex_unlock(&ms->mutex);
-    return isOk;
+    return true;
 }
 
 int segment_delete(uint32_t pid, uint32_t segment_id) {

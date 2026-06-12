@@ -7,6 +7,7 @@
 #include "module_handlers/swap_handler.h"
 
 extern t_config *config;
+extern char *allocation_strategy;
 
 void *handle_module(void *fd_ptr);
 t_log *start_logger(t_config *config);

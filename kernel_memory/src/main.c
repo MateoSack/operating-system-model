@@ -1,4 +1,7 @@
 #include <main.h>
+#include <string.h>
+
+char *allocation_strategy = NULL;
 
 t_log *logger;
 t_config *config = NULL;
@@ -34,6 +37,16 @@ int main(int argc, char *argv[]) {
     config = config_create(argv[1]);
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
+
+    /* Read allocation strategy once at startup and store in global; fail if missing */
+    char *strategy_cfg = config_get_string_value(config, "ALLOCATION_STRATEGY");
+    if (strategy_cfg == NULL) {
+        log_error(logger, "ALLOCATION_STRATEGY not set in config, exiting");
+        log_destroy(logger);
+        config_destroy(config);
+        return EXIT_FAILURE;
+    }
+    allocation_strategy = strdup(strategy_cfg);
 
     list_cpu = list_create();
     list_memory_stick = list_create();
@@ -73,6 +86,7 @@ int main(int argc, char *argv[]) {
 
     log_destroy(logger);
     config_destroy(config);
+    free(allocation_strategy);
     // Liberar listas y demás cosas
     return EXIT_SUCCESS;
 }
