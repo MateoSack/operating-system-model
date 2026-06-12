@@ -22,7 +22,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
                 // If there are no CPUs available and we're using CMN, we can try to evict a lower priority process to free up a CPU
                 t_process *lowest_priority_process = get_lowest_priority_process(exec_processes);
 
-                if (lowest_priority_process != NULL && lowest_priority_process->priority > process->priority) {
+                if (lowest_priority_process != NULL && lowest_priority_process->effective_priority > process->effective_priority) {
                     remove_process_from_list(exec_processes, lowest_priority_process);
                     process_set_state(lowest_priority_process, READY, logger);
                     add_process_to_ready_queue(lowest_priority_process);
@@ -33,7 +33,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
 
                     evict_process(lowest_priority_process, PRIORITY_PREEMPTION);
                     
-                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", lowest_priority_process->pid, lowest_priority_process->priority, process->pid, process->priority);
+                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", lowest_priority_process->pid, lowest_priority_process->effective_priority, process->pid, process->effective_priority);
 
                     pthread_mutex_lock(&scheduler_mutex);
                 }

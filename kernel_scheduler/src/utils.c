@@ -9,10 +9,11 @@ void process_set_cpu (t_process *process, t_client_info *cpu) { // Set assigned 
     process->cpu = cpu;
 }
 
-t_process *create_process (uint32_t pid, uint8_t priority) { // Create a new process with the given PID and priority, returns the created process
+t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a new process with the given PID and priority, returns the created process
     t_process *process = malloc(sizeof(t_process));
     process->pid = pid;
-    process->priority = priority;
+    process->base_priority = base_priority;
+    process->effective_priority = base_priority;
     process->state = NEW;
     process->cpu = NULL;
     process->start_exec_time = 0;
@@ -28,11 +29,11 @@ void add_process_to_ready_queue (t_process *process) { // Add a process to the r
     if (scheduler_algorithm == CMN) {
         int queue_index;
 
-        if (process->priority >= queue_algorithms_count) {
-            log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Agregándolo a la última cola.", process->pid, process->priority, queue_algorithms_count);
+        if (process->effective_priority >= queue_algorithms_count) {
+            log_warning(logger, "Proceso %d tiene una prioridad efectiva (%d) mayor a la cantidad de colas de planificación (%d). Agregándolo a la última cola.", process->pid, process->effective_priority, queue_algorithms_count);
             queue_index = queue_algorithms_count - 1; // If the priority is greater than the number of queues, assign it to the last queue
         } else {
-            queue_index = process->priority;
+            queue_index = process->effective_priority;
         }
 
         add_process_to_list(ready_queue[queue_index], process);
@@ -49,11 +50,11 @@ void remove_process_from_ready_queue (t_process *process) { // Remove a process 
     if (scheduler_algorithm == CMN) {
         int queue_index;
 
-        if (process->priority >= queue_algorithms_count) {
-            log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Buscando en la última cola.", process->pid, process->priority, queue_algorithms_count);
+        if (process->effective_priority >= queue_algorithms_count) {
+            log_warning(logger, "Proceso %d tiene una prioridad efectiva (%d) mayor a la cantidad de colas de planificación (%d). Buscando en la última cola.", process->pid, process->effective_priority, queue_algorithms_count);
             queue_index = queue_algorithms_count - 1; // If the priority is greater than the number of queues, search in the last queue
         } else {
-            queue_index = process->priority;
+            queue_index = process->effective_priority;
         }
 
         remove_process_from_list(ready_queue[queue_index], process);
@@ -90,7 +91,7 @@ void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd, p
 	package_send(pkg, kernel_memory_fd, mutex);
     package_delete(pkg);
 
-    message_send(path, kernel_memory_fd);
+    message_send(path, kernel_memory_fd, mutex);
 }
 
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str) { // Convert a string to the corresponding scheduler algorithm enum value
@@ -112,10 +113,10 @@ bool process_has_quantum (t_process *process) { // Check if a process has quantu
 
     bool has_quantum = false;
 
-    int priority = process->priority;
+    int priority = process->effective_priority;
 
     if (priority >= queue_algorithms_count) {
-        log_warning(logger, "Proceso %d tiene una prioridad (%d) mayor a la cantidad de colas de planificación (%d). Usando última cola.", process->pid, process->priority, queue_algorithms_count);
+        log_warning(logger, "Proceso %d tiene una prioridad efectiva (%d) mayor a la cantidad de colas de planificación (%d). Usando última cola.", process->pid, process->effective_priority, queue_algorithms_count);
         priority = queue_algorithms_count - 1; // If the priority is greater than the number of queues, assume it has quantum assigned according to the last queue
     }
 
@@ -166,7 +167,7 @@ t_process *get_lowest_priority_process (t_list *process_list) { // Get the lowes
 
     for (int i = 1; i < list_size(process_list); i++) {
         t_process *current_process = list_get(process_list, i);
-        if (current_process->priority > lowest_priority_process->priority) { // 0 is the highest priority, so we look for the process with the greatest priority value
+        if (current_process->effective_priority > lowest_priority_process->effective_priority) { // 0 is the highest priority, so we look for the process with the greatest priority value
             lowest_priority_process = current_process;
         }
     }

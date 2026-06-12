@@ -83,7 +83,7 @@ char *message_decode (int client_socket) { // Receives a message (char*) from th
 	return buffer;
 }
 
-void message_send (char *message, int client_socket) { // Sends a message (char*) to the client
+void message_send (char *message, int client_socket, pthread_mutex_t *mutex) { // Sends a message (char*) to the client
 	t_package *package = malloc(sizeof(t_package));
 
 	package->op_code = MESSAGE;
@@ -96,13 +96,15 @@ void message_send (char *message, int client_socket) { // Sends a message (char*
 
 	void *to_send = package_serialize(package, bytes);
 
+	pthread_mutex_lock(mutex);
 	send(client_socket, to_send, bytes, 0);
+	pthread_mutex_unlock(mutex);
 
 	free(to_send);
 	package_delete(package);
 }
 
-void message_send_with_op_code (char *message, op_code op_code, int client_socket) { // Sends a message (char*) to the client with a specific operation code (use for operations that expect a message but not necessarily a PACKAGE, like MUTEX_CREATE, MUTEX_LOCK and MUTEX_UNLOCK)
+void message_send_with_op_code (char *message, op_code op_code, int client_socket, pthread_mutex_t *mutex) { // Sends a message (char*) to the client with a specific operation code (use for operations that expect a message but not necessarily a PACKAGE, like MUTEX_CREATE, MUTEX_LOCK and MUTEX_UNLOCK)
 	t_package *package = malloc(sizeof(t_package));
 
 	package->op_code = op_code;
@@ -115,7 +117,9 @@ void message_send_with_op_code (char *message, op_code op_code, int client_socke
 
 	void *to_send = package_serialize(package, bytes);
 
+	pthread_mutex_lock(mutex);
 	send(client_socket, to_send, bytes, 0);
+	pthread_mutex_unlock(mutex);
 
 	free(to_send);
 	package_delete(package);
