@@ -4,6 +4,7 @@ int memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *cl
     while (1) {
         int op = operation_receive(client_fd);
             if (op == -1) {
+                log_warning(logger, "Memory stick %d desconectado", client->id);
                 
                 pthread_mutex_lock(&list_memory_stick_mutex);
                 bool ms_match(void *ptr) {
@@ -26,16 +27,17 @@ int memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *cl
                     pthread_mutex_unlock(&total_memory_size_mutex);
 
                     // Notify Kernel Scheduler (if exists) memory corruption
-                    t_package *pkg = package_create();
-                    pkg->op_code = CORRUPTED_MEMORY;
-                    if (kernel_scheduler->fd != -1) package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-                    package_delete(pkg);
+                    if (kernel_scheduler != NULL && kernel_scheduler->fd != -1) {
+                        t_package *pkg = package_create();
+                        pkg->op_code = CORRUPTED_MEMORY;
+                        package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                        package_delete(pkg);
+                    }
 
                     free(ms_corrupted);
                 }
 
                 list_remove_element(list_memory_stick_credentials, client);
-                log_error(logger, "Module %d disconnected", client->id);
                 free(client);
                 break;
             }
