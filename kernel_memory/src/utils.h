@@ -9,6 +9,7 @@ typedef struct {
     t_cpu_context context;
     char **instructions;
     t_list *segment_table;
+    pthread_mutex_t mutex;
 } t_pcb;
 
 typedef struct {

@@ -34,7 +34,9 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 log_debug(logger, "La primera instruccion del proceso PID %u es: %s", pid, pcb->instructions[0]);
                 free(full_path);
+                pthread_mutex_lock(&list_processes_mutex);
                 list_add(list_processes, pcb);
+                pthread_mutex_unlock(&list_processes_mutex);
             
                 break;
             }
@@ -46,13 +48,26 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
                 t_pcb *pcb_to_remove = list_find(list_processes, find_by_pid);
-                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb_to_remove != NULL) {
-                    //TODO: Liberar recursos del proceso (segmentos, etc)
+                    pthread_mutex_lock(&pcb_to_remove->mutex);
+                    // Remove from list while holding pcb
                     list_remove_element(list_processes, pcb_to_remove);
+                    pthread_mutex_unlock(&list_processes_mutex);
+
+                    if (pcb_to_remove->segment_table != NULL) {
+                        list_destroy_and_destroy_elements(pcb_to_remove->segment_table, free);
+                    }
+                    if (pcb_to_remove->instructions != NULL) {
+                        for (int i = 0; pcb_to_remove->instructions[i] != NULL; i++) free(pcb_to_remove->instructions[i]);
+                        free(pcb_to_remove->instructions);
+                    }
+
+                    pthread_mutex_unlock(&pcb_to_remove->mutex);
+                    pthread_mutex_destroy(&pcb_to_remove->mutex);
                     free(pcb_to_remove);
                     log_info(logger, "Process PID:%u ended correctly", pid);
                 } else {
+                    pthread_mutex_unlock(&list_processes_mutex);
                     log_warning(logger, "Process PID:%u not found in list", pid);
                 }
                 

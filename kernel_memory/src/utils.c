@@ -45,6 +45,9 @@ t_pcb *create_pcb(uint32_t pid, char *path) {
     pcb->context.di = 0;
     pcb->instructions = get_instructions_from_file(path); //MODE OF ACCESS: instructions[pcb->context.pc]
 
+    pcb->segment_table = list_create();
+    pthread_mutex_init(&pcb->mutex, NULL);
+
     return pcb;
 }
 

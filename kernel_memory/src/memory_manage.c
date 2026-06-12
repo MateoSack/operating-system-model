@@ -15,7 +15,7 @@ static bool compare_by_base(void *a, void *b) {
     return ((t_hole *)a)->base < ((t_hole *)b)->base;
 }
 
-// used by list_find when searching for a segment by id
+
 static uint32_t target_segment_id;
 static bool find_by_segment_id(void *element) {
     t_segment *seg = (t_segment *)element;
@@ -187,9 +187,9 @@ t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size
         return SEGMENT_ERROR;
     }
 
-    pthread_mutex_lock(&list_processes_mutex);
+    pthread_mutex_lock(&pcb->mutex);
     list_add(pcb->segment_table, seg);
-    pthread_mutex_unlock(&list_processes_mutex);
+    pthread_mutex_unlock(&pcb->mutex);
 
     list_destroy_and_destroy_elements(holes, free);
     return SEGMENT_OK;
@@ -315,16 +315,20 @@ int segment_delete(uint32_t pid, uint32_t segment_id) {
     pthread_mutex_lock(&list_processes_mutex);
     target_pid = pid;
     t_pcb *pcb = list_find(list_processes, find_by_pid);
-    pthread_mutex_unlock(&list_processes_mutex);
     if (pcb == NULL) {
+        pthread_mutex_unlock(&list_processes_mutex);
         log_error(logger, "segment_delete: PID %u no encontrado", pid);
         return SEGMENT_ERROR;
     }
 
+    // Lock del PCB antes de soltar el lock de la lista por si se intenta eliminar el pcb mientras estamos accediendo
+    pthread_mutex_lock(&pcb->mutex);
+    pthread_mutex_unlock(&list_processes_mutex);
+
     target_segment_id = segment_id;
     t_segment *segment_to_delete = list_find(pcb->segment_table, find_by_segment_id);
-
     if (segment_to_delete == NULL) {
+        pthread_mutex_unlock(&pcb->mutex);
         log_error(logger, "segment_delete: Segmento ID %u no encontrado para PID %u", segment_id, pid);
         return SEGMENT_ERROR;
     }
@@ -339,9 +343,12 @@ int segment_delete(uint32_t pid, uint32_t segment_id) {
     if (index >= 0) {
         list_remove_and_destroy_element(pcb->segment_table, index, free);
     } else {
+        pthread_mutex_unlock(&pcb->mutex);
         log_error(logger, "segment_delete: inconsistencia al eliminar segmento %u para PID %u", segment_id, pid);
         return SEGMENT_ERROR;
     }
+
+    pthread_mutex_unlock(&pcb->mutex);
     log_info(logger, "Segmento ID %u eliminado para PID %u", segment_id, pid);
     return SEGMENT_OK;
 }
