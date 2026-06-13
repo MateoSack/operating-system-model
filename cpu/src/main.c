@@ -11,8 +11,6 @@ char *cpu_identifier = NULL;
 
 pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t kernel_scheduler_write_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t kernel_memory_write_mutex    = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t process_control_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t sem_instruction_fetch_ready;
@@ -26,14 +24,6 @@ t_instruction_response instruction_response = {
 };
 
 t_list *list_memory_stick;
-
-// Pending request for context seek
-typedef struct {
-	uint32_t pid;
-	t_cpu_context *context;
-	sem_t sem;
-	bool ready;
-} t_pending_request;
 
 t_pending_request *pending_request = NULL;
 pthread_mutex_t pending_request_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -190,7 +180,8 @@ void *kernel_memory_thread()
 
 			case CREDENTIALS_UPDATE: {
 				t_memory_stick_credentials *credentials = receive_credentials(kernel_memory->fd);
-				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
+				list_add(list_memory_stick, credentials);
+				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d, size=%d", credentials->ip, credentials->port, credentials->id, credentials->size);
 				connect_with_memory_stick(logger, credentials);
 				break;
 			}
@@ -208,6 +199,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 {
 	while (1)
 	{
+		uint32_t pid = 0;
 		// Handle connection with Kernel Scheduler
 		int op = operation_receive(kernel_scheduler->fd);
 		if (op == -1)
@@ -228,7 +220,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
         			sem_wait(&sem_eviction_ready);
     			}
 
-				uint32_t pid = uint32_decode(kernel_scheduler->fd);
+				pid = uint32_decode(kernel_scheduler->fd);
 				log_info(logger, "Received PID %d from Kernel scheduler", pid);
 
 				// Create pending request before sending CONTEXT_SEEK so the response can be delivered immediately.
@@ -246,9 +238,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				t_package *pkg = package_create();
 				pkg->op_code = CONTEXT_SEEK;
 				package_add(pkg, &pid, sizeof(uint32_t));
-				pthread_mutex_lock(&kernel_memory_write_mutex);
 				package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
-				pthread_mutex_unlock(&kernel_memory_write_mutex);
 				package_delete(pkg);
 
 				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
@@ -291,12 +281,16 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				uint32_t reason_val = uint32_deserialize(buffer, &offset);
 				free(buffer);
 				t_interrupt_reason reason = (t_interrupt_reason)reason_val;
-				log_info(logger, "Received PROCESS_EVICT (reason=%s)", interrupt_reason_to_string(reason));
+				log_debug(logger, "Peticion de PROCESS_EVICT recibida (razon=%s)", interrupt_reason_to_string(reason));
 
 				pthread_mutex_lock(&interrupt_mutex);
 				interruptPending = 1;
 				interruptReason = reason;
 				pthread_mutex_unlock(&interrupt_mutex);
+
+				sem_wait(&sem_eviction_ready);
+				log_debug(logger, "Proceso desalojado correctamente");
+				send_confirmation(pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
 				break;
 			}
 			default: {

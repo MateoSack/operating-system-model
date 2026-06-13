@@ -11,8 +11,6 @@
 #include<semaphore.h>
 
 extern pthread_mutex_t interrupt_mutex;
-extern pthread_mutex_t kernel_scheduler_write_mutex;
-extern pthread_mutex_t kernel_memory_write_mutex;
 extern pthread_mutex_t process_control_mutex;
 extern sem_t sem_instruction_fetch_ready;
 extern sem_t sem_instruction_response_ready;
@@ -95,5 +93,6 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
 void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
+void send_context_to_kernel_memory(t_cpu_context *context, uint32_t pid);
 
 #endif // CPU_MANAGE_INSTRUCTIONS_H

@@ -9,7 +9,7 @@ typedef struct {
     t_cpu_context context;
     char **instructions;
     t_list *segment_table;
-    pthread_mutex_t mutex;
+    pthread_mutex_t mutex; // Mutex for synchronizing access to the PCB, always lock before unlocking list_processes_mutex to avoid sync issues
 } t_pcb;
 
 typedef struct {

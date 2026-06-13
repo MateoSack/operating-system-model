@@ -88,13 +88,17 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
-                pthread_mutex_unlock(&list_processes_mutex);
                 if (pcb == NULL) {
+                    pthread_mutex_unlock(&list_processes_mutex);
                     log_error(logger, "Process with PID %d not found", pid);
                     free(ctx);
                     break;
                 }
+                pthread_mutex_lock(&pcb->mutex);
+                pthread_mutex_unlock(&list_processes_mutex);
+
                 pcb->context = *ctx;
+                pthread_mutex_unlock(&pcb->mutex);
                 free(ctx);
                 log_info(logger, "Context updated correctly for PID %d", pid);
                 break;

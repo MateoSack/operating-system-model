@@ -11,6 +11,14 @@
 #include<manage_instructions.h>
 #include<semaphore.h>
 
+// Pending request for context seek
+typedef struct {
+	uint32_t pid;
+	t_cpu_context *context;
+	sem_t sem;
+	bool ready;
+} t_pending_request;
+
 void end_program(int, t_log*, t_config*);
 t_log *start_logger(t_config *config);
 int connect_kernel_memory (t_log *logger, t_config *config);
