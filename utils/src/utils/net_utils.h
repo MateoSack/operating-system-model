@@ -57,6 +57,7 @@ typedef struct {
     int fd;
     uint32_t id;
     bool is_available;
+    bool is_evicting; // Used to signal that the client is in the process of evicting a process and should not be assigned a new one until the eviction is confirmed
     pthread_mutex_t internal_mutex;
     pthread_mutex_t network_mutex;
     sem_t response_sem; // Used to signal the client handler thread that a response has been received and is ready to be processed

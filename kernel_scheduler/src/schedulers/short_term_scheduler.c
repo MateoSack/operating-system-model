@@ -137,7 +137,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
                 
                 uint64_t elapsed = temporal_gettime(system_timer) - process->start_exec_time;
                 
-                if (elapsed >= quantum) {
+                if (elapsed >= quantum && process->state == EXEC && process->cpu != NULL && !process->cpu->is_evicting) {
                     found = true;
                     t_client_info *cpu = process->cpu;
                     pthread_mutex_unlock(&scheduler_mutex);
