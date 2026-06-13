@@ -31,6 +31,7 @@ extern pthread_mutex_t scheduler_mutex;
 extern t_list *list_processes;
 extern t_list **ready_queue;
 extern t_list *exec_processes;
+extern sem_t short_term_scheduler_sem;
 
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
 void process_set_cpu (t_process *process, t_client_info *cpu);
@@ -48,7 +49,8 @@ t_process *get_process_from_pid (uint32_t pid);
 t_process *get_process_from_cpu (t_client_info *cpu);
 t_process *get_highest_priority_process_from_ready_queue ();
 t_process *get_lowest_priority_process (t_list *process_list);
-void evict_process (t_process *process, t_interrupt_reason reason);
+void evict_process(t_client_info *cpu, t_interrupt_reason reason);
+void *wait_confirmation_thread (void *arg);
 void evict_all_processes (t_interrupt_reason reason);
 t_client_info *get_available_io_type (t_list *io_list);
 t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_list);

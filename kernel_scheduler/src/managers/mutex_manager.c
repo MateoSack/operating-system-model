@@ -40,12 +40,14 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         
         process_set_state(process, BLOCK, logger);
         remove_process_from_list(exec_processes, process);
+
+        t_client_info *cpu = process->cpu;
         
         pthread_mutex_unlock(&scheduler_mutex);
         
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        evict_process(process, MUTEX_LOCKED);
+        evict_process(cpu, MUTEX_LOCKED);
     }
 }
 

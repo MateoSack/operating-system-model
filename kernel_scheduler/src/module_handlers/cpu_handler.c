@@ -210,6 +210,13 @@ void cpu_handler (int cpu_fd) {
 				log_info(logger, "## PID %u - Solicitó syscall: MEM_FREE (Segment ID: %u)", pid, segment_id);
 				break;
 			}
+
+			case CONFIRMATION: { // Confirms a process was successfully evicted and is ready to be sent to the ready queue
+				uint32_t pid = uint32_decode(cpu->fd);
+				log_info(logger, "## PID %d - Confirmación recibida", pid);
+				sem_post(&cpu->response_sem);
+				break;
+			}
         }
 	}
 }

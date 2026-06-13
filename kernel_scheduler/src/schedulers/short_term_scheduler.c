@@ -23,16 +23,11 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
                 t_process *lowest_priority_process = get_lowest_priority_process(exec_processes);
 
                 if (lowest_priority_process != NULL && lowest_priority_process->effective_priority > process->effective_priority) {
-                    remove_process_from_list(exec_processes, lowest_priority_process);
-                    process_set_state(lowest_priority_process, READY, logger);
-                    add_process_to_ready_queue(lowest_priority_process);
-
-                    cpu = lowest_priority_process->cpu;
-
+                    t_client_info *cpu_to_evict = lowest_priority_process->cpu;
                     pthread_mutex_unlock(&scheduler_mutex);
 
-                    evict_process(lowest_priority_process, PRIORITY_PREEMPTION);
-                    
+                    evict_process(cpu_to_evict, PRIORITY_PREEMPTION);
+
                     log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", lowest_priority_process->pid, lowest_priority_process->effective_priority, process->pid, process->effective_priority);
 
                     pthread_mutex_lock(&scheduler_mutex);
@@ -100,7 +95,7 @@ t_client_info *get_available_cpu () { // Returns an available CPU from the list 
 
         bool available;
         pthread_mutex_lock(&client->internal_mutex);
-        available = client->is_available;
+        available = client->is_available && !client->is_evicting; // A CPU is available if it's marked as available and it's not in the process of evicting a process
         pthread_mutex_unlock(&client->internal_mutex);
 
         return available;
@@ -132,38 +127,29 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
         
         pthread_mutex_lock(&scheduler_mutex);
         
-        for (int i = 0; i < list_size(exec_processes); i++) {
-
-            t_process *process = list_get(exec_processes, i);
-
-            if (!process_has_quantum(process)) continue; // If the process doesn't have quantum assigned, skip it
-
-            uint64_t elapsed = temporal_gettime(system_timer) - process->start_exec_time;
-
-            if (elapsed >= quantum) {
-                remove_process_from_list(exec_processes, process);
-                process_set_state(process, READY, logger);
-                add_process_to_ready_queue(process);
-
-                pthread_mutex_lock(&process->cpu->internal_mutex);
-                process->cpu->is_available = true;
-                pthread_mutex_unlock(&process->cpu->internal_mutex);
-
-                i--;
-
-                pthread_mutex_unlock(&scheduler_mutex);
-
-                evict_process((t_process*)process, QUANTUM_EXPIRED);
-                log_info(logger, "## (%d) - Desalojado por fin de quantum", process->pid);
-
-                sem_post(&short_term_scheduler_sem);
-
-                pthread_mutex_lock(&scheduler_mutex);
+        bool found = true;
+        while (found) {
+            found = false;
+            for (int i = 0; i < list_size(exec_processes); i++) {
+                t_process *process = list_get(exec_processes, i);
+                
+                if (!process_has_quantum(process)) continue;
+                
+                uint64_t elapsed = temporal_gettime(system_timer) - process->start_exec_time;
+                
+                if (elapsed >= quantum) {
+                    found = true;
+                    t_client_info *cpu = process->cpu;
+                    pthread_mutex_unlock(&scheduler_mutex);
+                    evict_process(cpu, QUANTUM_EXPIRED);
+                    log_info(logger, "## (%d) - Desalojado por fin de quantum", process->pid);
+                    pthread_mutex_lock(&scheduler_mutex);
+                    break;
+                }
             }
         }
-
+        
         pthread_mutex_unlock(&scheduler_mutex);
-    
     }
 
     return NULL;
