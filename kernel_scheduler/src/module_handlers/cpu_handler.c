@@ -50,6 +50,8 @@ void cpu_handler (int cpu_fd) {
 
 				pthread_mutex_unlock(&scheduler_mutex);
 
+				send_pid_with_op_code(pid, PROCESS_END, kernel_memory->fd, &kernel_memory->network_mutex);
+
 				log_info(logger, "## (%d) finalizo su ejecución con motivo de EXIT", pid);
 
 				sem_post(&short_term_scheduler_sem);
@@ -180,7 +182,32 @@ void cpu_handler (int cpu_fd) {
 
 				receive_interruption(&pid, &reason, cpu->fd);
 
-				log_debug(logger, "## PID %d - Recibió interrupción (reason=%s)", pid, interrupt_reason_to_string(reason));
+				log_info(logger, "## PID %d finalizó su ejecución con motivo de %s", pid, interrupt_reason_to_string(reason));
+				break;
+			}
+
+			case MEM_ALLOC: {
+				uint32_t pid;
+				uint32_t segment_id;
+				uint32_t size;
+
+				receive_instruction_mem_alloc(&pid, &segment_id, &size, cpu->fd);
+
+				mem_alloc_syscall_manager(pid, segment_id, size);
+
+				log_info(logger, "## PID %u - Solicitó syscall: MEM_ALLOC (Segment ID: %u, Size: %u)", pid, segment_id, size);
+				break;
+			}
+
+			case MEM_FREE: {
+				uint32_t pid;
+				uint32_t segment_id;
+
+				receive_instruction_mem_free(&pid, &segment_id, cpu->fd);
+
+				mem_free_syscall_manager(pid, segment_id);
+
+				log_info(logger, "## PID %u - Solicitó syscall: MEM_FREE (Segment ID: %u)", pid, segment_id);
 				break;
 			}
         }
@@ -218,31 +245,6 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	sem_post(&short_term_scheduler_sem);
 }
 
-void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd) {
-    int size;
-    int offset = 0;
-	void *buffer = buffer_receive(&size, cpu_fd);
-	if (buffer == NULL) return;
-
-	*pid = uint32_deserialize(buffer, &offset);
-	*sleep_time = uint32_deserialize(buffer, &offset);
-
-	free(buffer);
-}
-
-void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd) {
-    int size;
-    int offset = 0;
-	void *buffer = buffer_receive(&size, cpu_fd);
-	if (buffer == NULL) return;
-
-	*pid = uint32_deserialize(buffer, &offset);
-	*base = uint32_deserialize(buffer, &offset);
-	*limit = uint32_deserialize(buffer, &offset);
-
-	free(buffer);
-}
-
 void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char **path, int cpu_fd) {
 	int size;
 	int offset = 0;
@@ -272,4 +274,12 @@ void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd
 	*reason = t_interrupt_reason_deserialize(buffer, &offset);
 
 	free(buffer);
+}
+
+void send_pid_with_op_code (uint32_t pid, op_code op_code, int client_socket, pthread_mutex_t *mutex) {
+	t_package *pkg = package_create();
+	pkg->op_code = op_code;
+	package_add(pkg, &pid, sizeof(uint32_t));
+	package_send(pkg, client_socket, mutex);
+	package_delete(pkg);
 }

@@ -120,3 +120,28 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t bas
 
     return EXIT_SUCCESS;
 }
+
+void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
+
+	*pid = uint32_deserialize(buffer, &offset);
+	*sleep_time = uint32_deserialize(buffer, &offset);
+
+	free(buffer);
+}
+
+void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, cpu_fd);
+	if (buffer == NULL) return;
+
+	*pid = uint32_deserialize(buffer, &offset);
+	*base = uint32_deserialize(buffer, &offset);
+	*limit = uint32_deserialize(buffer, &offset);
+
+	free(buffer);
+}

@@ -24,5 +24,7 @@ extern t_list *pending_request_io_stdout;
 int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t sleep_time);
 int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base, uint32_t limit);
 int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base, uint32_t limit);
+void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd);
+void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd);
 
 #endif
