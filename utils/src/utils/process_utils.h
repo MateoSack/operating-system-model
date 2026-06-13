@@ -21,6 +21,7 @@ typedef enum {
     MUTEX_LOCKED,
     IO_REQUEST,
     PROCESS_EXIT,
+    COMPACTION,
 } t_interrupt_reason;
 
 typedef struct {

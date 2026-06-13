@@ -9,6 +9,10 @@ int quantum = 0;
 t_scheduler_algorithm *queue_algorithms = NULL;
 int queue_algorithms_count = 1;
 
+bool can_schedule = true;
+
+pthread_mutex_t can_schedule_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 t_list *list_cpu = NULL;
 
 t_list *list_io_sleep = NULL;
@@ -36,6 +40,8 @@ pthread_mutex_t io_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 sem_t short_term_scheduler_sem;
 
 sem_t shutdown_sem;
+
+sem_t compaction_finished_sem;
 
 t_client_info *kernel_memory = NULL;
 
@@ -228,6 +234,7 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 
 	sem_init(&short_term_scheduler_sem, 0, 0);
 	sem_init(&shutdown_sem, 0, 0);
+	sem_init(&compaction_finished_sem, 0, 0);
 
 	pthread_t shutdown_thread;
 	pthread_create(&shutdown_thread, NULL, shutdown_handler, NULL);

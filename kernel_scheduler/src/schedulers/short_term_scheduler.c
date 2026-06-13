@@ -6,6 +6,11 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
 
         log_debug(logger, "Scheduler woke: ready_queue_size=%d, cpus=%d", ready_queue_size(), list_size(list_cpu));
 
+        if (!can_schedule_get()) {
+            log_debug(logger, "Can't schedule right now");
+            continue;
+        }
+
         bool no_processes = false;
         bool no_cpus = false;
 

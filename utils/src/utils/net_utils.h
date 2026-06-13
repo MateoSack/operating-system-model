@@ -47,6 +47,7 @@ typedef enum {
     SEGMENT_DELETE, // Fijarse si se puede unificar con MEM_FREE
     COMPACTION_REQUEST,
     COMPACTION_READY,
+    COMPACTION_FINISHED,
     MS_READ,
     MS_WRITE,
     MS_READ_RESPONSE, // Ver de unificar con MS_READ

@@ -90,6 +90,7 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
         case MUTEX_LOCKED: return "MUTEX_LOCKED";
         case IO_REQUEST: return "IO_REQUEST";
         case PROCESS_EXIT: return "PROCESS_EXIT";
+        case COMPACTION: return "COMPACTION";
         default: return "UNKNOWN";
     }
 }

@@ -32,6 +32,8 @@ extern t_list *list_processes;
 extern t_list **ready_queue;
 extern t_list *exec_processes;
 extern sem_t short_term_scheduler_sem;
+extern bool can_schedule;
+extern pthread_mutex_t can_schedule_mutex;
 
 void process_set_state (t_process *process, t_process_state state, t_log *logger);
 void process_set_cpu (t_process *process, t_client_info *cpu);
@@ -56,5 +58,7 @@ void evict_all_processes (t_interrupt_reason reason);
 t_client_info *get_available_io_type (t_list *io_list);
 t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_list);
 t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_list);
+bool can_schedule_get ();
+void can_schedule_write (bool new_value);
 
 #endif

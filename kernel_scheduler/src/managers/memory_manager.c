@@ -64,3 +64,26 @@ void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id) {
     package_send(package, kernel_memory->fd, &kernel_memory->network_mutex);
     package_delete(package);
 }
+
+void compaction_requested () {
+    pthread_t thread;
+    pthread_create(&thread, NULL, compaction_requested_thread, NULL);
+    pthread_detach(thread);
+}
+
+void *compaction_requested_thread (void *arg) {
+    can_schedule_write(false);
+
+    evict_all_processes(COMPACTION);
+
+    t_package *package = package_create();
+    package->op_code = COMPACTION_READY;
+    package_send(package, kernel_memory->fd, &kernel_memory->network_mutex);
+    package_delete(package);
+
+    sem_wait(&compaction_finished_sem);
+
+    can_schedule_write(true);
+
+    return NULL;
+}

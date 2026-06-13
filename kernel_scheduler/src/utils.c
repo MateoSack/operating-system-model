@@ -201,11 +201,7 @@ void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_ha
 void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted and is ready to be sent to the ready queue
     t_client_info *cpu = (t_client_info*)arg;
 
-    log_debug(logger, "Thread de confirmación esperando para CPU %d", cpu->id);
-
     sem_wait(&cpu->response_sem);
-
-    log_debug(logger, "Confirmación de evict recibida para CPU %d", cpu->id);
 
     pthread_mutex_lock(&scheduler_mutex);
     t_process *process = get_process_from_cpu(cpu);
@@ -235,8 +231,6 @@ void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a conf
 void *wait_confirmation_thread(void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted. State must be handle by caller
     t_client_info *cpu = (t_client_info*)arg;
 
-    log_debug(logger, "Thread de confirmación esperando para CPU %d", cpu->id);
-
     sem_wait(&cpu->response_sem);
 
     pthread_mutex_lock(&scheduler_mutex);
@@ -257,26 +251,55 @@ void *wait_confirmation_thread(void *arg) { // Wait for a confirmation from the 
 }
 
 void evict_all_processes (t_interrupt_reason reason) {
-    while (1) {
-        pthread_mutex_lock(&scheduler_mutex);
+    void _evict_process_no_thread(t_client_info *cpu, t_interrupt_reason reason) {
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_evicting = true;
+        pthread_mutex_unlock(&cpu->internal_mutex);
 
-        if (list_size(exec_processes) == 0) {
-            pthread_mutex_unlock(&scheduler_mutex);
-            break;
-        }
+        t_package *pkg = package_create();
+        pkg->op_code = PROCESS_EVICT;
+        package_add(pkg, &reason, sizeof(t_interrupt_reason));
+        package_send(pkg, cpu->fd, &cpu->network_mutex);
+        package_delete(pkg);
 
-        t_process *process = list_get(exec_processes, 0);
-
-        t_client_info *cpu = process->cpu;
-
-        remove_process_from_list(exec_processes, process);
-        process_set_state(process, READY, logger);
-        add_process_to_ready_queue(process);
-
-        pthread_mutex_unlock(&scheduler_mutex);
-
-        evict_process(cpu, reason, false);
+        log_debug(logger, "Enviada orden de evict al CPU %d por motivo de %s", cpu->id, interrupt_reason_to_string(reason));
     }
+
+    pthread_mutex_lock(&scheduler_mutex);
+    int count = list_size(exec_processes);
+    if (count == 0) {
+        pthread_mutex_unlock(&scheduler_mutex);
+        return;
+    }
+
+    t_client_info **cpus = malloc(count * sizeof(t_client_info*));
+    for (int i = 0; i < count; i++) {
+        t_process *process = list_get(exec_processes, i);
+        cpus[i] = process->cpu;
+    }
+    pthread_mutex_unlock(&scheduler_mutex);
+
+    for (int i = 0; i < count; i++) {
+        _evict_process_no_thread(cpus[i], reason);
+    }
+
+    for (int i = 0; i < count; i++) {
+        sem_wait(&cpus[i]->response_sem);
+        pthread_mutex_lock(&scheduler_mutex);
+        t_process *process = get_process_from_cpu(cpus[i]);
+        if (process != NULL) {
+            remove_process_from_list(exec_processes, process);
+            process_set_state(process, READY, logger);
+            process_set_cpu(process, NULL);
+            pthread_mutex_lock(&cpus[i]->internal_mutex);
+            cpus[i]->is_available = true;
+            cpus[i]->is_evicting = false;
+            pthread_mutex_unlock(&cpus[i]->internal_mutex);
+        }
+        pthread_mutex_unlock(&scheduler_mutex);
+    }
+
+    free(cpus);
 }
 
 t_client_info *get_available_io_type (t_list *io_list) {
@@ -308,4 +331,17 @@ t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_lis
     list_remove(io_pending_list, 0);
 
     return io_process;
+}
+
+bool can_schedule_get () {
+    pthread_mutex_lock(&can_schedule_mutex);
+    bool result = can_schedule;
+    pthread_mutex_unlock(&can_schedule_mutex);
+    return result;
+}
+
+void can_schedule_write (bool new_value) {
+    pthread_mutex_lock(&can_schedule_mutex);
+    can_schedule = new_value;
+    pthread_mutex_unlock(&can_schedule_mutex);
 }

@@ -1,6 +1,9 @@
 #include <schedulers/long_term_scheduler.h>
 
 int long_term_scheduler (char *path, uint8_t priority) {
+    // TODO: Convert to thread and use a new list
+    // TODO: Should check if can schedule
+
     pthread_mutex_lock(&scheduler_mutex);
     uint32_t pid = pid_assigner(&current_max_pid);
     pthread_mutex_unlock(&scheduler_mutex);
