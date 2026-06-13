@@ -150,7 +150,7 @@ void *handle_module(void *fd_ptr) {
         }
 
         case MODULE_MEMORY_STICK: {
-            t_module_credentials *ms_credentials = memory_stick_protocol(logger, client_fd);
+            t_memory_stick_credentials *ms_credentials = memory_stick_protocol(logger, client_fd);
             if(memory_stick_handler(logger, client_fd, ms_credentials) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero, y log de BSOD
         }
 
@@ -171,7 +171,7 @@ t_log *start_logger(t_config *config) {
 	return logger;
 }
 
-void update_cpu_list(t_module_credentials *new_cred) {
+void update_cpu_list(t_memory_stick_credentials *new_cred) {
     log_debug(logger, "Updating cpu list of credentials");
 
     pthread_mutex_lock(&list_cpu_mutex);
@@ -188,7 +188,7 @@ void update_cpu_list(t_module_credentials *new_cred) {
     list_destroy(cpu_list_copy);
 }
 
-t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
+t_memory_stick_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     pthread_mutex_lock(&next_memory_stick_id_mutex);
     int ms_id = next_memory_stick_id;
     next_memory_stick_id++;
@@ -223,10 +223,11 @@ t_module_credentials *memory_stick_protocol (t_log *logger, int client_fd){
     log_info(logger, "## Memory Stick de %d bytes Conectada", ms_size);
     log_debug(logger, "Total de Memory Sticks conectadas: %d", ms_count);
 
-    t_module_credentials *client = malloc(sizeof(t_module_credentials));
+    t_memory_stick_credentials *client = malloc(sizeof(t_memory_stick_credentials));
     client->ip = message_receive(logger, client_fd);
     client->port = message_receive(logger, client_fd);
     client->id = memory_stick->id;
+    client->size = ms_size;
 
     pthread_mutex_lock(&list_memory_stick_credentials_mutex);
     list_add(list_memory_stick_credentials, client);

@@ -122,10 +122,10 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case COMPACTION_READY: {
-            // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
-            log_debug(logger, "Received COMPACTION_READY from Kernel Scheduler");
-            sem_post(&compaction_sem);
-            break;
+                // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
+                log_debug(logger, "Received COMPACTION_READY from Kernel Scheduler");
+                sem_post(&compaction_sem);
+                break;
             }
 
             case IO_MEMORY_READ: { // TODO: Volver esto un paquete (mismo paquete en IO_MEMORY_READy IO_MEMORY_WRITE)
@@ -134,7 +134,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t size = uint32_decode(client_fd);
                 //TODO: Implementar traduccion de direccion de logica a fisica y lectura de memoria
                 log_info(logger, "Received PID %u IO_MEMORY_READ request for physical address %u with size %u", pid, logical_address, size); // cambiar address
-                message_send("OK", client_fd); 
+                message_send("OK", client_fd, &kernel_scheduler->network_mutex); 
                 uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la lectura
                 break;
             }
@@ -144,7 +144,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t logical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
                 log_info(logger, "Received PID %u IO_MEMORY_WRITE request for physical address %u with size %u", pid, logical_address, size); // cambiar address
-                message_send("OK", client_fd);
+                message_send("OK", client_fd, &kernel_scheduler->network_mutex);
                 uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la escritura
                 break;
             }

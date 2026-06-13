@@ -80,7 +80,8 @@ typedef struct {
     char *ip;
     char *port;
     uint32_t id;
-} t_module_credentials;
+    uint32_t size;
+} t_memory_stick_credentials;
 
 typedef struct {
 	int size;
@@ -117,9 +118,9 @@ uint32_t uint32_receive (int client_fd);
 void uint32_send (int client_fd, uint32_t value, pthread_mutex_t *mutex);
 void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex);
 t_list *receive_credentials_list (int socket_cliente);
-void send_credentials (int fd, t_module_credentials *cred, t_log *logger, pthread_mutex_t *mutex);
-t_module_credentials *receive_credentials (int socket_cliente);
-void t_module_credentials_destroyer (void *ptr);
+void send_credentials (int fd, t_memory_stick_credentials *cred, t_log *logger, pthread_mutex_t *mutex);
+t_memory_stick_credentials *receive_credentials (int socket_cliente);
+void t_memory_stick_credentials_destroyer (void *ptr);
 t_client_info *add_client_to_list (t_list *list, int client_fd, uint32_t id);
 t_client_info *create_client_info (int client_fd, uint32_t id);
 void destroy_client(void *ptr);

@@ -18,7 +18,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config);
 void *kernel_memory_thread ();
 void kernel_scheduler_handler(t_client_info *kernel_scheduler);
 int iterate_connection_create_with_memory_sticks (t_list *list);
-int connect_with_memory_stick (t_log *logger, t_module_credentials *credentials);
+int connect_with_memory_stick (t_log *logger, t_memory_stick_credentials *credentials);
 void *memory_stick_handler (void *mem_stick_ptr);
 
 #endif // CPU_MAIN_H

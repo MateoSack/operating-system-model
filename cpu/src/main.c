@@ -100,7 +100,7 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	} else {
 		log_info(logger, "Credentials list empty.");
 	}
-	// list_destroy_and_destroy_elements(credentials_list, t_module_credentials_destroyer);
+	// list_destroy_and_destroy_elements(credentials_list, t_memory_stick_credentials_destroyer);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
@@ -189,7 +189,7 @@ void *kernel_memory_thread()
 			}
 
 			case CREDENTIALS_UPDATE: {
-				t_module_credentials *credentials = receive_credentials(kernel_memory->fd);
+				t_memory_stick_credentials *credentials = receive_credentials(kernel_memory->fd);
 				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d", credentials->ip, credentials->port, credentials->id);
 				connect_with_memory_stick(logger, credentials);
 				break;
@@ -320,7 +320,7 @@ int iterate_connection_create_with_memory_sticks(t_list *list)
 	int i;
 	for (i = 0; i < list_size(list); i++)
 	{
-		t_module_credentials *credentials = list_get(list, i);
+		t_memory_stick_credentials *credentials = list_get(list, i);
 		if (connect_with_memory_stick(logger, credentials) == EXIT_FAILURE)
 			return EXIT_FAILURE;
 	}
@@ -329,7 +329,7 @@ int iterate_connection_create_with_memory_sticks(t_list *list)
 	return EXIT_SUCCESS;
 }
 
-int connect_with_memory_stick(t_log *logger, t_module_credentials *credentials)
+int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credentials)
 {
 	log_debug(logger, "Attempting connection with ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);

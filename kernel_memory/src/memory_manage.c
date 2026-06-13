@@ -28,6 +28,7 @@ t_list *get_free_holes(void) {
     pthread_mutex_lock(&list_processes_mutex);
     for (int i = 0; i < list_size(list_processes); i++) {
         t_pcb *pcb = list_get(list_processes, i);
+        pthread_mutex_lock(&pcb->mutex);
         for (int j = 0; j < list_size(pcb->segment_table); j++) {
             t_segment *seg = list_get(pcb->segment_table, j);
             t_hole *occ    = malloc(sizeof(t_hole));
@@ -35,6 +36,7 @@ t_list *get_free_holes(void) {
             occ->size      = seg->size;
             list_add(occupied, occ);
         }
+        pthread_mutex_unlock(&pcb->mutex);
     }
     pthread_mutex_unlock(&list_processes_mutex);
 

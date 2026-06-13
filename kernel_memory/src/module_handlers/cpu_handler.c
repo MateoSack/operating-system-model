@@ -140,7 +140,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 
                 char *instruction = pcb->instructions[pc];
                 log_info(logger, "## PID: %u - Obtener instruccion: %u - Instruccion: %s", pid, pc, instruction);
-                message_send_with_op_code(instruction, INSTRUCTION_FETCH, cpu->fd);
+                message_send_with_op_code(instruction, INSTRUCTION_FETCH, cpu->fd, &cpu->network_mutex);
                 log_debug(logger, "Instruccion enviada correctamente a PID %d: %s", pid, instruction);
                 break;
             }

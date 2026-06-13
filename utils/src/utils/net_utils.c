@@ -249,11 +249,11 @@ void uint32_send (int client_fd, uint32_t value, pthread_mutex_t *mutex) { // Se
     package_delete(pkg);
 }
 
-void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex) { // Sends a list of t_module_credentials to the client as part of a package
+void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex) { // Sends a list of t_memory_stick_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = PACKAGE;
 	for(int i = 0; i < list_size(list); i++) {
-		t_module_credentials *credentials = list_get(list, i);
+		t_memory_stick_credentials *credentials = list_get(list, i);
 		package_add(pkg, credentials->ip, strlen(credentials->ip) + 1);
 		package_add(pkg, credentials->port, strlen(credentials->port) + 1);
 		package_add(pkg, &credentials->id, sizeof(credentials->id));
@@ -264,7 +264,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t
 	log_info(logger, "Paquete de credenciales enviado a fd: %d, elementos: %d", fd, list_size(list));
 }
 
-t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_module_credentials from the client as part of a package, returns the list
+t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_memory_stick_credentials from the client as part of a package, returns the list
     int op_code = operation_receive(socket_cliente);
     if (op_code != PACKAGE) {
         log_error(logger, "receive_credentials_list: se esperaba PACKAGE, se recibió %d", op_code);
@@ -286,7 +286,7 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 	}
 
 	while (offset < size) {
-		t_module_credentials *cred = malloc(sizeof(t_module_credentials));
+		t_memory_stick_credentials *cred = malloc(sizeof(t_memory_stick_credentials));
 
 		// Deserialize ip: size + string
 		int field_size;
@@ -318,7 +318,7 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
     return list;
 }
 
-void send_credentials (int fd, t_module_credentials *cred, t_log *logger, pthread_mutex_t *mutex) { // Sends a t_module_credentials to the client as part of a package
+void send_credentials (int fd, t_memory_stick_credentials *cred, t_log *logger, pthread_mutex_t *mutex) { // Sends a t_memory_stick_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = CREDENTIALS_UPDATE;
 	package_add(pkg, cred->ip, strlen(cred->ip) + 1);
@@ -329,12 +329,12 @@ void send_credentials (int fd, t_module_credentials *cred, t_log *logger, pthrea
 	log_debug(logger, "Credenciales enviadas a fd: %d", fd);
 }
 
-t_module_credentials *receive_credentials (int socket_cliente) { // Receives a t_module_credentials from the client as part of a package, returns the credentials
+t_memory_stick_credentials *receive_credentials (int socket_cliente) { // Receives a t_memory_stick_credentials from the client as part of a package, returns the credentials
     int size;
     int offset = 0;
     void *buffer = buffer_receive(&size, socket_cliente);
 
-	t_module_credentials *cred = malloc(sizeof(t_module_credentials));
+	t_memory_stick_credentials *cred = malloc(sizeof(t_memory_stick_credentials));
 
 	// Deserialize ip: size + string
 	int field_size;
@@ -361,8 +361,8 @@ t_module_credentials *receive_credentials (int socket_cliente) { // Receives a t
     return cred;
 }
 
-void t_module_credentials_destroyer (void *ptr) { // Destroys a t_module_credentials, use as list_destroy_and_destroy_elements destroyer
-	t_module_credentials *credentials = (t_module_credentials *) ptr;
+void t_memory_stick_credentials_destroyer (void *ptr) { // Destroys a t_memory_stick_credentials, use as list_destroy_and_destroy_elements destroyer
+	t_memory_stick_credentials *credentials = (t_memory_stick_credentials *) ptr;
 	free(credentials->ip);
 	free(credentials->port);
 	free(credentials);

@@ -1,6 +1,6 @@
 #include "memory_stick_handler.h"
 
-int memory_stick_handler (t_log *logger, int client_fd, t_module_credentials *client){
+int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentials *client){
     while (1) {
         int op = operation_receive(client_fd);
             if (op == -1) {

@@ -14,6 +14,6 @@ extern pthread_mutex_t list_memory_stick_mutex;
 extern uint32_t total_memory_size;
 extern pthread_mutex_t total_memory_size_mutex;
 
-int memory_stick_handler(t_log *logger, int client_fd, t_module_credentials *client);
+int memory_stick_handler(t_log *logger, int client_fd, t_memory_stick_credentials *client);
 
 #endif

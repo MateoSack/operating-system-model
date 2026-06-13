@@ -88,8 +88,8 @@ int server_setup (t_log *logger, int kernel_memory_fd) {
 	char *ip = get_ip_from_fd(kernel_memory_fd, logger);
 	char *port = get_port_from_fd(server_fd, logger);
 
-	message_send(ip, kernel_memory_fd);
-	message_send(port, kernel_memory_fd);
+	message_send(ip, kernel_memory_fd, &kernel_memory->network_mutex);
+	message_send(port, kernel_memory_fd, &kernel_memory->network_mutex);
 	free(ip);
 	free(port);
 
