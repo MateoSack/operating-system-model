@@ -16,6 +16,7 @@ pthread_mutex_t process_control_mutex = PTHREAD_MUTEX_INITIALIZER;
 sem_t sem_instruction_fetch_ready;
 sem_t sem_instruction_response_ready;
 sem_t sem_eviction_ready;
+sem_t sem_eviction_handled;
 
 t_instruction_response instruction_response = {
 	.instruction = NULL,
@@ -46,6 +47,7 @@ int main(int argc, char *argv[]) {
 	sem_init(&sem_instruction_fetch_ready, 0, 0);
 	sem_init(&sem_instruction_response_ready, 0, 0); 
 	sem_init(&sem_eviction_ready, 0, 0);
+	sem_init(&sem_eviction_handled, 0, 0);
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
@@ -217,7 +219,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
    				pthread_mutex_unlock(&interrupt_mutex);
 
     			if (hay_interrupcion) {
-        			sem_wait(&sem_eviction_ready);
+        			sem_wait(&sem_eviction_handled);
     			}
 
 				pid = uint32_decode(kernel_scheduler->fd);
@@ -291,6 +293,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				sem_wait(&sem_eviction_ready);
 				log_debug(logger, "Proceso desalojado correctamente");
 				send_confirmation(pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+				sem_post(&sem_eviction_handled);
 				break;
 			}
 			default: {
