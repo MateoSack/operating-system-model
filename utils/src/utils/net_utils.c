@@ -415,6 +415,8 @@ void send_confirmation (uint32_t pid, int client_fd, pthread_mutex_t *mutex) { /
 	package_add(pkg, &pid, sizeof(uint32_t));
 	package_send(pkg, client_fd, mutex);
     package_delete(pkg);
+
+	log_debug(logger, "Enviada confirmación para PID %d al cliente con fd %d", pid, client_fd);
 }
 
 void wait_confirmation (int client_fd) { // Waits for a confirmation package from the client, shouldnt be used because of busy waiting

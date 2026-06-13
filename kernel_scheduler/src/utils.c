@@ -175,7 +175,7 @@ t_process *get_lowest_priority_process (t_list *process_list) { // Get the lowes
     return lowest_priority_process;
 }
 
-void evict_process(t_client_info *cpu, t_interrupt_reason reason) {
+void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state) {
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_evicting = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
@@ -186,13 +186,22 @@ void evict_process(t_client_info *cpu, t_interrupt_reason reason) {
     package_send(pkg, cpu->fd, &cpu->network_mutex);
     package_delete(pkg);
 
+    log_debug(logger, "Enviada orden de evict al CPU %d por motivo de %s", cpu->id, interrupt_reason_to_string(reason));
+
     pthread_t thread;
-    pthread_create(&thread, NULL, wait_confirmation_thread, (void*)cpu);
+    if (should_handle_state) {
+        pthread_create(&thread, NULL, wait_confirmation_thread_and_handle_state, (void*)cpu);
+    } else {
+        pthread_create(&thread, NULL, wait_confirmation_thread, (void*)cpu);
+    }
+    
     pthread_detach(thread);
 }
 
-void *wait_confirmation_thread (void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted and is ready to be sent to the ready queue
+void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted and is ready to be sent to the ready queue
     t_client_info *cpu = (t_client_info*)arg;
+
+    log_debug(logger, "Thread de confirmación esperando para CPU %d", cpu->id);
 
     sem_wait(&cpu->response_sem);
 
@@ -210,14 +219,40 @@ void *wait_confirmation_thread (void *arg) { // Wait for a confirmation from the
         cpu->is_evicting = false; // Mark the CPU as not evicting anymore so it can be assigned a new process
         pthread_mutex_unlock(&cpu->internal_mutex);
 
+        pthread_mutex_unlock(&scheduler_mutex);
+
         log_debug(logger, "Proceso %d desalojado y agregado a la cola de ready", process->pid);
     } else {
+        pthread_mutex_unlock(&scheduler_mutex);
         log_warning(logger, "No se encontró el proceso asociado a la CPU %d para agregarlo a la cola de listo para ejecutar después de la confirmación de evict", cpu->id);
     }
-    pthread_mutex_unlock(&scheduler_mutex);
 
     sem_post(&short_term_scheduler_sem); // Signal the short term scheduler that a process was evicted and is ready to be scheduled again
 
+    return NULL;
+}
+
+void *wait_confirmation_thread(void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted. State must be handle by caller
+    t_client_info *cpu = (t_client_info*)arg;
+
+    log_debug(logger, "Thread de confirmación esperando para CPU %d", cpu->id);
+
+    sem_wait(&cpu->response_sem);
+
+    pthread_mutex_lock(&scheduler_mutex);
+    t_process *process = get_process_from_cpu(cpu);
+    if (process != NULL) {
+        remove_process_from_list(exec_processes, process);
+        process_set_cpu(process, NULL);
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_available = true;
+        cpu->is_evicting = false;
+        pthread_mutex_unlock(&cpu->internal_mutex);
+        // the caller handles process state
+    }
+    pthread_mutex_unlock(&scheduler_mutex);
+    log_debug(logger, "Proceso desalojado y CPU marcada como libre");
+    sem_post(&short_term_scheduler_sem);
     return NULL;
 }
 
@@ -240,7 +275,7 @@ void evict_all_processes (t_interrupt_reason reason) {
 
         pthread_mutex_unlock(&scheduler_mutex);
 
-        evict_process(cpu, reason);
+        evict_process(cpu, reason, false);
     }
 }
 

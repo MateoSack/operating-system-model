@@ -215,6 +215,7 @@ void cpu_handler (int cpu_fd) {
 				uint32_t pid = uint32_decode(cpu->fd);
 				log_info(logger, "## PID %d - Confirmación recibida", pid);
 				sem_post(&cpu->response_sem);
+				log_debug(logger, "sem_post hecho para CPU %d", cpu->id);
 				break;
 			}
         }

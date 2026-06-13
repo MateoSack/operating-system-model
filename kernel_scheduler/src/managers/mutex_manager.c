@@ -47,7 +47,7 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        evict_process(cpu, MUTEX_LOCKED);
+        evict_process(cpu, MUTEX_LOCKED, false);
     }
 }
 

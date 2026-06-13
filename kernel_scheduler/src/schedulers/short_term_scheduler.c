@@ -26,7 +26,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
                     t_client_info *cpu_to_evict = lowest_priority_process->cpu;
                     pthread_mutex_unlock(&scheduler_mutex);
 
-                    evict_process(cpu_to_evict, PRIORITY_PREEMPTION);
+                    evict_process(cpu_to_evict, PRIORITY_PREEMPTION, true);
 
                     log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso (%d) con prioridad %d", lowest_priority_process->pid, lowest_priority_process->effective_priority, process->pid, process->effective_priority);
 
@@ -141,7 +141,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
                     found = true;
                     t_client_info *cpu = process->cpu;
                     pthread_mutex_unlock(&scheduler_mutex);
-                    evict_process(cpu, QUANTUM_EXPIRED);
+                    evict_process(cpu, QUANTUM_EXPIRED, true);
                     log_info(logger, "## (%d) - Desalojado por fin de quantum", process->pid);
                     pthread_mutex_lock(&scheduler_mutex);
                     break;
