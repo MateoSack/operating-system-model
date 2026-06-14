@@ -29,6 +29,8 @@ t_list *list_memory_stick;
 t_pending_request *pending_request = NULL;
 pthread_mutex_t pending_request_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+uint32_t segment_max_size = 0;
+
 int main(int argc, char *argv[]) {
 
 	if (argc < 3) {
@@ -92,7 +94,9 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	} else {
 		log_info(logger, "Credentials list empty.");
 	}
-	// list_destroy_and_destroy_elements(credentials_list, t_memory_stick_credentials_destroyer);
+
+	segment_max_size = uint32_receive(kernel_memory->fd);
+	log_info(logger, "Received segment max size from Kernel Memory: %d bytes", segment_max_size);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
@@ -164,17 +168,20 @@ void *kernel_memory_thread()
 			}
 
 			case CONTEXT_TRANSFER: {
-				// Received context for a previous CONTEXT_SEEK -> dispatch to pending requester
-				t_cpu_context *ctx = context_receive(kernel_memory->fd);
+				// Received context for a previous CONTEXT_SEEK
+				t_process_execution_args *args = context_receive(kernel_memory->fd);
 
 				pthread_mutex_lock(&pending_request_mutex);
 				if (pending_request != NULL) {
-					pending_request->context = ctx;
+					pending_request->context = args->context;
+					pending_request->segment_table = args->segment_table;
 					pending_request->ready = true;
 					sem_post(&pending_request->sem);
 				} else {
-					free(ctx);
-					log_warning(logger, "Received CONTEXT_TRANSFER but no pending request");
+					free(args->context);
+					list_destroy_and_destroy_elements(args->segment_table, free);
+					free(args);
+					log_warning(logger, "CONTEXT_TRANSFER recibido pero no hay pending_request esperando por el contexto");
 				}
 				pthread_mutex_unlock(&pending_request_mutex);
 				break;
@@ -247,24 +254,27 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 
 				// Wait until kernel_memory_thread posts the context
 				sem_wait(&pending_request->sem);
-				t_cpu_context *context = pending_request->context;
-
 				pthread_mutex_lock(&pending_request_mutex);
+				t_cpu_context *context = pending_request->context;
+				t_list *segment_table = pending_request->segment_table;
 				sem_destroy(&pending_request->sem);
 				free(pending_request);
 				pending_request = NULL;
 				pthread_mutex_unlock(&pending_request_mutex);
 
 				if (context == NULL) {
-					log_error(logger, "Failed to receive context from Kernel Memory");
+					free(pending_request->context);
+					list_destroy_and_destroy_elements(pending_request->segment_table, free);
+					free(pending_request);
+					log_error(logger, "Fallo al recibir contexto desde Kernel Memory para PID %d", pid);
 					break;
 				}
-				log_info(logger, "Context received correctly from Kernel Memory for PID %d", pid);
+				log_info(logger, "Contexto recibido correctamente para PID %d", pid);
 				
 				t_process_execution_args *execution_args = malloc(sizeof(t_process_execution_args));
 				execution_args->pid = pid;
 				execution_args->context = context;
-				
+				execution_args->segment_table = segment_table;
 				pthread_t thread;
 				pthread_create(&thread, NULL, process_execution_handler, execution_args);
 				pthread_detach(thread);
@@ -379,12 +389,36 @@ void *memory_stick_handler(void *mem_stick_ptr)
 	return NULL;
 }
 
-/*
-void end_program(t_log *logger, t_config *config)
-{
-	log_destroy(logger);
+t_process_execution_args *context_receive(int fd) {
+	int size, offset = 0;
+	void *buffer = buffer_receive(&size, fd);
+	if (buffer == NULL) return NULL;
 
-	config_destroy(config);
+	t_process_execution_args *args = malloc(sizeof(t_process_execution_args));
+	args->context = malloc(sizeof(t_cpu_context));
+	args->segment_table = list_create();
 
+	args->context->pc = uint32_deserialize(buffer, &offset);
+	args->context->ax = uint8_deserialize(buffer, &offset);
+	args->context->bx = uint8_deserialize(buffer, &offset);
+	args->context->cx = uint8_deserialize(buffer, &offset);
+	args->context->dx = uint8_deserialize(buffer, &offset);
+	args->context->eax = uint32_deserialize(buffer, &offset);
+	args->context->ebx = uint32_deserialize(buffer, &offset);
+	args->context->ecx = uint32_deserialize(buffer, &offset);
+	args->context->edx = uint32_deserialize(buffer, &offset);
+	args->context->si = uint32_deserialize(buffer, &offset);
+	args->context->di = uint32_deserialize(buffer, &offset);
+
+	uint32_t seg_count = uint32_deserialize(buffer, &offset);
+	for(int i = 0; i < seg_count; i++) {
+		t_segment *seg = malloc(sizeof(t_segment));
+		seg->segment_id = uint32_deserialize(buffer, &offset);
+		seg->base = uint32_deserialize(buffer, &offset);
+		seg->size = uint32_deserialize(buffer, &offset);
+		list_add(args->segment_table, seg);
+	}
+
+	free(buffer);
+	return args;
 }
-*/

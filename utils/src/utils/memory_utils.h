@@ -4,6 +4,19 @@
 #include <stdint.h>
 
 typedef struct {
+    int fd;
+    uint32_t id;
+    uint32_t size;
+    uint32_t base_address;
+    pthread_mutex_t mutex;
+    pthread_mutex_t network_mutex;
+    sem_t response_sem;
+    int last_op_result;
+    void *last_read_buffer;
+    int last_read_size;
+} t_memory_stick_info;
+
+typedef struct {
     uint32_t segment_id;
     uint32_t base;
     uint32_t size;

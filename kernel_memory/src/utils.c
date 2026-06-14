@@ -74,3 +74,4 @@ t_memory_stick_info *create_memory_stick_info(int fd, uint32_t id) {
     sem_init(&memory_stick->response_sem, 0, 0);
     return memory_stick;
 }
+

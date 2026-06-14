@@ -1,7 +1,7 @@
 #ifndef CPU_MANAGE_INSTRUCTIONS_H
 #define CPU_MANAGE_INSTRUCTIONS_H
 
-#include <utils/net_utils.h>
+#include<utils/net_utils.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<commons/log.h>
@@ -9,6 +9,7 @@
 #include<commons/config.h>
 #include<utils/process_utils.h>
 #include<semaphore.h>
+#include<main.h>
 
 extern pthread_mutex_t interrupt_mutex;
 extern pthread_mutex_t process_control_mutex;
@@ -39,11 +40,6 @@ typedef enum {
 } t_instruction_type; //FALTAN SYSCALLS
 
 typedef struct {
-	uint32_t pid;
-	t_cpu_context *context;
-} t_process_execution_args;
-
-typedef struct {
 	void *field_address;
 	size_t field_size;
 } t_register_descriptor;
@@ -61,7 +57,8 @@ extern bool interruptPending;
 extern t_interrupt_reason interruptReason;
 extern t_instruction_response instruction_response;
 
-void instructions_cicle(t_cpu_context *context, uint32_t pid);
+void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex);
+void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table);
 t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
 void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
@@ -93,6 +90,5 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
 void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void send_context_to_kernel_memory(t_cpu_context *context, uint32_t pid);
 
 #endif // CPU_MANAGE_INSTRUCTIONS_H

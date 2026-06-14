@@ -10,6 +10,7 @@ t_client_info *kernel_scheduler = NULL;
 int swap_fd = -1;
 
 uint32_t total_memory_size = 0;
+uint32_t segment_max_size = 0;
 
 pthread_mutex_t total_memory_size_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_cpu_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -47,6 +48,16 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
     allocation_strategy = strdup(strategy_cfg);
+
+        segment_max_size = (uint32_t)config_get_int_value(config, "SEGMENT_MAX_SIZE"); // In bytes
+        if (segment_max_size <= 0) {
+            log_error(logger, "SEGMENT_MAX_SIZE invalid or not set in config, exiting");
+            log_destroy(logger);
+            config_destroy(config);
+            free(allocation_strategy);
+            return EXIT_FAILURE;
+        }
+        log_debug(logger, "SEGMENT_MAX_SIZE read from config: %u", segment_max_size);
 
     list_cpu = list_create();
     list_memory_stick = list_create();
@@ -134,6 +145,9 @@ void *handle_module(void *fd_ptr) {
             pthread_mutex_unlock(&list_memory_stick_credentials_mutex);
 
             log_debug(logger, "Credentials list sent to CPU");
+            
+            log_debug(logger, "Sending SEGMENT_MAX_SIZE (%u) to CPU %d", segment_max_size, cpu->id);
+            uint32_send(cpu->fd, segment_max_size, &cpu->network_mutex);
 
             log_info(logger, "## CPU %d Conectada", cpu->id);
             log_info(logger, "Total de CPUs conectadas: %d", cpu_count);

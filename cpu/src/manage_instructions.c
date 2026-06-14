@@ -3,13 +3,26 @@
 bool should_exit = false;
 bool should_stop = false;
 
-// Helper: send current context to Kernel Memory (thread-safe)
-void send_context_to_kernel_memory(t_cpu_context *context, uint32_t pid) {
-    context_send_with_pid(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
-    log_info(logger, "Context enviado a Kernel Memory para PID %d", pid);
+void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
+    t_package *pkg = package_create();
+    pkg->op_code = CONTEXT_TRANSFER;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &context->pc, sizeof(uint32_t));
+    package_add(pkg, &context->ax, sizeof(uint8_t));
+    package_add(pkg, &context->bx, sizeof(uint8_t));
+    package_add(pkg, &context->cx, sizeof(uint8_t));
+    package_add(pkg, &context->dx, sizeof(uint8_t));
+    package_add(pkg, &context->eax, sizeof(uint32_t));
+    package_add(pkg, &context->ebx, sizeof(uint32_t));
+    package_add(pkg, &context->ecx, sizeof(uint32_t));
+    package_add(pkg, &context->edx, sizeof(uint32_t));
+    package_add(pkg, &context->si, sizeof(uint32_t));
+    package_add(pkg, &context->di, sizeof(uint32_t));
+    package_send(pkg, fd, mutex);
+    package_delete(pkg);
 }
 
-void instructions_cicle(t_cpu_context *context, uint32_t pid) {
+void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table) {
     bool hasJumped = false;
 	while (1)
 	{
@@ -19,7 +32,6 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             log_info(logger, "Finalizando proceso PID %d", pid);
             should_exit = false;
             pthread_mutex_unlock(&process_control_mutex);
-
             // Analizar si necesita semaforo aca
         } else {
             pthread_mutex_unlock(&process_control_mutex);
@@ -33,8 +45,9 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             log_info(logger, "Deteniendo proceso PID %d", pid);
             should_stop = false;
             // Send context to Kernel Memory before yielding for IO/stop
-            send_context_to_kernel_memory(context, pid);
-            sem_post(&sem_eviction_ready);
+            context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
+            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
+            // sem_post(&sem_eviction_ready);  REVISAR SI ESTE SEMAFORO VA ACA, YA QUE NO SE SI ES UN DESALOJO COMANDADO POR PROCESS_EVICT =====================================
         }
         pthread_mutex_unlock(&process_control_mutex);
         if(stop_flag) break;
@@ -55,7 +68,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 		// Wait for kernel_memory_thread to deliver the instruction
 		sem_wait(&sem_instruction_response_ready);
         
-        log_debug(logger, "sem_instruction_response_ready signaled for PID %d", pid);
+        log_debug(logger, "sem_instruction_response_ready recibido para PID: %d", pid);
 
 		// Get the instruction from shared structure
 		pthread_mutex_lock(&instruction_response.mutex);
@@ -88,9 +101,9 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 
 		if(interrupt) {
             log_info(logger, "## Interrupción recibida");
-            log_info(logger, "Interrupt pending for PID %d, sending context to Kernel Memory", pid);
-
-            send_context_to_kernel_memory(context, pid);
+            log_info(logger, "Interrupcion pendiente para PID %d, enviando contexto a Kernel Memory", pid);
+            context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
+            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
 
             t_interrupt_reason reason_local;
             pthread_mutex_lock(&interrupt_mutex);
@@ -103,9 +116,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
             package_add(pkg2, &reason_local, sizeof(t_interrupt_reason));
             package_send(pkg2, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
             package_delete(pkg2);
-            log_info(logger, "Notified Kernel Scheduler about PID %d interruption (reason=%s)", pid, interrupt_reason_to_string(reason_local));
-
-            send_context_to_kernel_memory(context, pid);
+            log_info(logger, "Se ha informado a Kernel Scheduler de interrupcion para PID %d (razon=%s)", pid, interrupt_reason_to_string(reason_local));
 
             sem_post(&sem_eviction_ready);
 
@@ -115,7 +126,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid) {
 
             break;
 		}
-		log_info(logger, "No interrupt pending for PID %d, continuing execution", pid);
+		log_info(logger, "No hay interrupciones pendientes para PID %d, continuando ejecucion", pid);
 	}
 }
 
@@ -475,8 +486,9 @@ void *process_execution_handler(void *args) {
 	t_process_execution_args *exec_args = (t_process_execution_args *)args;
 	uint32_t exec_pid = exec_args->pid;
 	t_cpu_context *exec_context = exec_args->context;
+    t_list *segment_table = exec_args->segment_table;
 	
-	instructions_cicle(exec_context, exec_pid);
+	instructions_cicle(exec_context, exec_pid, segment_table);
 	
 	free(exec_context);
 	free(exec_args);

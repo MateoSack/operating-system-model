@@ -15,9 +15,16 @@
 typedef struct {
 	uint32_t pid;
 	t_cpu_context *context;
+	t_list *segment_table;
 	sem_t sem;
 	bool ready;
 } t_pending_request;
+
+typedef struct {
+	uint32_t pid;
+	t_cpu_context *context;
+	t_list *segment_table;
+} t_process_execution_args;
 
 void end_program(int, t_log*, t_config*);
 t_log *start_logger(t_config *config);
@@ -28,5 +35,6 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler);
 int iterate_connection_create_with_memory_sticks (t_list *list);
 int connect_with_memory_stick (t_log *logger, t_memory_stick_credentials *credentials);
 void *memory_stick_handler (void *mem_stick_ptr);
+t_process_execution_args *context_receive(int fd);
 
 #endif // CPU_MAIN_H

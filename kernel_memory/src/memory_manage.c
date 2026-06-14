@@ -127,6 +127,7 @@ void compact_memory(void) {
     }
     pthread_mutex_unlock(&list_processes_mutex);
 
+    
     log_debug(logger, "Fin de compactación");
 }
 
@@ -139,6 +140,13 @@ void request_and_compact(void) { // Send compaction request to Kernel Scheduler 
     sem_wait(&compaction_sem);
 
     compact_memory();
+
+    t_package *pkg_finished = package_create();
+    pkg_finished->op_code = COMPACTION_FINISHED;
+    package_send(pkg_finished, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg_finished);
+
+    log_debug(logger, "Notificación de compactación terminada enviada al Kernel Scheduler");
 }
 
 t_segment_result segment_create(uint32_t pid, uint32_t segment_id, uint32_t size) {
@@ -355,4 +363,12 @@ int segment_delete(uint32_t pid, uint32_t segment_id) {
     return SEGMENT_OK;
 }
 
-
+void send_segment_result(uint32_t pid, uint32_t segment_id, int result) {
+    t_package *pkg = package_create();
+    pkg->op_code = SEGMENT_RESULT;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &segment_id, sizeof(uint32_t));
+    package_add(pkg, &result, sizeof(int));
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
+}

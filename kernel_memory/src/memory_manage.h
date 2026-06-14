@@ -15,5 +15,6 @@ t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint
 void *memory_read(uint32_t physical_address, uint32_t size);
 bool memory_write(uint32_t physical_address, void *data, uint32_t size);
 int segment_delete(uint32_t pid, uint32_t segment_id);
+void send_segment_result(uint32_t pid, uint32_t segment_id, int result);
 
 #endif

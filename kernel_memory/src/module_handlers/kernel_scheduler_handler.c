@@ -4,6 +4,7 @@ extern t_list *list_processes;
 extern pthread_mutex_t list_processes_mutex;
 extern uint32_t target_pid;
 extern sem_t compaction_sem;
+extern t_client_info *kernel_scheduler;
 
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
     char *base_path = config_get_string_value(config, "SCRIPTS_BASEPATH");
@@ -81,20 +82,20 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 log_debug(logger, "Received SEGMENT_CREATE request for PID %u - Segment ID %u - Size %u", pid, segment_id, segment_size);
 
                 t_segment_result result = segment_create(pid, segment_id, segment_size);
-
-                // =============================================================
-                // VER SI ES NECESARIO ENVIARLE EL RESULTADO AL KERNEL SCHEDULER
-                // =============================================================
                 
                 switch (result) {
+                    // Send result to scheduler
                     case SEGMENT_OK:
                         log_info(logger, "## PID: %u - Segmento Creado %u - Tamaño: %u", pid, segment_id, segment_size);
+                        send_segment_result(pid, segment_id, SEGMENT_OK);
                         break;
                     case SEGMENT_NO_SPACE:
                         log_warning(logger, "PID: %u - No hay espacio para crear segmento %u de tamaño %u", pid, segment_id, segment_size);
+                        send_segment_result(pid, segment_id, SEGMENT_NO_SPACE);
                         break;
                     case SEGMENT_ERROR:
                         log_error(logger, "No se pudo crear el segmento");
+                        send_segment_result(pid, segment_id, SEGMENT_ERROR);
                         break;
                 }
                 break;
@@ -107,7 +108,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 t_segment_result result = segment_delete(pid, segment_id);
 
-                switch (result) {
+                switch (result) { // VER DE MANDAR LOS RESULTADOS A KS
                     case SEGMENT_OK:
                         log_debug(logger, "PID: %u - Segmento Eliminado %u", pid, segment_id);
                         break;
@@ -123,29 +124,44 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
             case COMPACTION_READY: {
                 // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
-                log_debug(logger, "Received COMPACTION_READY from Kernel Scheduler");
+                log_debug(logger, "Aviso de COMPACTION_READY recibido");
                 sem_post(&compaction_sem);
                 break;
             }
 
-            case IO_MEMORY_READ: { // TODO: Volver esto un paquete (mismo paquete en IO_MEMORY_READy IO_MEMORY_WRITE)
+            case IO_MEMORY_READ: {
                 uint32_t pid = uint32_decode(client_fd);
-                uint32_t logical_address = uint32_decode(client_fd);
+                uint32_t physical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
-                //TODO: Implementar traduccion de direccion de logica a fisica y lectura de memoria
-                log_info(logger, "Received PID %u IO_MEMORY_READ request for physical address %u with size %u", pid, logical_address, size); // cambiar address
-                message_send("OK", client_fd, &kernel_scheduler->network_mutex); 
-                uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la lectura
+
+                void *data = memory_read(physical_address, size);
+                if (data == NULL) {
+                    log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
+                    break;
+                }
+                // Send read data back to Kernel Scheduler
+                t_package *pkg = package_create();
+                pkg->op_code = IO_MEMORY_READ;
+                package_add(pkg, &pid, sizeof(uint32_t));
+                package_add(pkg, data, size);
+                package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                package_delete(pkg);
+                log_info(logger, "## PID: %u - Lectura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
+                free(data);
                 break;
             }
 
-            case IO_MEMORY_WRITE: { // TODO: Volver esto un paquete
+            case IO_MEMORY_WRITE: {
                 uint32_t pid = uint32_decode(client_fd);
-                uint32_t logical_address = uint32_decode(client_fd);
+                uint32_t physical_address = uint32_decode(client_fd);
                 uint32_t size = uint32_decode(client_fd);
-                log_info(logger, "Received PID %u IO_MEMORY_WRITE request for physical address %u with size %u", pid, logical_address, size); // cambiar address
-                message_send("OK", client_fd, &kernel_scheduler->network_mutex);
-                uint32_send(client_fd, 777, &kernel_scheduler->network_mutex); //TODO: Cambiar 777 por el resultado real de la escritura
+                
+                int data_size;
+                void *data = buffer_receive(&data_size, client_fd);
+
+                memory_write(physical_address, data, size);
+                log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
+                free(data);
                 break;
             }
         }
