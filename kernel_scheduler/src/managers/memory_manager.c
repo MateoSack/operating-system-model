@@ -72,6 +72,8 @@ void compaction_requested () {
 }
 
 void *compaction_requested_thread (void *arg) {
+    log_info(logger, "## Inicio de compactación");
+
     can_schedule_write(false);
 
     evict_all_processes(COMPACTION);
@@ -85,6 +87,10 @@ void *compaction_requested_thread (void *arg) {
 
     can_schedule_write(true);
 
+    log_info(logger, "## Fin de compactación");
+
+    sem_post(&short_term_scheduler_sem);
+
     return NULL;
 }
 
@@ -95,11 +101,21 @@ void memory_corrupted () {
 }
 
 void *memory_corrupted_thread (void *arg) {
+    log_debug(logger, "Memoria corrupta, desalojando los procesos...");
+
     can_schedule_write(false);
 
     evict_all_processes(CORRUPT_MEMORY);
 
+    log_debug(logger, "Todos los procesos desalojados. Apagando...");
+
     exit (EXIT_FAILURE);
 
     return NULL;
+}
+
+void memory_update (uint32_t new_size) {
+    log_debug(logger, "Actualización de memoria recibida (Tamaño libre: %d), intentado traer procesos a memoria", new_size);
+
+    // TODO: Send list of PIDs in swap to memory and wait for which ones were able to make it
 }

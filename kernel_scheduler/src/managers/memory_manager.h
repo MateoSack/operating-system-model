@@ -17,5 +17,6 @@ void compaction_requested ();
 void *compaction_requested_thread (void *arg);
 void memory_corrupted();
 void *memory_corrupted_thread (void *arg);
+void memory_update (uint32_t new_size);
 
 #endif
