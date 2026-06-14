@@ -332,7 +332,7 @@ int iterate_connection_create_with_memory_sticks(t_list *list)
 			return EXIT_FAILURE;
 	}
 
-	log_debug(logger, "Finished stablishing connectios with memory sticks, total: %d", i);
+	log_debug(logger, "Coneccion con Memory Sticks terminada, total de sticks conectados: %d", i);
 	return EXIT_SUCCESS;
 }
 
@@ -346,7 +346,13 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 		return EXIT_FAILURE;
 	}
 
-	t_client_info *mem_stick = create_client_info(memory_stick_fd, credentials->id);
+	t_memory_stick_info *mem_stick = malloc(sizeof(t_memory_stick_info));
+	mem_stick->fd = memory_stick_fd;
+	mem_stick->id = credentials->id;
+	mem_stick->size = credentials->size;
+	pthread_mutex_init(&mem_stick->mutex, NULL);
+	pthread_mutex_init(&mem_stick->network_mutex, NULL);
+	sem_init(&mem_stick->response_sem, 0, 0);
 
 	t_module_id_send(memory_stick_fd, MODULE_CPU, logger, &mem_stick->network_mutex);
 	uint32_send(memory_stick_fd, cpu_id, &mem_stick->network_mutex);
@@ -368,8 +374,8 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 
 void *memory_stick_handler(void *mem_stick_ptr)
 {
-	t_client_info *mem_stick = (t_client_info *)mem_stick_ptr;
-	log_debug(logger, "Memory Stick handler started for fd: %d, id: %d", mem_stick->fd, mem_stick->id);
+	t_memory_stick_info *mem_stick = (t_memory_stick_info *)mem_stick_ptr;
+	log_debug(logger, "Memory Stick handler iniciado para fd: %d, id: %d", mem_stick->fd, mem_stick->id);
 
 	while (1)
 	{
@@ -384,6 +390,30 @@ void *memory_stick_handler(void *mem_stick_ptr)
 			pthread_mutex_unlock(&memory_stick_list_mutex);
 			free(mem_stick);
 			break;
+		}
+		switch (op) {
+			case MS_READ_RESPONSE: {
+				int response_size;
+				void *buffer = buffer_receive(&response_size, mem_stick->fd);
+				pthread_mutex_lock(&mem_stick->mutex);
+				mem_stick->last_read_buffer = buffer;
+				mem_stick->last_read_size = response_size;
+				pthread_mutex_unlock(&mem_stick->mutex);
+				sem_post(&mem_stick->response_sem);
+				break;
+			}
+			case MS_WRITE_OK: {
+				pthread_mutex_lock(&mem_stick->mutex);
+				mem_stick->last_op_result = MS_WRITE_OK;
+				pthread_mutex_unlock(&mem_stick->mutex);
+				sem_post(&mem_stick->response_sem);
+				break;
+			}
+			default: {
+				// Unknown op for now
+				log_debug(logger, "Memory Stick handler received op %d for fd %d", op, mem_stick->fd);
+				break;
+			}
 		}
 	}
 	return NULL;

@@ -226,7 +226,7 @@ t_memory_stick_credentials *memory_stick_protocol (t_log *logger, int client_fd)
 
     if (kernel_scheduler != NULL && kernel_scheduler->fd != -1) {
         send_memory_update(current_total);
-        log_debug(logger, "Sent memory update to Kernel Scheduler: %d bytes", current_total);
+        log_debug(logger, "Aviso de actualizacion de memoria enviado a Kernel Scheduler de %d bytes", current_total);
     }
 
     pthread_mutex_lock(&list_memory_stick_mutex);

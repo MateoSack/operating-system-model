@@ -13,6 +13,7 @@
 
 extern pthread_mutex_t interrupt_mutex;
 extern pthread_mutex_t process_control_mutex;
+extern pthread_mutex_t memory_stick_list_mutex;
 extern sem_t sem_instruction_fetch_ready;
 extern sem_t sem_instruction_response_ready;
 extern sem_t sem_eviction_ready;
@@ -56,12 +57,14 @@ extern t_client_info *kernel_scheduler;
 extern bool interruptPending;
 extern t_interrupt_reason interruptReason;
 extern t_instruction_response instruction_response;
+extern uint32_t segment_max_size;
+extern t_list *list_memory_stick;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex);
 void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table);
 t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
-void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped);
 void instruction_set(char **decoded_instruction, t_cpu_context *context);
 void instruction_sum(char **decoded_instruction, t_cpu_context *context);
 void instruction_sub(char **decoded_instruction, t_cpu_context *context);
@@ -77,9 +80,9 @@ void instruction_set(char **decoded_instruction, t_cpu_context *context);
 void instruction_sum(char **decoded_instruction, t_cpu_context *context);
 void instruction_sub(char **decoded_instruction, t_cpu_context *context);
 void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
-void instruction_mov_in(char **decoded_instruction, t_cpu_context *context);
-void instruction_mov_out(char **decoded_instruction, t_cpu_context *context);
-void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context);
+void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
+void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
+void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context);
 void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context);
 void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context);
@@ -90,5 +93,10 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
 void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
+
+uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_table, uint32_t pid);
+t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint32_t *local_offset);
+void *memory_read(uint32_t physical_address, uint32_t size);
+bool memory_write(uint32_t physical_address, void *data, uint32_t size);
 
 #endif // CPU_MANAGE_INSTRUCTIONS_H

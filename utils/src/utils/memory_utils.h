@@ -7,7 +7,6 @@ typedef struct {
     int fd;
     uint32_t id;
     uint32_t size;
-    uint32_t base_address;
     pthread_mutex_t mutex;
     pthread_mutex_t network_mutex;
     sem_t response_sem;

@@ -84,7 +84,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 		}
 		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
-		execute_instruction(decoded_instruction, context, pid, &hasJumped);
+        execute_instruction(decoded_instruction, context, pid, segment_table, &hasJumped);
 		log_info(logger, "## PID: %d - Ejecutando: %s", pid, decoded_instruction[0]);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
@@ -243,167 +243,118 @@ bool write_register_value(t_cpu_context *context, const char *register_name, uin
     return true;
 }
 
-void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
+void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped) {
 	t_instruction_type instruction = instruction_to_type(decoded_instruction[0]);
 	
 	switch (instruction) {
 		case NOOP: {
-			log_info(logger, "NOOP executed");
+			log_debug(logger, "NOOP ejecutado");
 			break;
 		}
 
 		case SET: {
 			instruction_set(decoded_instruction, context);
-			log_info(logger, "SET executed");
+			log_debug(logger, "SET ejecutado");
 			break;
 		}
 
-		case MOV_IN: { /*
-            uint32_t logical_addr = read_register_value(context, "si");
-            uint32_t size = sizeof(uint32_t);
-
-            int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
-            if (physical_addr == -1) {
-                send_segfault_to_scheduler(pid);
-                return;
-            }
-
-            uint32_t value = 0;
-            if (mmu_read(physical_addr, size, &value,
-                        stick_size, memory_stick_fds, stick_count) != 0) return;
-
-            write_register_value(context, decoded_instruction[1], value);
-            log_info(logger, "MOV_IN ejecutado");
-            */
+        case MOV_IN: {
+            instruction_mov_in(decoded_instruction, context, pid, segment_table);
+            log_debug(logger, "MOV_IN ejecutado");
             break;
         }
 
-        case MOV_OUT: { /*
-            uint32_t logical_addr = read_register_value(context, "di");
-            uint32_t value        = read_register_value(context, decoded_instruction[1]);
-            uint32_t size         = sizeof(uint32_t);
-
-            int32_t physical_addr = mmu_translate(context, logical_addr, size, SEGMENT_MAX_SIZE);
-            if (physical_addr == -1) {
-                send_segfault_to_scheduler(pid);
-                return;
-            }
-
-            mmu_write(physical_addr, size, &value,
-                    stick_size, memory_stick_fds, stick_count);
-            log_info(logger, "MOV_OUT ejecutado");
-            */
+        case MOV_OUT: { 
+            instruction_mov_out(decoded_instruction, context, pid, segment_table);
+            log_debug(logger, "MOV_OUT ejecutado");
             break;
         }
 		
 		case SUM: {
 			instruction_sum(decoded_instruction, context);
-			log_info(logger, "SUM executed");
+			log_debug(logger, "SUM ejecutado");
 			break;
 		}
 
         case SUB: {
 			instruction_sub(decoded_instruction, context);
-			log_info(logger, "SUB executed");
+			log_debug(logger, "SUB ejecutado");
 			break;
 		}
 
         case JNZ: {
 			instruction_jnz(decoded_instruction, context, hasJumped);
-			log_info(logger, "JNZ executed");
+			log_debug(logger, "JNZ ejecutado");
 			break;
 		}
 
         case COPY_MEM: {
-        /*
-            uint32_t src_logical  = read_register_value(context, "si");
-            uint32_t dst_logical  = read_register_value(context, "di");
-            uint32_t size         = read_register_value(context, decoded_instruction[1]);
-
-            int32_t src_physical = mmu_translate(context, src_logical, size, SEGMENT_MAX_SIZE);
-            int32_t dst_physical = mmu_translate(context, dst_logical, size, SEGMENT_MAX_SIZE);
-
-            if (src_physical == -1 || dst_physical == -1) {
-                send_segfault_to_scheduler(pid);
-                return;
-            }
-
-            void *buffer = malloc(size);
-            if (mmu_read(src_physical, size, buffer,
-                        stick_size, memory_stick_fds, stick_count) != 0) {
-                free(buffer);
-                return;
-            }
-            mmu_write(dst_physical, size, buffer,
-                    stick_size, memory_stick_fds, stick_count);
-            free(buffer);
-            log_info(logger, "COPY_MEM ejecutado");
-            */
+            instruction_copy_mem(decoded_instruction, context, pid, segment_table);
             break;
         }
 
 		case INS_MUTEX_CREATE: {
 			instruction_mutex_create(decoded_instruction, context);
-			log_info(logger, "MUTEX_CREATE executed");
+			log_debug(logger, "MUTEX_CREATE ejecutado");
 			break;
 		}
 
 		case INS_MUTEX_LOCK: {
 			instruction_mutex_lock(decoded_instruction, context);
-			log_info(logger, "MUTEX_LOCK executed");
+			log_debug(logger, "MUTEX_LOCK ejecutado");
 			break;
 		}
 
 		case INS_MUTEX_UNLOCK: {
 			instruction_mutex_unlock(decoded_instruction, context);
-			log_info(logger, "MUTEX_UNLOCK executed");
+			log_debug(logger, "MUTEX_UNLOCK ejecutado");
 			break;
 		}
 
 		case INS_MEM_ALLOC: {
 			instruction_mem_alloc(decoded_instruction, context, pid);
-			log_info(logger, "MEM_ALLOC executed");
+			log_debug(logger, "MEM_ALLOC ejecutado");
 			break;
 		}
 
 		case INS_MEM_FREE: {
 			instruction_mem_free(decoded_instruction, context, pid);
-			log_info(logger, "MEM_FREE executed");
+			log_debug(logger, "MEM_FREE ejecutado");
 			break;
 		}
 
 		case INS_SLEEP: {
 			instruction_sleep(decoded_instruction, context, pid);
-			log_info(logger, "SLEEP executed");
+			log_debug(logger, "SLEEP ejecutado");
 			break;
 		}
 
 		case INS_STDOUT: {
 			instruction_stdout(decoded_instruction, context, pid);
-			log_info(logger, "STDOUT executed");
+			log_debug(logger, "STDOUT ejecutado");
 			break;
 		}
 
 		case INS_STDIN: {
 			instruction_stdin(decoded_instruction, context, pid);
-			log_info(logger, "STDIN executed");
+			log_debug(logger, "STDIN ejecutado");
 			break;
 		}
 
 		case INS_INIT_PROC: {
 			instruction_init_proc(decoded_instruction, context, pid);
-			log_info(logger, "INIT_PROC executed");
+			log_debug(logger, "INIT_PROC ejecutado");
 			break;
 		}
 
 		case INS_EXIT: {
 			instruction_exit(decoded_instruction, context, pid);
-			log_info(logger, "EXIT executed");
+			log_debug(logger, "EXIT ejecutado");
 			break;
 		}
 
         case UNKNOWN: {
-            log_warning(logger, "Unknown instruction: %s", decoded_instruction[0]);
+            log_warning(logger, "Instruccion desconocida: %s", decoded_instruction[0]);
             break;
         }
 	}
@@ -419,6 +370,53 @@ void instruction_set(char **decoded_instruction, t_cpu_context *context){
     if (!write_register_value(context, decoded_instruction[1], value)) {
         log_error(logger, "Failed to set register: %s", decoded_instruction[1]);
     }
+}
+
+void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
+        return;
+    }
+
+    t_register_descriptor descriptor = get_register_descriptor(context, decoded_instruction[1]);
+    uint32_t physical_address = mmu_translate(context->si, descriptor.field_size, segment_table, pid);
+    
+    if (should_exit) return;
+
+    void *data = memory_read(physical_address, descriptor.field_size);
+    if (data == NULL) {
+        log_error(logger, "MOV_IN: error leyendo dirección física %u", physical_address);
+        return;
+    }
+
+    if (descriptor.field_size == sizeof(uint8_t)) {
+        *(uint8_t *)descriptor.field_address = *(uint8_t *)data;
+    } else {
+        *(uint32_t *)descriptor.field_address = *(uint32_t *)data;
+    }
+
+    free(data);
+    log_debug(logger, "MOV_IN - SI=%u - dir. físico=%u - %s=%u", context->si, physical_address, decoded_instruction[1], read_register_value(context, decoded_instruction[1]));
+}
+
+void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "MOV_OUT: registro inválido: %s", decoded_instruction[1]);
+        return;
+    }
+
+    t_register_descriptor descriptor = get_register_descriptor(context, decoded_instruction[1]);
+    uint32_t physical_address = mmu_translate(context->di, descriptor.field_size, segment_table, pid);
+    if (should_exit) return;
+
+    uint32_t value = read_register_value(context, decoded_instruction[1]);
+    bool ok = memory_write(physical_address, &value, descriptor.field_size);
+    if (!ok) {
+        log_error(logger, "MOV_OUT: error escribiendo dirección física %u", physical_address);
+        return;
+    }
+
+    log_debug(logger, "MOV_OUT - DI=%u - dir. físico=%u - %s=%u", context->di, physical_address, decoded_instruction[1], value);
 }
 
 void instruction_sum(char **decoded_instruction, t_cpu_context *context){
@@ -474,12 +472,40 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *h
 }
 
 bool check_if_register(char *operand) {
-	if (strcasecmp(operand, "ax") == 0 || strcasecmp(operand, "bx") == 0 || strcasecmp(operand, "cx") == 0 || strcasecmp(operand, "dx") == 0 ||
-		strcasecmp(operand, "eax") == 0 || strcasecmp(operand, "ebx") == 0 || strcasecmp(operand, "ecx") == 0 || strcasecmp(operand, "edx") == 0 ||
-		strcasecmp(operand, "si") == 0 || strcasecmp(operand, "di") == 0) {
-		return true;
-	}
-	return false;
+    if (strcasecmp(operand, "ax") == 0 || strcasecmp(operand, "bx") == 0 || strcasecmp(operand, "cx") == 0 || strcasecmp(operand, "dx") == 0 ||
+        strcasecmp(operand, "eax") == 0 || strcasecmp(operand, "ebx") == 0 || strcasecmp(operand, "ecx") == 0 || strcasecmp(operand, "edx") == 0 ||
+        strcasecmp(operand, "si") == 0 || strcasecmp(operand, "di") == 0) {
+        return true;
+    }
+    return false;
+}
+
+void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+    if (!check_if_register(decoded_instruction[1])) {
+        log_error(logger, "COPY_MEM: registro de tamaño inválido: %s", decoded_instruction[1]);
+        return;
+    }
+
+    uint32_t size = read_register_value(context, decoded_instruction[1]);
+
+    uint32_t physical_src = mmu_translate(context->si, size, segment_table, pid);
+    if (should_exit) return;
+
+    uint32_t physical_dst = mmu_translate(context->di, size, segment_table, pid);
+    if (should_exit) return;
+
+    void *data = memory_read(physical_src, size);
+    if (data == NULL) {
+        log_error(logger, "COPY_MEM: error leyendo dirección física %u", physical_src);
+        return;
+    }
+
+    bool ok = memory_write(physical_dst, data, size);
+    free(data);
+    if (!ok) {
+        log_error(logger, "COPY_MEM: error escribiendo dirección física %u", physical_dst);
+        return;
+    }
 }
 
 void *process_execution_handler(void *args) {
@@ -496,7 +522,7 @@ void *process_execution_handler(void *args) {
 	return NULL;
 }
 
-// Syscall instruction implementations
+// Syscall instructions implementations
 
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_CREATE operation to kernel scheduler
@@ -522,6 +548,10 @@ void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, u
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
+
+    pthread_mutex_lock(&process_control_mutex);
+    should_stop = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -533,6 +563,10 @@ void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, ui
     package_add(pkg, &address, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
+
+    pthread_mutex_lock(&process_control_mutex);
+    should_stop = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -544,6 +578,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &time, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
+
     pthread_mutex_lock(&process_control_mutex);
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
@@ -627,155 +662,148 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
     pthread_mutex_unlock(&process_control_mutex);
 }
 
-/*  Idea de traduccion con MMU, falta implementar las tablas, tamaños, etc
-int32_t mmu_translate(t_cpu_context *context, uint32_t dir_logica, uint32_t size) {
-    uint32_t num_segmento   = dir_logica / SEGMENT_MAX_SIZE;
-    uint32_t desplazamiento = dir_logica % SEGMENT_MAX_SIZE;
+uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_table, uint32_t pid) {
+    uint32_t num_segment = logical_address / segment_max_size;
+    uint32_t seg_offset = logical_address % segment_max_size;
 
-    // Verificar que el segmento existe en la tabla
-    if (num_segmento >= context->segment_table_size) {
-        log_error(logger, "Segfault: segmento %d no existe", num_segmento);
-        return -1;
-    }
-
-    t_segment seg = context->segment_table[num_segmento];
-
-    // Verificar que no se sale del límite del segmento
-    if (desplazamiento + size > seg.limit) {
-        log_error(logger, "Segfault: acceso fuera del segmento");
-        return -1;
-    }
-
-    return seg.base + desplazamiento;
-}
-*/
-// Un segmento en la tabla del proceso
-
-// Tabla de segmentos del proceso (deberia llegar de Kernel Memory)
-typedef struct {
-    t_segment *segments;
-    uint32_t   count;
-} t_segment_table;
-
-/*
-// Devuelve la dirección física, o -1 si hay segfault
-int32_t mmu_translate(t_cpu_context *context, uint32_t logical_addr,
-                      uint32_t size, uint32_t segment_max_size) {
-    uint32_t num_segmento   = logical_addr / segment_max_size;
-    uint32_t desplazamiento = logical_addr % segment_max_size;
-
-    // Buscar el segmento por índice en la tabla
-    if (num_segmento >= context->segment_table.count) {
-        log_error(logger, "SEG_FAULT PID %d: segmento %d no existe",
-                  context->pid, num_segmento);
-        return -1;
-    }
-
-    t_segment seg = context->segment_table.segments[num_segmento];
-
-    if (desplazamiento + size > seg.limit) {
-        log_error(logger, "SEG_FAULT PID %d: acceso fuera del segmento %d "
-                  "(desp=%d, size=%d, limit=%d)",
-                  context->pid, num_segmento, desplazamiento, size, seg.limit);
-        return -1;
-    }
-
-    return (int32_t)(seg.base + desplazamiento);
-}
-// Lee `size` bytes desde dirección física, partiendo entre sticks si hace falta
-// Devuelve 0 OK, -1 error
-int mmu_read(uint32_t physical_addr, uint32_t size, void *buffer,
-             uint32_t stick_size, int *memory_stick_fds, uint32_t stick_count) {
-    uint32_t bytes_read = 0;
-
-    while (bytes_read < size) {
-        uint32_t cur_addr  = physical_addr + bytes_read;
-        uint32_t stick_idx = cur_addr / stick_size;
-        uint32_t stick_off = cur_addr % stick_size;
-
-        if (stick_idx >= stick_count) {
-            log_error(logger, "mmu_read: dirección física %d fuera de rango", cur_addr);
-            return -1;
-        }
-
-        // Cuánto puedo leer de este stick sin pasarme
-        uint32_t available  = stick_size - stick_off;
-        uint32_t chunk_size = (size - bytes_read) < available
-                              ? (size - bytes_read)
-                              : available;
-
-        // Armar paquete de lectura hacia el Memory Stick
+    if (num_segment >= (uint32_t)list_size(segment_table)) {
+        log_error(logger, "PID: %d - SEGMENTATION_FAULT", pid);
         t_package *pkg = package_create();
-        pkg->op_code = MEMORY_READ;
-        package_add(pkg, &stick_off,   sizeof(uint32_t));
-        package_add(pkg, &chunk_size,  sizeof(uint32_t));
-        package_send(pkg, memory_stick_fds[stick_idx], NULL); // ???????
+        pkg->op_code = SEGMENTATION_FAULT;
+        package_add(pkg, &pid, sizeof(uint32_t));
+        package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
         package_delete(pkg);
-
-        // Recibir los bytes leídos
-        // (asumiendo que recibes un buffer con los bytes del stick)
-        uint32_t bytes_received = 0;
-        void *chunk = receive_buffer(memory_stick_fds[stick_idx], &bytes_received);
-        if (chunk == NULL || bytes_received != chunk_size) {
-            log_error(logger, "mmu_read: error leyendo del stick %d", stick_idx);
-            free(chunk);
-            return -1;
-        }
-
-        memcpy((uint8_t *)buffer + bytes_read, chunk, chunk_size);
-        free(chunk);
-
-        log_info(logger, "PID: - Acción: LEER - Dirección Física: %d - Valor: %.*s",
-                 cur_addr, chunk_size, (char*)((uint8_t*)buffer + bytes_read));
-
-        bytes_read += chunk_size;
+        pthread_mutex_lock(&process_control_mutex);
+        should_exit = true;
+        pthread_mutex_unlock(&process_control_mutex);
+        return 0;
     }
 
-    return 0;
+    t_segment *segment = list_get(segment_table, num_segment);
+
+    if (seg_offset + size > segment->size) {
+        log_error(logger, "PID: %d - Acceso fuera de segmento (offset=%d, size=%d, seg_size=%d) - SEGMENTATION_FAULT", pid, seg_offset, size, segment->size);
+        t_package *pkg = package_create();
+        pkg->op_code = SEGMENTATION_FAULT;
+        package_add(pkg, &pid, sizeof(uint32_t));
+        package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+        package_delete(pkg);
+        pthread_mutex_lock(&process_control_mutex);
+        should_exit = true;
+        pthread_mutex_unlock(&process_control_mutex);
+        return 0;
+    }
+
+    uint32_t physical_address = segment->base + seg_offset;
+    log_info(logger, "PID: %d - MMU - Dirección lógica %d → física %d (segmento=%d, desplazamiento=%d)", pid, logical_address, physical_address, num_segment, seg_offset);
+
+    return physical_address;
 }
 
-// Escribe `size` bytes en dirección física, partiendo entre sticks si hace falta
-int mmu_write(uint32_t physical_addr, uint32_t size, void *buffer,
-              uint32_t stick_size, int *memory_stick_fds, uint32_t stick_count) {
-    uint32_t bytes_written = 0;
+// =================================================================================
+// POR AHORA LAS DEFINO EN CPU, DEBERIAN IR EN UN UTILS DE MEMORIA COMPARTIDO CON KM
+// =================================================================================
 
-    while (bytes_written < size) {
-        uint32_t cur_addr  = physical_addr + bytes_written;
-        uint32_t stick_idx = cur_addr / stick_size;
-        uint32_t stick_off = cur_addr % stick_size;
+t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint32_t *local_offset) {
+    uint32_t cursor = 0;
+    pthread_mutex_lock(&memory_stick_list_mutex);
+    for (int i = 0; i < list_size(list_memory_stick); i++) {
+        t_memory_stick_info *ms = list_get(list_memory_stick, i);
+        if (physical_address < cursor + ms->size) {
+            *local_offset = physical_address - cursor;
+            pthread_mutex_unlock(&memory_stick_list_mutex);
+            return ms;
+        }
+        cursor += ms->size;
+    }
+    pthread_mutex_unlock(&memory_stick_list_mutex);
+    return NULL;
+}
 
-        if (stick_idx >= stick_count) {
-            log_error(logger, "mmu_write: dirección física %d fuera de rango", cur_addr);
-            return -1;
+void *memory_read(uint32_t physical_address, uint32_t size) {
+    void *result = malloc(size);
+    if (result == NULL) return NULL;
+
+    uint32_t bytes_done = 0;
+
+    while (bytes_done < size) {
+        uint32_t local_offset;
+        t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
+
+        if (ms == NULL) {
+            log_error(logger, "## memory_read: dirección física %u fuera de rango", physical_address + bytes_done);
+            free(result);
+            return NULL;
         }
 
-        uint32_t available  = stick_size - stick_off;
-        uint32_t chunk_size = (size - bytes_written) < available
-                              ? (size - bytes_written)
-                              : available;
+        uint32_t available_in_stick = ms->size - local_offset;
+        uint32_t remaining = size - bytes_done;
+        uint32_t chunk = (remaining < available_in_stick) ? remaining : available_in_stick;
 
         t_package *pkg = package_create();
-        pkg->op_code = MEMORY_WRITE;
-        package_add(pkg, &stick_off, sizeof(uint32_t));
-        package_add(pkg, &chunk_size, sizeof(uint32_t));
-        package_add(pkg, (uint8_t *)buffer + bytes_written, chunk_size);
-        package_send(pkg, memory_stick_fds[stick_idx]);
+        pkg->op_code = MS_READ;
+        package_add(pkg, &local_offset, sizeof(uint32_t));
+        package_add(pkg, &chunk, sizeof(uint32_t));
+        package_send(pkg, ms->fd, &ms->network_mutex);
         package_delete(pkg);
 
-        // Esperar confirmación
-        int ok = receive_ack(memory_stick_fds[stick_idx]);
-        if (!ok) {
-            log_error(logger, "mmu_write: error escribiendo en stick %d", stick_idx);
-            return -1;
+        sem_wait(&ms->response_sem);
+        pthread_mutex_lock(&ms->mutex);
+        void *chunk_data = ms->last_read_buffer;
+        ms->last_read_buffer = NULL;
+        pthread_mutex_unlock(&ms->mutex);
+
+        if (chunk_data == NULL) {
+            log_error(logger, "## memory_read: chunk NULL en MS id=%d", ms->id);
+            free(result);
+            return NULL;
         }
 
-        log_info(logger, "PID: - Acción: ESCRIBIR - Dirección Física: %d - Valor: %.*s",
-                 cur_addr, chunk_size, (char*)((uint8_t*)buffer + bytes_written));
-
-        bytes_written += chunk_size;
+        memcpy(result + bytes_done, chunk_data, chunk);
+        free(chunk_data);
+        bytes_done += chunk;
     }
 
-    return 0;
+    return result;
 }
 
-*/
+bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
+    uint32_t bytes_done = 0;
+
+    while (bytes_done < size) {
+        uint32_t local_offset;
+        t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
+
+        if (ms == NULL) {
+            log_error(logger, "## memory_write: dirección física %u fuera de rango", physical_address + bytes_done);
+            return false;
+        }
+
+        uint32_t available_in_stick = ms->size - local_offset;
+        uint32_t remaining = size - bytes_done;
+        uint32_t chunk = (remaining < available_in_stick) ? remaining : available_in_stick;
+
+        t_package *pkg = package_create();
+        pkg->op_code = MS_WRITE;
+        package_add(pkg, &local_offset, sizeof(uint32_t));
+        package_add(pkg, &chunk, sizeof(uint32_t));
+        package_add(pkg, data + bytes_done, chunk);
+        package_send(pkg, ms->fd, &ms->network_mutex);
+        package_delete(pkg);
+
+        sem_wait(&ms->response_sem);
+        pthread_mutex_lock(&ms->mutex);
+        bool chunk_ok = (ms->last_op_result == MS_WRITE_OK);
+        ms->last_op_result = -1;
+        pthread_mutex_unlock(&ms->mutex);
+
+        if (!chunk_ok) {
+            log_error(logger, "## memory_write: falló escritura en MS id=%d offset=%u chunk=%u", ms->id, local_offset, chunk);
+            return false;
+        }
+
+        bytes_done += chunk;
+    }
+
+    return true;
+}

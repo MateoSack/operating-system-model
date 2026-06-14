@@ -229,8 +229,7 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
 
     while (bytes_done < size) {
         uint32_t local_offset;
-        t_memory_stick_info *ms = get_memory_stick_by_address(
-            physical_address + bytes_done, &local_offset);
+        t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
 
         if (ms == NULL) {
             log_error(logger, "memory_read: dirección %u fuera de rango", physical_address + bytes_done);
