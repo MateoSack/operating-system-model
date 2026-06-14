@@ -15,6 +15,7 @@ typedef struct {
     uint8_t effective_priority;
     t_client_info *cpu;
     uint64_t start_exec_time;
+    t_list *owned_mutexes;
 } t_process;
 
 typedef enum {
@@ -50,6 +51,7 @@ bool process_has_quantum (t_process *process);
 t_process *get_process_from_pid (uint32_t pid);
 t_process *get_process_from_cpu (t_client_info *cpu);
 t_process *get_highest_priority_process_from_ready_queue ();
+t_process *get_highest_priority_process (t_list *process_list);
 t_process *get_lowest_priority_process (t_list *process_list);
 void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state);
 void *wait_confirmation_thread_and_handle_state (void *arg);
@@ -60,5 +62,6 @@ t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_l
 t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_list);
 bool can_schedule_get ();
 void can_schedule_write (bool new_value);
+void process_set_priority (t_process *process, uint8_t new_priority);
 
 #endif

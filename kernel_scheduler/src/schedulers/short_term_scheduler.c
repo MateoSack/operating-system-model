@@ -129,6 +129,8 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
 
     while (1) {
         usleep(time_to_sleep);
+
+        if (!can_schedule_get()) continue;
         
         pthread_mutex_lock(&scheduler_mutex);
         

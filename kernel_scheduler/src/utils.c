@@ -17,6 +17,7 @@ t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a ne
     process->state = NEW;
     process->cpu = NULL;
     process->start_exec_time = 0;
+    process->owned_mutexes = list_create();
 
     return process;
 }
@@ -66,6 +67,7 @@ void remove_process_from_ready_queue (t_process *process) { // Remove a process 
 void destroy_list_of_processes (t_list *list) { // Destroys a list of processes, freeing their memory
     void _destroy_process(void *ptr) {
         t_process *process = (t_process*)ptr;
+        list_destroy(process->owned_mutexes);
         free(process);
     }
 
@@ -155,6 +157,20 @@ t_process *get_highest_priority_process_from_ready_queue () { // Get the highest
             highest_priority_process = list_get(ready_queue[i], 0); // Get the first process in the queue, which is the highest priority one
             break;
         }
+    }
+
+    return highest_priority_process;
+}
+
+t_process *get_highest_priority_process (t_list *process_list) {
+    if (list_is_empty(process_list)) return NULL;
+    
+    t_process *highest_priority_process = list_get(process_list, 0);
+
+    for (int i = 1; i < list_size(process_list); i++) {
+        t_process *current_process = list_get(process_list, i);
+
+        if (current_process->effective_priority < highest_priority_process->effective_priority) highest_priority_process = current_process;
     }
 
     return highest_priority_process;
@@ -340,8 +356,18 @@ bool can_schedule_get () {
     return result;
 }
 
-void can_schedule_write (bool new_value) {
+void can_schedule_write(bool new_value) {
+    pthread_mutex_lock(&scheduler_mutex);
     pthread_mutex_lock(&can_schedule_mutex);
     can_schedule = new_value;
     pthread_mutex_unlock(&can_schedule_mutex);
+    pthread_mutex_unlock(&scheduler_mutex);
+}
+
+void process_set_priority (t_process *process, uint8_t new_priority) { // Use under mutex
+    uint8_t old_priority = process->effective_priority;
+
+    process->effective_priority = new_priority;
+
+    log_info(logger, "## <%d> Cambio de prioridad: <%d> - <%d>", process->pid, old_priority, new_priority);
 }

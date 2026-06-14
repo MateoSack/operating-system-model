@@ -4,6 +4,7 @@
 #include <utils.h>
 
 extern t_log *logger;
+extern t_scheduler_algorithm scheduler_algorithm;
 extern pthread_mutex_t scheduler_mutex;
 extern pthread_mutex_t list_mutex_mutex;
 extern sem_t short_term_scheduler_sem;
