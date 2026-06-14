@@ -109,8 +109,10 @@ void message_send_with_op_code (char *message, op_code op_code, int client_socke
 void buffer_create (t_package *package);
 t_package *package_create (void);
 void package_add (t_package *package, void *value, int size);
+void package_string_add(t_package *package, char *message);
 void package_send (t_package *package, int client_socket, pthread_mutex_t *mutex);
 void package_delete (t_package *package);
+char *string_deserialize(void *buffer, int *offset);
 uint32_t uint32_deserialize(void *buffer, int *offset);
 uint8_t uint8_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);

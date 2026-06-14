@@ -148,6 +148,11 @@ void package_add (t_package *package, void *value, int size) { // Adds a value t
 	package->buffer->size += size + sizeof(int);
 }
 
+void package_string_add(t_package *package, char *message) {
+    int size = strlen(message) + 1;
+    package_add(package, message, size);
+}
+
 void package_send (t_package *package, int client_socket, pthread_mutex_t *mutex) { // Sends a package to the client, uses a mutex to ensure that the sending operation is thread-safe
 	int bytes = package->buffer->size + 2 * sizeof(int);
 	void *to_send = package_serialize(package, bytes);
@@ -163,6 +168,16 @@ void package_delete (t_package *package) { // Deletes a package and its buffer
 	free(package->buffer->stream);
 	free(package->buffer);
 	free(package);
+}
+
+char *string_deserialize(void *buffer, int *offset) { // Deserializes a char* from a buffer, updating the offset
+    int size;
+    memcpy(&size, buffer + *offset, sizeof(int));
+    *offset += sizeof(int);
+    char *value = malloc(size);
+    memcpy(value, buffer + *offset, size);
+    *offset += size;
+    return value;
 }
 
 uint32_t uint32_deserialize(void *buffer, int *offset) { // Deserializes a uint32_t from a buffer, updating the offset
