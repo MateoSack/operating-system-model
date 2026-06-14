@@ -15,5 +15,7 @@ void receive_instruction_mem_free (uint32_t *pid, uint32_t *segment_id, int cpu_
 void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id);
 void compaction_requested ();
 void *compaction_requested_thread (void *arg);
+void memory_corrupted();
+void *memory_corrupted_thread (void *arg);
 
 #endif

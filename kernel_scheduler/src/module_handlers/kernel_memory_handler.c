@@ -20,6 +20,10 @@ void *kernel_memory_handler (void *arg) {
 			case COMPACTION_FINISHED: {
 				sem_post(&compaction_finished_sem);
 			}
+
+			case CORRUPTED_MEMORY: {
+				memory_corrupted();
+			}
 			
 			default:{
 				log_warning(logger, "Operación desconocida recibida: %d", op);

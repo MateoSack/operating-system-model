@@ -87,3 +87,19 @@ void *compaction_requested_thread (void *arg) {
 
     return NULL;
 }
+
+void memory_corrupted () {
+    pthread_t thread;
+    pthread_create(&thread, NULL, memory_corrupted_thread, NULL);
+    pthread_detach(thread);
+}
+
+void *memory_corrupted_thread (void *arg) {
+    can_schedule_write(false);
+
+    evict_all_processes(CORRUPT_MEMORY);
+
+    exit (EXIT_FAILURE);
+
+    return NULL;
+}
