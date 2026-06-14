@@ -21,7 +21,10 @@ t_list *list_io_stdout = NULL;
 
 t_list *pending_request_io_sleep = NULL;
 t_list *pending_request_io_stdin = NULL;
+t_list *pending_io_stdin_reading = NULL; // Use for before getting data to kernel memory
 t_list *pending_request_io_stdout = NULL;
+
+pthread_mutex_t pending_io_stdin_reading_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 t_list *list_processes = NULL;
 t_list **ready_queue = NULL; // In CMN, this is an array of ready queues, one per priority level. In FIFO and RR, this is a single ready queue at index 0.
@@ -182,6 +185,7 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 
 	pending_request_io_sleep = list_create();
 	pending_request_io_stdin = list_create();
+	pending_io_stdin_reading = list_create();
 	pending_request_io_stdout = list_create();
 
 	list_processes = list_create();

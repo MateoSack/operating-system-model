@@ -71,6 +71,10 @@ void *kernel_memory_handler (void *arg) {
 				break;
 			}
 
+			case IO_MEMORY_READ: {
+				
+			}
+
 			default:{
 				log_warning(logger, "Operación desconocida recibida: %d", op);
 				break;

@@ -16,6 +16,7 @@ typedef struct {
     t_client_info *cpu;
     uint64_t start_exec_time;
     t_list *owned_mutexes;
+    sem_t io_request_sem;
 } t_process;
 
 typedef enum {
@@ -25,6 +26,7 @@ typedef enum {
 } t_scheduler_algorithm;
 
 extern t_log *logger;
+extern t_client_info *kernel_memory;
 extern t_scheduler_algorithm scheduler_algorithm;
 extern t_scheduler_algorithm *queue_algorithms;
 extern int queue_algorithms_count;
@@ -63,5 +65,7 @@ t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_lis
 bool can_schedule_get ();
 void can_schedule_write (bool new_value);
 void process_set_priority (t_process *process, uint8_t new_priority);
+void send_memory_write (uint32_t pid, uint32_t physical_address, char *data);
+void send_memory_read (uint32_t pid, uint32_t physical_address, uint32_t size);
 
 #endif

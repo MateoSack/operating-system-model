@@ -39,7 +39,7 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
     return EXIT_SUCCESS;
 }
 
-int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base, uint32_t limit) { // Manages the stdin syscall for a process, sending it to an available IO device of type STDIN
+int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t physical_address, uint32_t to_read) { // Manages the stdin syscall for a process, sending it to an available IO device of type STDIN
     pthread_mutex_lock(&scheduler_mutex);
     process_set_state(process, BLOCK, logger);
     remove_process_from_list(exec_processes, process);
@@ -51,10 +51,13 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_available = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
-    
-    int value = 10; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
 
-    t_io_numeric_process *io_process = t_io_numeric_process_create(pid, value, IO_TYPE_STDIN);
+    t_io_numeric_process *io_process = t_io_numeric_process_create(pid, to_read, IO_TYPE_STDIN);
+    t_pending_stdin *pending_stdin = t_pending_stdin_create(pid, physical_address);
+
+    pthread_mutex_lock(&pending_io_stdin_reading_mutex);
+    list_add(pending_io_stdin_reading, pending_stdin);
+    pthread_mutex_unlock(&pending_io_stdin_reading_mutex);
 
     pthread_mutex_lock(&io_mutex);
     t_client_info *io = get_available_io_type(list_io_stdin);
@@ -80,7 +83,27 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base
     return EXIT_SUCCESS;
 }
 
-int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t base, uint32_t limit) { // Manages the stdout syscall for a process, sending it to an available IO device of type STDOUT
+t_pending_stdin *get_pending_stdin_from_pid (uint32_t pid) {
+    bool _stdin_pid_coincides (void *ptr) {
+        t_pending_stdin *p = (t_pending_stdin*)ptr;
+        return p->pid == pid;
+    }
+
+    t_pending_stdin *pending_stdin = list_find(pending_io_stdin_reading, _stdin_pid_coincides);
+
+    return pending_stdin;
+}
+
+t_pending_stdin *t_pending_stdin_create (uint32_t pid, uint32_t physical_address) {
+    t_pending_stdin *p = malloc(sizeof(t_pending_stdin));
+
+    p->pid = pid;
+    p->physical_address = physical_address;
+
+    return p;
+}
+
+int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t physical_address, uint32_t to_read) { // Manages the stdout syscall for a process, sending it to an available IO device of type STDOUT
     pthread_mutex_lock(&scheduler_mutex);
     process_set_state(process, BLOCK, logger);
     remove_process_from_list(exec_processes, process);
@@ -133,15 +156,108 @@ void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd)
 	free(buffer);
 }
 
-void receive_instruction_std (uint32_t *pid, uint32_t *base, uint32_t *limit, int cpu_fd) {
+void receive_instruction_std (uint32_t *pid, uint32_t *physical_address, uint32_t *to_read, int cpu_fd) {
     int size;
     int offset = 0;
 	void *buffer = buffer_receive(&size, cpu_fd);
 	if (buffer == NULL) return;
 
 	*pid = uint32_deserialize(buffer, &offset);
-	*base = uint32_deserialize(buffer, &offset);
-	*limit = uint32_deserialize(buffer, &offset);
+	*physical_address = uint32_deserialize(buffer, &offset);
+	*to_read = uint32_deserialize(buffer, &offset);
 
 	free(buffer);
+}
+
+void io_finish_process(uint32_t pid, t_client_info *io) {
+    pthread_mutex_lock(&scheduler_mutex);
+    t_process *process = get_process_from_pid(pid);
+
+    if (process != NULL) {
+        process_set_state(process, READY, logger);
+        add_process_to_ready_queue(process);
+        pthread_mutex_unlock(&scheduler_mutex);
+
+        pthread_mutex_lock(&io->internal_mutex);
+        io->is_available = true;
+        pthread_mutex_unlock(&io->internal_mutex);
+
+        sem_post(&short_term_scheduler_sem);
+    } else {
+        pthread_mutex_unlock(&scheduler_mutex);
+        log_warning(logger, "Proceso %d no encontrado", pid);
+    }
+}
+
+void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pending_io_list, op_code op_code) {
+	switch (io_type) {
+		case IO_TYPE_SLEEP:
+			pthread_mutex_lock(&io_mutex); {
+
+			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+			io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
+
+			break;
+		}
+
+		case IO_TYPE_STDOUT: {
+			pthread_mutex_lock(&io_mutex);
+
+			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+			io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
+
+			break;
+		}
+
+		case IO_TYPE_STDIN: {
+			pthread_mutex_lock(&io_mutex);
+			
+			t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+
+			io_string_process_send(pending_process, op_code, io->fd, &io->network_mutex);
+
+			break;
+		}
+
+		default: {
+			log_error(logger, "Tipo de IO desconocido: %d", io_type);
+			return;
+		}
+	}
 }

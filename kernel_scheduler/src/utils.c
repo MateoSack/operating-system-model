@@ -18,6 +18,7 @@ t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a ne
     process->cpu = NULL;
     process->start_exec_time = 0;
     process->owned_mutexes = list_create();
+    sem_init(&process->io_request_sem, 0, 0);
 
     return process;
 }
@@ -90,10 +91,9 @@ void send_process_create_info (uint32_t pid, char *path, int kernel_memory_fd, p
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_CREATE;
     package_add(pkg, &pid, sizeof(uint32_t));
+    package_string_add(pkg, path);
 	package_send(pkg, kernel_memory_fd, mutex);
     package_delete(pkg);
-
-    message_send(path, kernel_memory_fd, mutex);
 }
 
 t_scheduler_algorithm scheduler_algorithm_from_string(const char *str) { // Convert a string to the corresponding scheduler algorithm enum value
@@ -370,4 +370,24 @@ void process_set_priority (t_process *process, uint8_t new_priority) { // Use un
     process->effective_priority = new_priority;
 
     log_info(logger, "## <%d> Cambio de prioridad: <%d> - <%d>", process->pid, old_priority, new_priority);
+}
+
+void send_memory_write (uint32_t pid, uint32_t physical_address, char *data) {
+    t_package *pkg = package_create();
+    pkg->op_code = IO_MEMORY_WRITE;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &physical_address, sizeof(uint32_t));
+    package_string_add(pkg, data);
+	package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
+    package_delete(pkg);
+}
+
+void send_memory_read (uint32_t pid, uint32_t physical_address, uint32_t size) {
+    t_package *pkg = package_create();
+    pkg->op_code = IO_MEMORY_READ;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &physical_address, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
+	package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
+    package_delete(pkg);
 }
