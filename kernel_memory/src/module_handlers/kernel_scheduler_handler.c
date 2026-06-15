@@ -12,7 +12,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
     while (1) {
         int op = operation_receive(client_fd);
         if (op == -1) {
-            log_error(logger, "Kernel Scheduler disconnected");
+            log_error(logger, "Kernel Scheduler desconectado");
             break;
         }
 
@@ -44,7 +44,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
             case PROCESS_END: {
                 uint32_t pid = uint32_decode(client_fd);
-                log_info(logger, "Ending process PID:%u", pid);
+                log_info(logger, "Finalizando proceso - PID:%u", pid);
                 
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
@@ -79,7 +79,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t pid = uint32_decode(client_fd);
                 uint32_t segment_id = uint32_decode(client_fd);
                 uint32_t segment_size = uint32_decode(client_fd);
-                log_debug(logger, "Received SEGMENT_CREATE request for PID %u - Segment ID %u - Size %u", pid, segment_id, segment_size);
+                log_debug(logger, "Pedido de SEGMENT_CREATE para PID %u - Segmento ID %u - Tamaño %u", pid, segment_id, segment_size);
 
                 t_segment_result result = segment_create(pid, segment_id, segment_size);
                 
@@ -111,12 +111,16 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 switch (result) { // VER DE MANDAR LOS RESULTADOS A KS
                     case SEGMENT_OK:
                         log_debug(logger, "PID: %u - Segmento Eliminado %u", pid, segment_id);
+                        send_segment_result(pid, segment_id, SEGMENT_OK);
                         break;
                     case SEGMENT_ERROR:
                         log_error(logger, "No se pudo eliminar el segmento");
+                        send_segment_result(pid, segment_id, SEGMENT_ERROR);
+
                         break;
                     default:
                         log_error(logger, "Resultado de segment_delete no esperado");
+                        send_segment_result(pid, segment_id, SEGMENT_ERROR);
                         break;
                 }
                 break;
@@ -130,13 +134,23 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case IO_MEMORY_READ: {
-                uint32_t pid = uint32_decode(client_fd);
-                uint32_t physical_address = uint32_decode(client_fd);
-                uint32_t size = uint32_decode(client_fd);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de IO_MEMORY_READ");
+                    break;
+                }
 
-                void *data = memory_read(physical_address, size);
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                uint32_t physical_address = uint32_deserialize(buffer, &offset);
+                uint32_t size_to_read = uint32_deserialize(buffer, &offset);
+                free(buffer);
+
+                void *data = memory_read(physical_address, size_to_read);
                 if (data == NULL) {
-                    log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
+                    log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_read);
+                    // VER DE MANDARLE A SCHEUDLER EN CASO DE ERROR
                     break;
                 }
                 // Send read data back to Kernel Scheduler
@@ -152,15 +166,36 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case IO_MEMORY_WRITE: {
-                uint32_t pid = uint32_decode(client_fd);
-                uint32_t physical_address = uint32_decode(client_fd);
-                uint32_t size = uint32_decode(client_fd);
-                
-                int data_size;
-                void *data = buffer_receive(&data_size, client_fd);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de IO_MEMORY_READ");
+                    break;
+                }
 
-                memory_write(physical_address, data, size);
-                log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                uint32_t physical_address = uint32_deserialize(buffer, &offset);
+                uint32_t size_to_write = uint32_deserialize(buffer, &offset);
+                void *data = malloc(size_to_write);
+                memcpy(data, buffer + offset, size_to_write);
+                free(buffer);
+
+                t_package *pkg = package_create();
+                pkg->op_code = IO_MEMORY_WRITE;
+                package_add(pkg, &pid, sizeof(uint32_t));
+
+                bool ok = memory_write(physical_address, data, size_to_write);
+
+                if (!ok) {
+                    log_error(logger, "Error al escribir memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_write);
+                } else {
+                    log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_write);
+                }
+
+                package_add(pkg, &ok, sizeof(bool));
+                package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                package_delete(pkg);
                 free(data);
                 break;
             }
