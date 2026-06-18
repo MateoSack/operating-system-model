@@ -83,6 +83,27 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phys
     return EXIT_SUCCESS;
 }
 
+void *wait_memory_write_confirmation (void *arg) {
+    t_process *process = (t_process *) arg;
+
+    sem_wait(&process->memory_request_sem);
+
+    if (process != NULL) {
+        pthread_mutex_lock(&scheduler_mutex);
+        process_set_state(process, READY, logger);
+        add_process_to_ready_queue(process);
+        pthread_mutex_unlock(&scheduler_mutex);
+
+        log_info(logger, "## PID: %d finalizó IO y pasa a READY / SUSP. READY", process->pid);
+
+        sem_post(&short_term_scheduler_sem);
+    } else {
+        log_error(logger, "Proceso no encontrado");
+    }
+
+    return NULL;
+}
+
 t_pending_stdin *get_pending_stdin_from_pid (uint32_t pid) {
     bool _stdin_pid_coincides (void *ptr) {
         t_pending_stdin *p = (t_pending_stdin*)ptr;
@@ -116,7 +137,16 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phy
     cpu->is_available = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
 
-    char *value = "10"; // This value should come from Kernel Memory read operation, but since we dont have it yet, we will use a dummy value
+    send_memory_read(pid, physical_address, to_read);
+
+    return EXIT_SUCCESS;
+}
+
+void stdout_wait_memory_read (uint32_t pid, char *value) {
+    if (strcmp(value, "") == 0) {
+        log_warning(logger, "Hubo un error al leer los datos. Finalizando proceso...");
+        process_set_state(get_process_from_pid(pid), EXIT, logger);
+    }
 
     t_io_string_process *io_process = t_io_string_process_create(pid, value, IO_TYPE_STDOUT);
 
@@ -140,8 +170,6 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phy
     }
 
     sem_post(&short_term_scheduler_sem);
-
-    return EXIT_SUCCESS;
 }
 
 void receive_instruction_sleep (uint32_t *pid, uint32_t *sleep_time, int cpu_fd) {

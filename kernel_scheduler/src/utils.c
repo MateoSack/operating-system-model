@@ -19,8 +19,17 @@ t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a ne
     process->start_exec_time = 0;
     process->owned_mutexes = list_create();
     sem_init(&process->io_request_sem, 0, 0);
+    sem_init(&process->memory_request_sem, 0, 0);
 
     return process;
+}
+
+void destroy_process (void *arg) {
+    t_process *process = (t_process *) arg;
+    sem_destroy(&process->io_request_sem);
+    sem_destroy(&process->memory_request_sem);
+    list_destroy(process->owned_mutexes);
+    free(process);
 }
 
 void add_process_to_list (t_list *list_processes, t_process *process) { // Add a process to the list of processes
@@ -66,13 +75,7 @@ void remove_process_from_ready_queue (t_process *process) { // Remove a process 
 }
 
 void destroy_list_of_processes (t_list *list) { // Destroys a list of processes, freeing their memory
-    void _destroy_process(void *ptr) {
-        t_process *process = (t_process*)ptr;
-        list_destroy(process->owned_mutexes);
-        free(process);
-    }
-
-    list_destroy_and_destroy_elements(list, _destroy_process);
+    list_destroy_and_destroy_elements(list, destroy_process);
 }
 
 int ready_queue_size () { // Get the total size of the ready queue(s) based on the scheduling algorithm

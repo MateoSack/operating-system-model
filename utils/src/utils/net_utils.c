@@ -200,6 +200,16 @@ uint8_t uint8_deserialize(void *buffer, int *offset) { // Deserializes a uint8_t
 	return value;
 }
 
+bool bool_deserialize(void *buffer, int *offset) { // Deserializes a bool from a buffer, updating the offset
+	int size;
+	bool value;
+	memcpy(&size, buffer + *offset, sizeof(int));
+	*offset += sizeof(int);
+	memcpy(&value, buffer + *offset, size);
+	*offset += size;
+	return value;
+}
+
 t_module_id t_module_id_deserialize(void *buffer, int *offset) { // Deserializes a t_module_id from a buffer, updating the offset
 	int size;
 	t_module_id value;

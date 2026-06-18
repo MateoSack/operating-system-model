@@ -72,7 +72,30 @@ void *kernel_memory_handler (void *arg) {
 			}
 
 			case IO_MEMORY_READ: {
-				
+				uint32_t pid;
+				char *value;
+				receive_read_value_io_memory_read(&pid, &value);
+
+				stdout_wait_memory_read(pid, value);
+				break;
+			}
+
+			case IO_MEMORY_WRITE: {
+				uint32_t pid;
+				bool write_succesful;
+				receive_confirmation_io_memory_write(&pid, &write_succesful);
+
+				t_process *process = get_process_from_pid(pid);
+
+				if (!write_succesful) {
+					log_error(logger, "Hubo un error en la escritura de datos. Finalizando proceso...");
+					process_set_state(process, EXIT, logger);
+					break;
+				}
+
+				sem_post(&process->memory_request_sem);
+
+				break;
 			}
 
 			default:{
@@ -81,5 +104,30 @@ void *kernel_memory_handler (void *arg) {
 			}
 		}
 	}
+
 	return NULL;
+}
+
+void receive_confirmation_io_memory_write (uint32_t *pid, bool *write_succesful) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, kernel_memory->fd);
+	if (buffer == NULL) return;
+
+	*pid = uint32_deserialize(buffer, &offset);
+	*write_succesful = bool_deserialize(buffer, &offset);
+
+	free(buffer);
+}
+
+void receive_read_value_io_memory_read (uint32_t *pid, char **value) {
+    int size;
+    int offset = 0;
+	void *buffer = buffer_receive(&size, kernel_memory->fd);
+	if (buffer == NULL) return;
+
+	*pid = uint32_deserialize(buffer, &offset);
+	*value = string_deserialize(buffer, &offset);
+
+	free(buffer);
 }

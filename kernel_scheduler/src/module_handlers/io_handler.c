@@ -79,15 +79,22 @@ void io_handler (int io_fd) {
 				pthread_mutex_unlock(&pending_io_stdin_reading_mutex);
 
 				free(pending_stdin);
-				
+
 				send_memory_write(io_process->pid, physical_address, io_process->value);
 
+				pthread_mutex_lock(&io->internal_mutex);
+				io->is_available = true;
+				pthread_mutex_unlock(&io->internal_mutex);
+
 				log_debug(logger, "Proceso %d realizó una operación de IO STDIN con valor: %s", io_process->pid, io_process->value);
-					
-				log_info(logger, "## PID: %d finalizó IO y pasa a READY / SUSP. READY", io_process->pid);
 
-				io_finish_process(io_process->pid, io);
+				t_process *process = get_process_from_pid(io_process->pid);
 
+        		pthread_t thread;
+				pthread_create(&thread, NULL, wait_memory_write_confirmation, process);
+				pthread_detach(thread);
+
+				free(io_process->value);
 				free(io_process);
 
 				handle_next_operation(io, io_type, pending_io_list, standard_op);

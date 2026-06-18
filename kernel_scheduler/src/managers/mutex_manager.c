@@ -17,6 +17,14 @@ t_mutex *mutex_create (char *name) { // Create a new mutex with the given name a
     return mutex;
 }
 
+void mutex_destroy (void *arg) {
+    t_mutex *mutex = (t_mutex *) arg;
+    pthread_mutex_destroy(&mutex->internal_mutex);
+    list_destroy(mutex->waitingProcesses);
+    free(mutex->name);
+    free(mutex);
+}
+
 void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a process, if the mutex is already locked, block the process and add it to the waiting list of the mutex
     pthread_mutex_lock(&mutex->internal_mutex);
 
@@ -145,13 +153,5 @@ t_mutex* get_mutex_by_name (char *name) { // Get a mutex from the list of mutexe
 }
 
 void destroy_list_of_mutexes (t_list *list) { // Destroys a list of mutexes, freeing their memory and destroying their internal mutexes
-    void _destroy_mutex(void *ptr) {
-        t_mutex *mutex = (t_mutex*)ptr;
-        pthread_mutex_destroy(&mutex->internal_mutex);
-        list_destroy(mutex->waitingProcesses);
-        free(mutex->name);
-        free(mutex);
-    }
-
-    list_destroy_and_destroy_elements(list, _destroy_mutex);
+    list_destroy_and_destroy_elements(list, mutex_destroy);
 }

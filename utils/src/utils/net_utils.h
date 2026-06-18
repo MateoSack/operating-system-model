@@ -116,6 +116,7 @@ void package_delete (t_package *package);
 char *string_deserialize(void *buffer, int *offset);
 uint32_t uint32_deserialize(void *buffer, int *offset);
 uint8_t uint8_deserialize(void *buffer, int *offset);
+bool bool_deserialize(void *buffer, int *offset);
 t_module_id t_module_id_deserialize(void *buffer, int *offset);
 void *package_serialize(t_package *package, int bytes);
 void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger, pthread_mutex_t *mutex);

@@ -20,6 +20,7 @@ typedef struct {
 } t_mutex;
 
 t_mutex *mutex_create (char *name);
+void mutex_destroy (void *arg);
 void mutex_lock (t_mutex *mutex, t_process *process);
 void mutex_unlock (t_mutex *mutex, t_process *process);
 t_mutex* get_mutex_by_name (char *name);
