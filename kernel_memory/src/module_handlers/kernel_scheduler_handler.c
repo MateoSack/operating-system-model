@@ -18,9 +18,17 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
         switch (op) {
             case PROCESS_CREATE: {
-                uint32_t pid = uint32_decode(client_fd);
-                char *relative_path = message_receive(logger, client_fd);
-            
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de PROCESS_CREATE");
+                    break;
+                }
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                char *relative_path = string_deserialize(buffer, &offset);
+                free(buffer);
+
                 // Build full path and create PCB
                 char *full_path = string_from_format("%s/%s", base_path, relative_path);
                 free(relative_path);
@@ -76,9 +84,17 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case SEGMENT_CREATE: {
-                uint32_t pid = uint32_decode(client_fd);
-                uint32_t segment_id = uint32_decode(client_fd);
-                uint32_t segment_size = uint32_decode(client_fd);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de SEGMENT_CREATE");
+                    break;
+                }
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                uint32_t segment_id = uint32_deserialize(buffer, &offset);
+                uint32_t segment_size = uint32_deserialize(buffer, &offset);
+                free(buffer);
                 log_debug(logger, "Pedido de SEGMENT_CREATE para PID %u - Segmento ID %u - Tamaño %u", pid, segment_id, segment_size);
 
                 t_segment_result result = segment_create(pid, segment_id, segment_size);
@@ -102,8 +118,16 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case SEGMENT_DELETE: {
-                uint32_t pid = uint32_decode(client_fd);
-                uint32_t segment_id = uint32_decode(client_fd);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de SEGMENT_DELETE");
+                    break;
+                }
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                uint32_t segment_id = uint32_deserialize(buffer, &offset);
+                free(buffer);
                 log_debug(logger, "Pedido de SEGMENT_DELETE para PID %u - Segmento ID %u", pid, segment_id);
 
                 t_segment_result result = segment_delete(pid, segment_id);
@@ -150,7 +174,15 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 void *data = memory_read(physical_address, size_to_read);
                 if (data == NULL) {
                     log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_read);
-                    // VER DE MANDARLE A SCHEUDLER EN CASO DE ERROR
+                    // Send error response to Kernel Scheduler
+                    t_package *err_pkg = package_create();
+                    err_pkg->op_code = IO_MEMORY_READ;
+                    package_add(err_pkg, &pid, sizeof(uint32_t));
+                    //Mandar cadena vacia para indicar error
+                    char *error_data = "";
+                    package_add(err_pkg, error_data, strlen(error_data) + 1);
+                    package_send(err_pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                    package_delete(err_pkg);
                     break;
                 }
                 // Send read data back to Kernel Scheduler
@@ -176,7 +208,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 uint32_t pid = uint32_deserialize(buffer, &offset);
                 uint32_t physical_address = uint32_deserialize(buffer, &offset);
-                uint32_t size_to_write = uint32_deserialize(buffer, &offset);
+                uint32_t size_to_write = size - offset; // Remaining bytes in buffer are the data to write
                 void *data = malloc(size_to_write);
                 memcpy(data, buffer + offset, size_to_write);
                 free(buffer);
@@ -185,15 +217,15 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 pkg->op_code = IO_MEMORY_WRITE;
                 package_add(pkg, &pid, sizeof(uint32_t));
 
-                bool ok = memory_write(physical_address, data, size_to_write);
+                bool couldWrite = memory_write(physical_address, data, size_to_write);
 
-                if (!ok) {
+                if (!couldWrite) {
                     log_error(logger, "Error al escribir memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_write);
                 } else {
                     log_info(logger, "## PID: %u - Escritura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_write);
                 }
 
-                package_add(pkg, &ok, sizeof(bool));
+                package_add(pkg, &couldWrite, sizeof(bool));
                 package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                 package_delete(pkg);
                 free(data);
