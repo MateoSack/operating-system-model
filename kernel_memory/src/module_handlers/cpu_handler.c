@@ -6,47 +6,6 @@ extern t_list *list_processes;
 extern pthread_mutex_t list_processes_mutex;
 extern uint32_t target_pid;
 
-// Helper function to receive a single uint32_t from a package
-static uint32_t receive_uint32_from_package(int client_fd) {
-    int buffer_size;
-    recv(client_fd, &buffer_size, sizeof(int), MSG_WAITALL);
-    
-    void *buffer = malloc(buffer_size);
-    recv(client_fd, buffer, buffer_size, MSG_WAITALL);
-    
-    int offset = 0;
-    int size;
-    memcpy(&size, buffer + offset, sizeof(int));
-    offset += sizeof(int);
-    uint32_t value;
-    memcpy(&value, buffer + offset, size);
-    
-    free(buffer);
-    return value;
-}
-
-// Helper function to receive two uint32_t values from a package
-static void receive_two_uint32_from_package(int client_fd, uint32_t *pid, uint32_t *pc) {
-    int buffer_size;
-    recv(client_fd, &buffer_size, sizeof(int), MSG_WAITALL);
-    
-    void *buffer = malloc(buffer_size);
-    recv(client_fd, buffer, buffer_size, MSG_WAITALL);
-    
-    int offset = 0;
-    int pid_size;
-    memcpy(&pid_size, buffer + offset, sizeof(int));
-    offset += sizeof(int);
-    memcpy(pid, buffer + offset, pid_size);
-    offset += pid_size;
-    
-    int pc_size;
-    memcpy(&pc_size, buffer + offset, sizeof(int));
-    offset += sizeof(int);
-    memcpy(pc, buffer + offset, pc_size);
-    
-    free(buffer);
-}
 
 int cpu_handler (t_log *logger, t_client_info *cpu) {
     while (1) {
@@ -104,7 +63,16 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
             }
 
             case CONTEXT_SEEK: {
-                uint32_t pid = receive_uint32_from_package(cpu->fd);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, cpu->fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de CONTEXT_SEEK");
+                    break;
+                }
+
+                uint32_t pid = uint32_deserialize(buffer, &offset);
+                free(buffer);
                 log_info(logger, "Pedido de CONTEXT_SEEK para PID %d desde CPU %d", pid, cpu->id);
                 
                 pthread_mutex_lock(&list_processes_mutex);
@@ -126,7 +94,16 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
             case INSTRUCTION_FETCH: {
                 log_debug(logger, "Pedido de INSTRUCTION_FETCH recibido de CPU");
                 uint32_t pid, pc;
-                receive_two_uint32_from_package(cpu->fd, &pid, &pc);
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, cpu->fd);
+                if (buffer == NULL) {
+                    log_error(logger, "Fallo al recibir payload de INSTRUCTION_FETCH");
+                    break;
+                }
+                pid = uint32_deserialize(buffer, &offset);
+                pc  = uint32_deserialize(buffer, &offset);
+                free(buffer);
                 log_debug(logger, "PID recibido: %d", pid);
                 log_debug(logger, "PC recibido: %d", pc);
                 

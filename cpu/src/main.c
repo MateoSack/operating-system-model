@@ -99,7 +99,7 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	log_info(logger, "Received segment max size from Kernel Memory: %d bytes", segment_max_size);
 
 	pthread_t thread;
-	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
+	pthread_create(&thread, NULL, kernel_memory_handler, NULL);
 	pthread_detach(thread);
 
 	free(kernel_memory_ip);
@@ -134,8 +134,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 	return EXIT_SUCCESS;
 }
 
-void *kernel_memory_thread()
-{
+void *kernel_memory_handler() {
 	while (1) {
 		// Centralized reader for Kernel Memory
 		int op = operation_receive(kernel_memory->fd);
@@ -181,7 +180,7 @@ void *kernel_memory_thread()
 					free(args->context);
 					list_destroy_and_destroy_elements(args->segment_table, free);
 					free(args);
-					log_warning(logger, "CONTEXT_TRANSFER recibido pero no hay pending_request esperando por el contexto");
+					log_warning(logger, "CONTEXT_TRANSFER recibido pero no hay pending_request esperando por el contexto.");
 				}
 				pthread_mutex_unlock(&pending_request_mutex);
 				break;
@@ -252,7 +251,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 
 				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
 
-				// Wait until kernel_memory_thread posts the context
+				// Wait until kernel_memory_handler posts the context
 				sem_wait(&pending_request->sem);
 				pthread_mutex_lock(&pending_request_mutex);
 				t_cpu_context *context = pending_request->context;
