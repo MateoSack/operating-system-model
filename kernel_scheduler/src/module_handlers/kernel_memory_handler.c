@@ -71,6 +71,17 @@ void *kernel_memory_handler (void *arg) {
 				break;
 			}
 
+			case SEGMENT_RESULT: {
+				uint32_t pid;
+				uint32_t segment_id;
+				t_segment_result result;
+
+				receive_segment_result(&pid, &segment_id, &result);
+
+				handle_segment_result(pid, segment_id, result);
+				break;
+			}
+
 			case IO_MEMORY_READ: {
 				uint32_t pid;
 				char *value;
@@ -130,4 +141,17 @@ void receive_read_value_io_memory_read (uint32_t *pid, char **value) {
 	*value = string_deserialize(buffer, &offset);
 
 	free(buffer);
+}
+
+void receive_segment_result (uint32_t *pid, uint32_t *segment_id, t_segment_result *result) {
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, kernel_memory->fd);
+    if (buffer == NULL) return;
+
+    *pid = uint32_deserialize(buffer, &offset);
+    *segment_id = uint32_deserialize(buffer, &offset);
+    *result = segment_result_deserialize(buffer, &offset);
+
+    free(buffer);
 }

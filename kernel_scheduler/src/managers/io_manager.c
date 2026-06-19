@@ -52,6 +52,12 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phys
     cpu->is_available = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
 
+    if (to_read == 0) {
+        log_warning(logger, "Proceso %d pidio leer 0 bytes. Terminando proceso...", pid);
+        process_set_state(process, EXIT, logger);
+        return EXIT_FAILURE;
+    }
+
     t_io_numeric_process *io_process = t_io_numeric_process_create(pid, to_read, IO_TYPE_STDIN);
     t_pending_stdin *pending_stdin = t_pending_stdin_create(pid, physical_address);
 

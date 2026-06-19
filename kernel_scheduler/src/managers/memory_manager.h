@@ -3,6 +3,7 @@
 
 #include <commons/log.h>
 #include <utils/server_utils.h>
+#include <utils/memory_utils.h>
 #include <utils.h>
 
 extern t_log *logger;
@@ -13,6 +14,7 @@ void receive_instruction_mem_alloc (uint32_t *pid, uint32_t *segment_id, uint32_
 void mem_alloc_syscall_manager(uint32_t pid, uint32_t segment_id, uint32_t segment_size);
 void receive_instruction_mem_free (uint32_t *pid, uint32_t *segment_id, int cpu_fd);
 void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id);
+void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result result);
 void compaction_requested ();
 void *compaction_requested_thread (void *arg);
 void memory_corrupted();

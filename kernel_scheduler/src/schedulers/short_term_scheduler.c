@@ -120,7 +120,7 @@ void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the proce
 
     package_delete(pkg);
 
-    log_debug(logger, "Enviado proceso %d a CPU (fd: %d)", pid, cpu->fd);
+    log_debug(logger, "Enviado proceso %d a CPU %d (fd: %d)", pid, cpu->id, cpu->fd);
 }
 
 void *quantum_manager (void *arg) { // Manages the quantum expiration for processes in the EXEC state
@@ -135,7 +135,7 @@ void *quantum_manager (void *arg) { // Manages the quantum expiration for proces
         pthread_mutex_lock(&scheduler_mutex);
         
         bool found = true;
-        while (found) {
+        while (found) { // If it founds one it can search again without waiting other quantum
             found = false;
             for (int i = 0; i < list_size(exec_processes); i++) {
                 t_process *process = list_get(exec_processes, i);

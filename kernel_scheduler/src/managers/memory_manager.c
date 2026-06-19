@@ -65,6 +65,21 @@ void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id) {
     package_delete(package);
 }
 
+void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result result) {
+    t_process *process = get_process_from_pid(pid);
+
+    if (result == SEGMENT_OK) {
+        log_debug(logger, "Syscall de memoria exitosa sobre segmento %d", segment_id);
+        // TODO: Send confirmation to CPU of operation or send same process once again
+    } else if (result == SEGMENT_NO_SPACE) {
+        log_debug(logger, "No se pudo crear el segmento por falta de espacio. Terminando proceso");
+        process_set_state(process, EXIT, logger);
+    } else {
+        log_debug(logger, "Error en syscall de memoria. Terminando proceso");
+        process_set_state(process, EXIT, logger);
+    }
+}
+
 void compaction_requested () {
     pthread_t thread;
     pthread_create(&thread, NULL, compaction_requested_thread, NULL);

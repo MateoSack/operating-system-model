@@ -2,6 +2,7 @@
 #define MEMORY_UTILS_H
 
 #include <stdint.h>
+#include <utils/process_utils.h>
 
 typedef struct {
     int fd;
@@ -31,5 +32,7 @@ typedef enum {
     SEGMENT_NO_SPACE,
     SEGMENT_ERROR,
 } t_segment_result;
+
+t_segment_result segment_result_deserialize(void *buffer, int *offset);
 
 #endif
