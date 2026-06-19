@@ -35,10 +35,12 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         pthread_mutex_lock(&scheduler_mutex);
         list_add(process->owned_mutexes, mutex);
         pthread_mutex_unlock(&scheduler_mutex);
-        
+
         pthread_mutex_unlock(&mutex->internal_mutex);
-        
+
         log_info(logger, "## (%d) Toma el mutex '%s'", process->pid, mutex->name);
+
+        send_pid_to_execute(process->pid, process->cpu);
 
     } else {
         if (mutex->lockedBy == process) { // If the process already owns the mutex, do nothing (avoid deadlock)
@@ -48,9 +50,9 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         }
 
         pthread_mutex_lock(&scheduler_mutex);
-        
+
         list_add(mutex->waitingProcesses, process);
-    
+
         process_set_state(process, BLOCK, logger);
 
         t_process *owner = mutex->lockedBy;
@@ -62,9 +64,9 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         }
 
         t_client_info *cpu = process->cpu;
-        
+
         pthread_mutex_unlock(&scheduler_mutex);
-        
+
         pthread_mutex_unlock(&mutex->internal_mutex);
 
         evict_process(cpu, MUTEX_LOCKED, false);
@@ -86,6 +88,8 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
     }
 
     uint32_t previous_owner_pid = mutex->lockedBy->pid;
+
+    send_pid_to_execute(process->pid, process->cpu);
 
     pthread_mutex_lock(&scheduler_mutex);
     list_remove_element(process->owned_mutexes, mutex);

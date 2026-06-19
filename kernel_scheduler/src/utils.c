@@ -321,6 +321,18 @@ void evict_all_processes (t_interrupt_reason reason) {
     free(cpus);
 }
 
+void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_EXECUTE;
+    package_add(pkg, &pid, sizeof(uint32_t));
+
+    package_send(pkg, cpu->fd, &cpu->network_mutex);
+
+    package_delete(pkg);
+
+    log_debug(logger, "Enviado proceso %d a CPU %d (fd: %d)", pid, cpu->id, cpu->fd);
+}
+
 t_client_info *get_available_io_type (t_list *io_list) {
 	t_client_info *io;
 

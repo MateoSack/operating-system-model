@@ -131,7 +131,7 @@ void *kernel_memory_thread(void *arg) {
             log_warning(logger, "Kernel Memory desconectado");
             destroy_client(kernel_memory);
             kernel_memory = NULL;
-            break;
+            exit(EXIT_FAILURE);
         }
 
         switch (op) {

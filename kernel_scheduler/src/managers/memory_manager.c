@@ -68,15 +68,29 @@ void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id) {
 void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result result) {
     t_process *process = get_process_from_pid(pid);
 
+    t_client_info *cpu = process->cpu;
+
     if (result == SEGMENT_OK) {
         log_debug(logger, "Syscall de memoria exitosa sobre segmento %d", segment_id);
-        // TODO: Send confirmation to CPU of operation or send same process once again
+        send_pid_to_execute(process->pid, cpu);
     } else if (result == SEGMENT_NO_SPACE) {
         log_debug(logger, "No se pudo crear el segmento por falta de espacio. Terminando proceso");
+
         process_set_state(process, EXIT, logger);
+
+        pthread_mutex_lock(&scheduler_mutex);
+        cpu->is_available = true;
+        pthread_mutex_unlock(&scheduler_mutex);
+        sem_post(&short_term_scheduler_sem);
     } else {
         log_debug(logger, "Error en syscall de memoria. Terminando proceso");
+
         process_set_state(process, EXIT, logger);
+
+        pthread_mutex_lock(&scheduler_mutex);
+        cpu->is_available = true;
+        pthread_mutex_unlock(&scheduler_mutex);
+        sem_post(&short_term_scheduler_sem);
     }
 }
 

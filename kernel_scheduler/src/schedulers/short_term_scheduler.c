@@ -111,18 +111,6 @@ t_client_info *get_available_cpu () { // Returns an available CPU from the list 
     return cpu;
 }
 
-void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
-    t_package *pkg = package_create();
-    pkg->op_code = PROCESS_EXECUTE;
-    package_add(pkg, &pid, sizeof(uint32_t));
-
-    package_send(pkg, cpu->fd, &cpu->network_mutex);
-
-    package_delete(pkg);
-
-    log_debug(logger, "Enviado proceso %d a CPU %d (fd: %d)", pid, cpu->id, cpu->fd);
-}
-
 void *quantum_manager (void *arg) { // Manages the quantum expiration for processes in the EXEC state
     int time_to_sleep = (quantum * 1000) / 50; // Sleep for a fraction of the quantum to check for expirations more frequently
     if (time_to_sleep < 1000) time_to_sleep = 1000; // Sleep at least 1 ms to avoid busy waiting in very low quantum scenarios

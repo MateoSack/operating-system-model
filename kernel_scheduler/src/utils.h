@@ -61,6 +61,7 @@ void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_ha
 void *wait_confirmation_thread_and_handle_state (void *arg);
 void *wait_confirmation_thread (void *arg);
 void evict_all_processes (t_interrupt_reason reason);
+void send_pid_to_execute (uint32_t pid, t_client_info *cpu);
 t_client_info *get_available_io_type (t_list *io_list);
 t_io_numeric_process *get_next_io_numeric_process_from_list(t_list *io_pending_list);
 t_io_string_process *get_next_io_string_process_from_list(t_list *io_pending_list);

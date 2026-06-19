@@ -64,6 +64,7 @@ void cpu_handler (int cpu_fd) {
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE (Nombre del mutex: %s)", process->pid, mutex_name);
 				mutex_create(mutex_name);
 				free(mutex_name);
+				send_pid_to_execute(process->pid, cpu);
 				break;
 			}
 

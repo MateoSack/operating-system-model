@@ -7,12 +7,10 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
 
-    evict_process(cpu, IO_REQUEST, false);
-
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_available = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
-    
+
     t_io_numeric_process *io_process = t_io_numeric_process_create(pid, sleep_time, IO_TYPE_SLEEP);
 
     pthread_mutex_lock(&io_mutex);
@@ -45,8 +43,6 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phys
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
-
-    evict_process(cpu, IO_REQUEST, false);
 
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_available = true;
@@ -136,8 +132,6 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phy
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
-
-    evict_process(cpu, IO_REQUEST, false);
 
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_available = true;

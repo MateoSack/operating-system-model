@@ -19,7 +19,6 @@ extern sem_t short_term_scheduler_sem;
 void *short_term_scheduler_main ();
 t_process *get_next_process_to_execute ();
 t_client_info *get_available_cpu();
-void send_pid_to_execute (uint32_t pid, t_client_info *cpu);
 void *quantum_manager ();
 
 #endif
