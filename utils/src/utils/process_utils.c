@@ -33,6 +33,7 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
         case IO_REQUEST: return "IO_REQUEST";
         case PROCESS_EXIT: return "PROCESS_EXIT";
         case COMPACTION: return "COMPACTION";
+        case MUTEX_REQUEST: return "MUTEX_REQUEST";
         default: return "UNKNOWN";
     }
 }
