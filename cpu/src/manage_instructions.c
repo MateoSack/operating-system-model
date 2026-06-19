@@ -2,6 +2,7 @@
 
 bool should_exit = false;
 bool should_stop = false;
+t_interrupt_reason stopReason = 0;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
@@ -24,15 +25,24 @@ void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t 
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table) {
     bool hasJumped = false;
-	while (1)
-	{
+	while(1) {
+        pthread_mutex_lock(&interrupt_mutex);
+        bool interrupt = interruptPending;
+        pthread_mutex_unlock(&interrupt_mutex);
         pthread_mutex_lock(&process_control_mutex);
         bool exit_flag = should_exit;
         if(exit_flag) {
-            log_info(logger, "Finalizando proceso PID %d", pid);
+            log_debug(logger, "Finalizando proceso PID %d", pid);
             should_exit = false;
+            if(interrupt) { // If an interruption was commanded while exiting, we just reset the flag and post the semaphore to unblock eviction handler
+                pthread_mutex_lock(&interrupt_mutex);
+                interruptPending = false;
+                pthread_mutex_unlock(&interrupt_mutex);
+                send_process_interrupted(pid, PROCESS_EXIT);
+
+                sem_post(&sem_eviction_ready);
+            }
             pthread_mutex_unlock(&process_control_mutex);
-            // Analizar si necesita semaforo aca
         } else {
             pthread_mutex_unlock(&process_control_mutex);
         }
@@ -42,12 +52,18 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
         pthread_mutex_lock(&process_control_mutex);
         bool stop_flag = should_stop;
         if(stop_flag) {
-            log_info(logger, "Deteniendo proceso PID %d", pid);
+            log_debug(logger, "Deteniendo proceso PID %d", pid);
             should_stop = false;
             // Send context to Kernel Memory before yielding for IO/stop
             context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
             log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
-            // sem_post(&sem_eviction_ready);  REVISAR SI ESTE SEMAFORO VA ACA, YA QUE NO SE SI ES UN DESALOJO COMANDADO POR PROCESS_EVICT =====================================
+            if(interrupt) { // If an interruption was commanded while stopping, we just reset the flag and post the semaphore to unblock eviction handler
+                pthread_mutex_lock(&interrupt_mutex);
+                interruptPending = false;
+                pthread_mutex_unlock(&interrupt_mutex);
+                send_process_interrupted(pid, stopReason);
+                sem_post(&sem_eviction_ready);
+            }
         }
         pthread_mutex_unlock(&process_control_mutex);
         if(stop_flag) break;
@@ -96,27 +112,22 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
         }
 
         pthread_mutex_lock(&interrupt_mutex);
-        bool interrupt = interruptPending;
+        interrupt = interruptPending;
         pthread_mutex_unlock(&interrupt_mutex);
 
 		if(interrupt) {
             log_info(logger, "## Interrupción recibida");
-            log_info(logger, "Interrupcion pendiente para PID %d, enviando contexto a Kernel Memory", pid);
-            context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
-            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
 
             t_interrupt_reason reason_local;
             pthread_mutex_lock(&interrupt_mutex);
             reason_local = interruptReason;
             pthread_mutex_unlock(&interrupt_mutex);
 
-            t_package *pkg2 = package_create();
-            pkg2->op_code = PROCESS_INTERRUPTED;
-            package_add(pkg2, &pid, sizeof(uint32_t));
-            package_add(pkg2, &reason_local, sizeof(t_interrupt_reason));
-            package_send(pkg2, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-            package_delete(pkg2);
-            log_info(logger, "Se ha informado a Kernel Scheduler de interrupcion para PID %d (razon=%s)", pid, interrupt_reason_to_string(reason_local));
+            log_debug(logger, "Interrupcion pendiente para PID %d con razon %s, enviando contexto a Kernel Memory", pid, interrupt_reason_to_string(reason_local));
+            context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
+            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
+
+            send_process_interrupted(pid, reason_local);
 
             sem_post(&sem_eviction_ready);
 
@@ -550,6 +561,7 @@ void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, u
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
+    stopReason = MEMORY_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -565,6 +577,7 @@ void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, ui
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
+    stopReason = MEMORY_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -580,6 +593,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
+    stopReason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -607,6 +621,7 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
+    stopReason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -634,6 +649,7 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
+    stopReason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -806,4 +822,14 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
     }
 
     return true;
+}
+
+void send_process_interrupted(uint32_t pid, t_interrupt_reason reason) {
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_INTERRUPTED;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &reason, sizeof(t_interrupt_reason));
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
+    log_debug(logger, "Se ha informado a Kernel Scheduler de interrupcion para PID %d (razon=%s)", pid, interrupt_reason_to_string(reason));
 }

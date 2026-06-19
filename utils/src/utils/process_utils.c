@@ -28,6 +28,7 @@ const char* interrupt_reason_to_string(t_interrupt_reason reason) { // Converts 
         case QUANTUM_EXPIRED: return "QUANTUM_EXPIRED";
         case PRIORITY_PREEMPTION: return "PRIORITY_PREEMPTION";
         case CORRUPT_MEMORY: return "CORRUPT_MEMORY";
+        case MEMORY_REQUEST: return "MEMORY_REQUEST";
         case MUTEX_LOCKED: return "MUTEX_LOCKED";
         case IO_REQUEST: return "IO_REQUEST";
         case PROCESS_EXIT: return "PROCESS_EXIT";

@@ -56,6 +56,7 @@ extern t_client_info *kernel_memory;
 extern t_client_info *kernel_scheduler;
 extern bool interruptPending;
 extern t_interrupt_reason interruptReason;
+extern t_interrupt_reason stopReason;
 extern t_instruction_response instruction_response;
 extern uint32_t segment_max_size;
 extern t_list *list_memory_stick;
@@ -98,5 +99,6 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
 t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint32_t *local_offset);
 void *memory_read(uint32_t physical_address, uint32_t size);
 bool memory_write(uint32_t physical_address, void *data, uint32_t size);
+void send_process_interrupted(uint32_t pid, t_interrupt_reason reason);
 
 #endif // CPU_MANAGE_INSTRUCTIONS_H

@@ -220,21 +220,21 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 		switch (op) {
 			case PROCESS_EXECUTE:
 			{
+				pid = uint32_decode(kernel_scheduler->fd);
+				log_debug(logger, "PID %d recibido del Kernel Scheduler", pid);
 				pthread_mutex_lock(&interrupt_mutex);
     			bool hay_interrupcion = interruptPending;
    				pthread_mutex_unlock(&interrupt_mutex);
 
     			if (hay_interrupcion) {
+					log_debug(logger, "Esperando a que termine el desalojo del proceso anterior...");
         			sem_wait(&sem_eviction_handled);
     			}
-
-				pid = uint32_decode(kernel_scheduler->fd);
-				log_info(logger, "Received PID %d from Kernel scheduler", pid);
 
 				// Create pending request before sending CONTEXT_SEEK so the response can be delivered immediately.
 				pthread_mutex_lock(&pending_request_mutex);
 				if (pending_request != NULL) {
-					log_error(logger, "Unexpected pending request already exists");
+					log_error(logger, "Peticion pendiente inesperada ya existente. Sera sobreescrita.");
 				}
 				pending_request = malloc(sizeof(t_pending_request));
 				pending_request->pid = pid;
@@ -249,7 +249,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
 				package_delete(pkg);
 
-				log_info(logger, "Sent CONTEXT_SEEK request to Kernel Memory");
+				log_debug(logger, "CONTEXT_SEEK enviado a Kernel Memory");
 
 				// Wait until kernel_memory_handler posts the context
 				sem_wait(&pending_request->sem);
@@ -268,7 +268,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 					log_error(logger, "Fallo al recibir contexto desde Kernel Memory para PID %d", pid);
 					break;
 				}
-				log_info(logger, "Contexto recibido correctamente para PID %d", pid);
+				log_debug(logger, "Contexto recibido correctamente para PID %d", pid);
 				
 				t_process_execution_args *execution_args = malloc(sizeof(t_process_execution_args));
 				execution_args->pid = pid;
@@ -337,11 +337,11 @@ int iterate_connection_create_with_memory_sticks(t_list *list)
 
 int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credentials)
 {
-	log_debug(logger, "Attempting connection with ip: %s, port: %s", credentials->ip, credentials->port);
+	log_debug(logger, "Intentando conectarse con ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);
 
 	if (memory_stick_fd == -1) {
-		log_error(logger, "Couldnt connect with Memory Stick");
+		log_error(logger, "No se pudo conectar con Memory Stick");
 		return EXIT_FAILURE;
 	}
 
@@ -355,7 +355,7 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 
 	t_module_id_send(memory_stick_fd, MODULE_CPU, logger, &mem_stick->network_mutex);
 	uint32_send(memory_stick_fd, cpu_id, &mem_stick->network_mutex);
-	log_debug(logger, "Sent MODULE_CPU and cpu_id = %d to Memory Stick", cpu_id);
+	log_debug(logger, "MODULE_CPU enviado con cpu_id = %d a Memory Stick", cpu_id);
 	
 	pthread_mutex_lock(&memory_stick_list_mutex);
 	list_add(list_memory_stick, mem_stick);
@@ -382,7 +382,7 @@ void *memory_stick_handler(void *mem_stick_ptr)
 		int op = operation_receive(mem_stick->fd);
 		if (op == -1)
 		{
-			log_warning(logger, "Memory Stick %d disconnected", mem_stick->id);
+			log_error(logger, "Memory Stick %d desconectado", mem_stick->id);
 			close(mem_stick->fd);
 			pthread_mutex_lock(&memory_stick_list_mutex);
 			list_remove_element(list_memory_stick, mem_stick);
@@ -410,7 +410,7 @@ void *memory_stick_handler(void *mem_stick_ptr)
 			}
 			default: {
 				// Unknown op for now
-				log_debug(logger, "Memory Stick handler received op %d for fd %d", op, mem_stick->fd);
+				log_debug(logger, "Operacion %d de fd %d recibida", op, mem_stick->fd);
 				break;
 			}
 		}
