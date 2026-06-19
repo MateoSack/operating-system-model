@@ -197,6 +197,12 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
     void *buffer = buffer_receive(&total_size, fd);
     if (buffer == NULL) {
         log_error(logger, "handle_write: no se recibieron datos");
+
+        t_package *pkg = package_create();
+        pkg->op_code = MS_WRITE_RESPONSE;
+        package_add(pkg, true, sizeof(bool));
+        package_send(pkg, fd, net_mutex);
+        package_delete(pkg);
         return;
     }
 
@@ -212,6 +218,12 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
         log_error(logger, "handle_write: escritura fuera de rango (offset=%u size=%u total=%u)",
                   local_offset, write_size, size);
         free(buffer);
+
+        t_package *pkg = package_create();
+        pkg->op_code = MS_WRITE_RESPONSE;
+        package_add(pkg, true, sizeof(bool));
+        package_send(pkg, fd, net_mutex);
+        package_delete(pkg);
         return;
     }
 
@@ -220,7 +232,11 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
 
     log_info(logger, "## Escritura de %u bytes", write_size);
 
-    send_confirmation(0, fd, net_mutex);
+    t_package *pkg = package_create();
+    pkg->op_code = MS_WRITE_RESPONSE;
+    package_add(pkg, true, sizeof(bool));
+    package_send(pkg, fd, net_mutex);
+    package_delete(pkg);
 }
 
 void handle_read(int fd, pthread_mutex_t *net_mutex) {
@@ -245,7 +261,7 @@ void handle_read(int fd, pthread_mutex_t *net_mutex) {
     log_info(logger, "## Lectura de %u bytes", read_size);
 
     t_package *pkg = package_create();
-    pkg->op_code = MS_READ;
+    pkg->op_code = MS_READ_RESPONSE;
     package_add(pkg, memory + local_offset, read_size);
     package_send(pkg, fd, net_mutex);
     package_delete(pkg);

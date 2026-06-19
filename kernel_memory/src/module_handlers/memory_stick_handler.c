@@ -43,7 +43,11 @@ int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentia
             }
         
         switch (op) {
-            case MS_WRITE_OK: {
+            case MS_WRITE_RESPONSE: {
+                int size;
+                int offset = 0;
+                void *buffer = buffer_receive(&size, client_fd);
+                bool result = bool_deserialize(buffer, &offset);
                 pthread_mutex_lock(&list_memory_stick_mutex);
                 bool find_by_fd(void *ptr) {
                     return ((t_memory_stick_info *)ptr)->fd == client_fd;
@@ -53,7 +57,7 @@ int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentia
 
                 if (ms != NULL) {
                     pthread_mutex_lock(&ms->mutex);
-                    ms->last_op_result = MS_WRITE_OK;
+                    ms->last_op_result = MS_WRITE_RESPONSE;
                     pthread_mutex_unlock(&ms->mutex);
                     sem_post(&ms->response_sem);
                 }

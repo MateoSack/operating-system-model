@@ -305,7 +305,7 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
 
         sem_wait(&ms->response_sem);
         pthread_mutex_lock(&ms->mutex);
-        bool chunk_ok = (ms->last_op_result == MS_WRITE_OK);
+        bool chunk_ok = (ms->last_op_result == MS_WRITE_RESPONSE);
         ms->last_op_result = -1;
         pthread_mutex_unlock(&ms->mutex);
 

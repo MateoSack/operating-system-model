@@ -401,9 +401,9 @@ void *memory_stick_handler(void *mem_stick_ptr)
 				sem_post(&mem_stick->response_sem);
 				break;
 			}
-			case MS_WRITE_OK: {
+			case MS_WRITE_RESPONSE: {
 				pthread_mutex_lock(&mem_stick->mutex);
-				mem_stick->last_op_result = MS_WRITE_OK;
+				mem_stick->last_op_result = MS_WRITE_RESPONSE;
 				pthread_mutex_unlock(&mem_stick->mutex);
 				sem_post(&mem_stick->response_sem);
 				break;
