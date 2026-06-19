@@ -158,6 +158,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case IO_MEMORY_READ: {
+                log_debug(logger, "Pedido de IO_MEMORY_READ recibido");
                 int size;
                 int offset = 0;
                 void *buffer = buffer_receive(&size, client_fd);
@@ -198,6 +199,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case IO_MEMORY_WRITE: {
+                log_debug(logger, "Pedido de IO_MEMORY_WRITE recibido");
                 int size;
                 int offset = 0;
                 void *buffer = buffer_receive(&size, client_fd);
