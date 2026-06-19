@@ -2,7 +2,7 @@
 
 bool should_exit = false;
 bool should_stop = false;
-t_interrupt_reason stopReason = 0;
+t_interrupt_reason stop_reason = 0;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
@@ -38,11 +38,10 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
                 pthread_mutex_lock(&interrupt_mutex);
                 interruptPending = false;
                 pthread_mutex_unlock(&interrupt_mutex);
-                send_process_interrupted(pid, PROCESS_EXIT);
-
                 sem_post(&sem_eviction_ready);
             }
             pthread_mutex_unlock(&process_control_mutex);
+            send_process_interrupted(pid, PROCESS_EXIT);
         } else {
             pthread_mutex_unlock(&process_control_mutex);
         }
@@ -61,9 +60,9 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
                 pthread_mutex_lock(&interrupt_mutex);
                 interruptPending = false;
                 pthread_mutex_unlock(&interrupt_mutex);
-                send_process_interrupted(pid, stopReason);
                 sem_post(&sem_eviction_ready);
             }
+            send_process_interrupted(pid, stop_reason);
         }
         pthread_mutex_unlock(&process_control_mutex);
         if(stop_flag) break;
@@ -538,16 +537,28 @@ void *process_execution_handler(void *args) {
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_CREATE operation to kernel scheduler
     message_send_with_op_code(decoded_instruction[1], MUTEX_CREATE, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    pthread_mutex_lock(&process_control_mutex);
+    stop_reason = MUTEX_REQUEST;
+    should_stop = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_LOCK operation to kernel scheduler
     message_send_with_op_code(decoded_instruction[1], MUTEX_LOCK, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    pthread_mutex_lock(&process_control_mutex);
+    stop_reason = MUTEX_REQUEST;
+    should_stop = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
     // Send MUTEX_UNLOCK operation to kernel scheduler
     message_send_with_op_code(decoded_instruction[1], MUTEX_UNLOCK, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    pthread_mutex_lock(&process_control_mutex);
+    stop_reason = MUTEX_REQUEST;
+    should_stop = true;
+    pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
@@ -561,7 +572,7 @@ void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, u
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
-    stopReason = MEMORY_REQUEST;
+    stop_reason = MEMORY_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -577,7 +588,7 @@ void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, ui
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
-    stopReason = MEMORY_REQUEST;
+    stop_reason = MEMORY_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -593,7 +604,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
-    stopReason = IO_REQUEST;
+    stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -621,7 +632,7 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
-    stopReason = IO_REQUEST;
+    stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -649,7 +660,7 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_delete(pkg);
 
     pthread_mutex_lock(&process_control_mutex);
-    stopReason = IO_REQUEST;
+    stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
 }
@@ -714,6 +725,16 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
     log_info(logger, "PID: %d - MMU - Dirección lógica %d → física %d (segmento=%d, desplazamiento=%d)", pid, logical_address, physical_address, num_segment, seg_offset);
 
     return physical_address;
+}
+
+void send_process_interrupted(uint32_t pid, t_interrupt_reason reason) {
+    t_package *pkg = package_create();
+    pkg->op_code = PROCESS_INTERRUPTED;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &reason, sizeof(t_interrupt_reason));
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
+    log_debug(logger, "Se ha informado a Kernel Scheduler de interrupcion para PID %d (razon=%s)", pid, interrupt_reason_to_string(reason));
 }
 
 // =================================================================================
@@ -822,14 +843,4 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
     }
 
     return true;
-}
-
-void send_process_interrupted(uint32_t pid, t_interrupt_reason reason) {
-    t_package *pkg = package_create();
-    pkg->op_code = PROCESS_INTERRUPTED;
-    package_add(pkg, &pid, sizeof(uint32_t));
-    package_add(pkg, &reason, sizeof(t_interrupt_reason));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
-    log_debug(logger, "Se ha informado a Kernel Scheduler de interrupcion para PID %d (razon=%s)", pid, interrupt_reason_to_string(reason));
 }

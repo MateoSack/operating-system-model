@@ -295,7 +295,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				log_debug(logger, "Peticion de PROCESS_EVICT recibida (razon=%s)", interrupt_reason_to_string(reason));
 
 				pthread_mutex_lock(&interrupt_mutex);
-				interruptPending = 1;
+				interruptPending = true;
 				interruptReason = reason;
 				pthread_mutex_unlock(&interrupt_mutex);
 
