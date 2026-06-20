@@ -172,7 +172,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t size_to_read = uint32_deserialize(buffer, &offset);
                 free(buffer);
 
-                void *data = memory_read(physical_address, size_to_read);
+                char *data = memory_read(physical_address, size_to_read);
                 if (data == NULL) {
                     log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_read);
                     // Send error response to Kernel Scheduler
@@ -181,16 +181,17 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                     package_add(err_pkg, &pid, sizeof(uint32_t));
                     //Mandar cadena vacia para indicar error
                     char *error_data = "";
-                    package_add(err_pkg, error_data, strlen(error_data) + 1);
+                    package_string_add(err_pkg, error_data);
                     package_send(err_pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                     package_delete(err_pkg);
                     break;
                 }
+                log_debug(logger, "Valor leido: %s", data);
                 // Send read data back to Kernel Scheduler
                 t_package *pkg = package_create();
                 pkg->op_code = IO_MEMORY_READ;
                 package_add(pkg, &pid, sizeof(uint32_t));
-                package_add(pkg, data, size);
+                package_string_add(pkg, data);
                 package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                 package_delete(pkg);
                 log_info(logger, "## PID: %u - Lectura - Dir. Física: %u - Tamaño: %u", pid, physical_address, size);
@@ -213,7 +214,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 char *data = string_deserialize(buffer, &offset);
                 free(buffer);
 
-                uint32_t size_to_write = strlen(data);
+                uint32_t size_to_write = strlen(data) + 1;
 
                 log_debug(logger, "Datos a escribir: %s, con tamaño: %d", data, size_to_write);
 

@@ -139,6 +139,8 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phy
 
     send_memory_read(pid, physical_address, to_read);
 
+    log_debug(logger, "Lectura de datos solicitada");
+
     return EXIT_SUCCESS;
 }
 
@@ -147,6 +149,8 @@ void stdout_wait_memory_read (uint32_t pid, char *value) {
         log_warning(logger, "Hubo un error al leer los datos. Finalizando proceso...");
         process_set_state(get_process_from_pid(pid), EXIT, logger);
     }
+
+    log_debug(logger, "Datos leidos: %s", value);
 
     t_io_string_process *io_process = t_io_string_process_create(pid, value, IO_TYPE_STDOUT);
 
