@@ -138,5 +138,6 @@ void wait_confirmation (int client_fd);
 void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger, pthread_mutex_t *mutex);
 t_io_type t_io_type_receive (int client_fd);
 t_io_type t_io_type_deserialize(void *buffer, int *offset);
+char *bytes_to_safe_string(void *data, uint32_t size);
 
 #endif

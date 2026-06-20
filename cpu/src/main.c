@@ -8,6 +8,7 @@ bool interruptPending = 0;
 t_interrupt_reason interruptReason = QUANTUM_EXPIRED;
 uint32_t cpu_id;
 char *cpu_identifier = NULL;
+static uint32_t current_pid = 0;
 
 pthread_mutex_t interrupt_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t memory_stick_list_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -188,7 +189,6 @@ void *kernel_memory_handler() {
 
 			case CREDENTIALS_UPDATE: {
 				t_memory_stick_credentials *credentials = receive_credentials(kernel_memory->fd);
-				list_add(list_memory_stick, credentials);
 				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d, size=%d", credentials->ip, credentials->port, credentials->id, credentials->size);
 				connect_with_memory_stick(logger, credentials);
 				break;
@@ -221,6 +221,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 			case PROCESS_EXECUTE:
 			{
 				pid = uint32_decode(kernel_scheduler->fd);
+				current_pid = pid;
 				log_debug(logger, "PID %d recibido del Kernel Scheduler", pid);
 				pthread_mutex_lock(&interrupt_mutex);
     			bool hay_interrupcion = interruptPending;
@@ -301,7 +302,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 
 				sem_wait(&sem_eviction_ready);
 				log_debug(logger, "Proceso desalojado correctamente");
-				send_confirmation(pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+				send_confirmation(current_pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
 				sem_post(&sem_eviction_handled);
 				break;
 			}
@@ -366,7 +367,9 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 	int mem_stick_count = list_size(list_memory_stick);
 	pthread_mutex_unlock(&memory_stick_list_mutex);
 
-	log_info(logger, "Memory Stick %d connected (total: %d)", credentials->id, mem_stick_count);
+	log_debug(logger, "Conexión establecida con Memory Stick ID %d, tamaño %d bytes", mem_stick->id, mem_stick->size);
+
+	log_debug(logger, "Memory Stick %d connected (total: %d)", credentials->id, mem_stick_count);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, memory_stick_handler, mem_stick);
@@ -375,17 +378,14 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 	return EXIT_SUCCESS;
 }
 
-void *memory_stick_handler(void *mem_stick_ptr)
-{
+void *memory_stick_handler(void *mem_stick_ptr) {
 	t_memory_stick_info *mem_stick = (t_memory_stick_info *)mem_stick_ptr;
 	log_debug(logger, "Memory Stick handler iniciado para fd: %d, id: %d", mem_stick->fd, mem_stick->id);
 
-	while (1)
-	{
+	while (1) {
 		// Handle connection with Memory Stick
 		int op = operation_receive(mem_stick->fd);
-		if (op == -1)
-		{
+		if (op == -1) {
 			log_error(logger, "Memory Stick %d desconectado", mem_stick->id);
 			close(mem_stick->fd);
 			pthread_mutex_lock(&memory_stick_list_mutex);
@@ -398,20 +398,48 @@ void *memory_stick_handler(void *mem_stick_ptr)
 			case MS_READ_RESPONSE: {
 				int response_size;
 				void *buffer = buffer_receive(&response_size, mem_stick->fd);
+
+				int offset = 0;
+				uint32_t data_size;
+				// The package payload starts with a 4-byte header containing the actual size of the data that follows (added by package_add)
+				memcpy(&data_size, buffer, sizeof(uint32_t));
+				offset = sizeof(uint32_t);
+
+				void *data = malloc(data_size);
+				memcpy(data, (char *)buffer + offset, data_size); // Copy only the actual data bytes without the size header
+				free(buffer);
+
 				pthread_mutex_lock(&mem_stick->mutex);
-				mem_stick->last_read_buffer = buffer;
-				mem_stick->last_read_size = response_size;
+				mem_stick->last_read_buffer = data;
+				mem_stick->last_read_size = data_size;
 				pthread_mutex_unlock(&mem_stick->mutex);
 				sem_post(&mem_stick->response_sem);
 				break;
 			}
+
 			case MS_WRITE_RESPONSE: {
-				pthread_mutex_lock(&mem_stick->mutex);
-				mem_stick->last_op_result = MS_WRITE_RESPONSE;
-				pthread_mutex_unlock(&mem_stick->mutex);
-				sem_post(&mem_stick->response_sem);
+				int size;
+				int offset = 0;
+				void *buffer = buffer_receive(&size, mem_stick->fd);
+				bool result = bool_deserialize(buffer, &offset);
+				free(buffer);
+
+				if (!result) { // If the write operation failed, we log an error and set last_op_result to -1 to indicate failure
+						log_error(logger, "Error en escritura en Memory Stick %d", mem_stick->id);
+						pthread_mutex_lock(&mem_stick->mutex);
+						mem_stick->last_op_result = -1;
+						pthread_mutex_unlock(&mem_stick->mutex);
+						sem_post(&mem_stick->response_sem);
+						break;
+					}
+
+					pthread_mutex_lock(&mem_stick->mutex);
+					mem_stick->last_op_result = MS_WRITE_RESPONSE;
+					pthread_mutex_unlock(&mem_stick->mutex);
+					sem_post(&mem_stick->response_sem);
 				break;
 			}
+
 			default: {
 				// Unknown op for now
 				log_debug(logger, "Operacion %d de fd %d recibida", op, mem_stick->fd);

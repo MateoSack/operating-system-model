@@ -282,6 +282,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t
 		package_add(pkg, credentials->ip, strlen(credentials->ip) + 1);
 		package_add(pkg, credentials->port, strlen(credentials->port) + 1);
 		package_add(pkg, &credentials->id, sizeof(credentials->id));
+		package_add(pkg, &credentials->size, sizeof(credentials->size));
 	}
 
 	package_send(pkg, fd, mutex);
@@ -334,6 +335,12 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 		memcpy(&cred->id, buffer + offset, field_size);
 		offset += field_size;
 
+		// Deserialize size: size + uint32_t
+		memcpy(&field_size, buffer + offset, sizeof(int));
+		offset += sizeof(int);
+		memcpy(&cred->size, buffer + offset, field_size);
+		offset += field_size;
+
 		list_add(list, cred);
 	}
 
@@ -349,6 +356,7 @@ void send_credentials (int fd, t_memory_stick_credentials *cred, t_log *logger, 
 	package_add(pkg, cred->ip, strlen(cred->ip) + 1);
 	package_add(pkg, cred->port, strlen(cred->port) + 1);
 	package_add(pkg, &cred->id, sizeof(cred->id));
+	package_add(pkg, &cred->size, sizeof(cred->size));
 	package_send(pkg, fd, mutex);
 	package_delete(pkg);
 	log_debug(logger, "Credenciales enviadas a fd: %d", fd);
@@ -380,6 +388,12 @@ t_memory_stick_credentials *receive_credentials (int socket_cliente) { // Receiv
 	memcpy(&field_size, buffer + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&cred->id, buffer + offset, field_size);
+	offset += field_size;
+
+	// Deserialize size: size + uint32_t
+	memcpy(&field_size, buffer + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&cred->size, buffer + offset, field_size);
 	offset += field_size;
 
     free(buffer);
@@ -483,4 +497,55 @@ t_io_type t_io_type_deserialize(void *buffer, int *offset) { // Deserializes a t
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
+}
+
+char *bytes_to_safe_string(void *data, uint32_t size) {
+	unsigned char *bytes = (unsigned char *)data;
+
+	// check if the whole buffer is printable text (e.g. STDIN/STDOUT strings)
+	bool all_printable = true;
+	for (uint32_t i = 0; i < size; i++) {
+		if (bytes[i] < 32 || bytes[i] > 126) {
+			all_printable = false;
+			break;
+		}
+	}
+
+	if (all_printable) {
+		// plain text: copy as-is and null-terminate
+		char *result = malloc(size + 1);
+		memcpy(result, bytes, size);
+		result[size] = '\0';
+		return result;
+	}
+
+	// binary data of a known register size: show as a clean decimal number
+	if (size == 1) {
+		uint8_t value;
+		memcpy(&value, bytes, sizeof(value));
+		char *result = malloc(4); // max "255" + '\0'
+		sprintf(result, "%u", value);
+		return result;
+	}
+
+	if (size == 4) {
+		uint32_t value;
+		memcpy(&value, bytes, sizeof(value));
+		char *result = malloc(11); // max "4294967295" + '\0'
+		sprintf(result, "%u", value);
+		return result;
+	}
+
+	// any other size (or mixed printable/non-printable content): fall back to hex escapes
+	char *result = malloc(size * 4 + 1);
+	int pos = 0;
+	for (uint32_t i = 0; i < size; i++) {
+		if (bytes[i] >= 32 && bytes[i] <= 126) {
+			result[pos++] = bytes[i];
+		} else {
+			pos += sprintf(result + pos, "\\x%02X", bytes[i]);
+		}
+	}
+	result[pos] = '\0';
+	return result;
 }

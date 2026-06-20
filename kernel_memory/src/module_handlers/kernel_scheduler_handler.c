@@ -219,8 +219,8 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 char *padded_data = calloc(size_to_write, 1); // Clean memory with \0
 
                 size_t bytes_to_copy = strlen(raw_data);
-                if (bytes_to_copy > size_to_write) {
-                    bytes_to_copy = size_to_write; // if sended more than size to write
+                if (bytes_to_copy > size_to_write) { // If sended more than size to write
+                    bytes_to_copy = size_to_write; 
                 }
                 memcpy(padded_data, raw_data, bytes_to_copy);
 

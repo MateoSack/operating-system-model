@@ -516,6 +516,7 @@ void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, ui
         log_error(logger, "COPY_MEM: error escribiendo dirección física %u", physical_dst);
         return;
     }
+    log_debug(logger, "COPY_MEM - SI=%u (dir. físico=%u) - DI=%u (dir. físico=%u) - size=%u", context->si, physical_src, context->di, physical_dst, size);
 }
 
 void *process_execution_handler(void *args) {
@@ -793,6 +794,10 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
         void *chunk_data = ms->last_read_buffer;
         ms->last_read_buffer = NULL;
         pthread_mutex_unlock(&ms->mutex);
+
+        char *data_str = bytes_to_safe_string(chunk_data, chunk);
+        log_debug(logger, "memory_read: Dato leido: %s", data_str);
+        free(data_str);
 
         if (chunk_data == NULL) {
             log_error(logger, "## memory_read: chunk NULL en MS id=%d", ms->id);

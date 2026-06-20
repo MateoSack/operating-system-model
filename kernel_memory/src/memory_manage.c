@@ -260,7 +260,9 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
         ms->last_read_buffer = NULL;
         pthread_mutex_unlock(&ms->mutex);
 
-        log_debug(logger, "Dato leido: %.*s", chunk, (char *)chunk_data);
+        char *data_str = bytes_to_safe_string(chunk_data, chunk);
+        log_debug(logger, "memory_read: Dato leido: %s", data_str);
+        free(data_str);
 
         if (chunk_data == NULL) {
             log_error(logger, "memory_read: chunk NULL en MS id=%d", ms->id);
