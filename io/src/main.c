@@ -119,12 +119,27 @@ void handle_operation(int client_fd, t_io_type io_type) {
 }
 
 char *io_stdin(uint32_t pid, uint32_t size) {
-    char *input = calloc(size, sizeof(char)); 
-    if (input == NULL) return NULL;
+    char *input = string_new();
 
     log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, size);
-    fgets(input, size, stdin);
-    input[strcspn(input, "\n")] = '\0';
+
+	char *read = readline("> ");
+
+	int missing_characters = strlen(read) - size;
+
+	if (missing_characters > 0) {
+		string_append(&input, read);
+		for (int i = 0; i < missing_characters; i++) {
+			string_append(&input, '\0');
+		}
+	} else if (missing_characters < 0) {
+		string_n_append(&input, read, missing_characters);
+	} else {
+		string_append(&input, read);
+	}
+
+	free(read);
+
     log_info(logger, "## PID: %d - Fin de IO", pid);
 
     return input;
