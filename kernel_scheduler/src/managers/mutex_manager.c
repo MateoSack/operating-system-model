@@ -3,7 +3,13 @@
 // Alway use first the list_mutex_mutex, then internal_mutex and then the scheduler_mutex when locking both, to avoid deadlocks
 
 t_mutex *mutex_create (char *name) { // Create a new mutex with the given name and add it to the list of mutexes
-    t_mutex *mutex = malloc(sizeof(t_mutex));
+    t_mutex *mutex = get_mutex_by_name(name);
+    if (mutex != NULL) {
+        log_warning(logger, "Mutex %s ya existe", name);
+        return mutex;
+    }
+
+    mutex = malloc(sizeof(t_mutex));
     mutex->name = string_duplicate(name);
     mutex->isLocked = false;
     mutex->lockedBy = NULL;
@@ -54,6 +60,7 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         list_add(mutex->waitingProcesses, process);
 
         process_set_state(process, BLOCK, logger);
+        process_set_cpu(process, NULL);
 
         t_process *owner = mutex->lockedBy;
 
@@ -63,13 +70,9 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
             if (owner->state == READY) add_process_to_ready_queue(owner);
         }
 
-        t_client_info *cpu = process->cpu;
-
         pthread_mutex_unlock(&scheduler_mutex);
 
         pthread_mutex_unlock(&mutex->internal_mutex);
-
-        evict_process(cpu, MUTEX_LOCKED, false);
     }
 }
 

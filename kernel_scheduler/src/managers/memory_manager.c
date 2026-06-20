@@ -77,6 +77,7 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
         log_debug(logger, "No se pudo crear el segmento por falta de espacio. Terminando proceso");
 
         process_set_state(process, EXIT, logger);
+        process_set_cpu(process, NULL);
 
         pthread_mutex_lock(&scheduler_mutex);
         cpu->is_available = true;
@@ -86,6 +87,7 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
         log_debug(logger, "Error en syscall de memoria. Terminando proceso");
 
         process_set_state(process, EXIT, logger);
+        process_set_cpu(process, NULL);
 
         pthread_mutex_lock(&scheduler_mutex);
         cpu->is_available = true;

@@ -3,6 +3,7 @@
 int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t sleep_time) { // Manages the sleep syscall for a process, sending it to an available IO device of type SLEEP
     pthread_mutex_lock(&scheduler_mutex);
     process_set_state(process, BLOCK, logger);
+    process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
@@ -40,6 +41,7 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
 int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t physical_address, uint32_t to_read) { // Manages the stdin syscall for a process, sending it to an available IO device of type STDIN
     pthread_mutex_lock(&scheduler_mutex);
     process_set_state(process, BLOCK, logger);
+    process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
@@ -130,6 +132,7 @@ t_pending_stdin *t_pending_stdin_create (uint32_t pid, uint32_t physical_address
 int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t physical_address, uint32_t to_read) { // Manages the stdout syscall for a process, sending it to an available IO device of type STDOUT
     pthread_mutex_lock(&scheduler_mutex);
     process_set_state(process, BLOCK, logger);
+    process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
