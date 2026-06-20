@@ -2,7 +2,7 @@
 
 void cpu_handler (int cpu_fd) {
 	uint32_t id = id_assigner(&next_cpu_id, cpu_fd, &cpu_id_mutex);
-	
+
 	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d conectado (total: %d)", id, list_size(list_cpu));
 
@@ -21,19 +21,19 @@ void cpu_handler (int cpu_fd) {
 				uint32_t pid;
 				uint32_t priority;
 				char *path;
-				
+
 				receive_instruction_process_create(&pid, &priority, &path, cpu->fd);
-				
+
 				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
-            
+
             	long_term_scheduler(path, priority);
-            
+
             	break;
 			}
-			
+
 			case PROCESS_END: {
 				uint32_t pid = uint32_decode(cpu->fd);
-				
+
 				log_info(logger, "## (%d) - Solicitó syscall: EXIT", pid);
 
 				pthread_mutex_lock(&scheduler_mutex);
@@ -70,9 +70,9 @@ void cpu_handler (int cpu_fd) {
 
 			case MUTEX_LOCK : {
 				char *mutex_name = message_decode(cpu->fd);
-				
+
 				t_process *process = get_process_from_cpu(cpu);
-				
+
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK (Nombre del mutex: %s)", process->pid, mutex_name);
 
 				if (process == NULL) {
@@ -95,17 +95,17 @@ void cpu_handler (int cpu_fd) {
 
 			case MUTEX_UNLOCK : {
 				char *mutex_name = message_decode(cpu->fd);
-				
+
 				t_process *process = get_process_from_cpu(cpu);
-				
+
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK (Nombre del mutex: %s)", process->pid, mutex_name);
-				
+
 				if (process == NULL) {
     				log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
     				break;
 				}
-				
+
 				t_mutex *mutex = get_mutex_by_name(mutex_name);
 
 				if (mutex != NULL) {
@@ -121,9 +121,9 @@ void cpu_handler (int cpu_fd) {
 			case SLEEP : {
 				uint32_t pid;
 				uint32_t sleep_time;
-				
+
 				receive_instruction_sleep(&pid, &sleep_time, cpu->fd);
-				
+
 				t_process *process = get_process_from_pid(pid);
 
 				log_info(logger, "## (%d) - Solicitó syscall: SLEEP (Tiempo: %d ms)", pid, sleep_time);
@@ -139,17 +139,17 @@ void cpu_handler (int cpu_fd) {
 
 			case STDIN : {
 				uint32_t pid;
-				uint32_t base;
-				uint32_t limit;
-				
-				receive_instruction_std(&pid, &base, &limit, cpu->fd);
-				
+				uint32_t physical_address;
+				uint32_t to_read;
+
+				receive_instruction_std(&pid, &physical_address, &to_read, cpu->fd);
+
 				t_process *process = get_process_from_pid(pid);
-				
-				log_info(logger, "## (%d) - Solicitó syscall: STDIN (Base: %d, Limit: %d)", pid, base, limit);
+
+				log_info(logger, "## (%d) - Solicitó syscall: STDIN (Dirección física: %d, Bytes a leer: %d)", pid, physical_address, to_read);
 
 				if (process != NULL) {
-					stdin_syscall_manager(process, cpu, base, limit);
+					stdin_syscall_manager(process, cpu, physical_address, to_read);
 				} else {
 					log_error(logger, "Proceso con PID %d no encontrado para ejecutar STDIN", pid);
 				}
@@ -161,11 +161,11 @@ void cpu_handler (int cpu_fd) {
 				uint32_t pid;
 				uint32_t base;
 				uint32_t limit;
-				
+
 				receive_instruction_std(&pid, &base, &limit, cpu->fd);
-				
+
 				t_process *process = get_process_from_pid(pid);
-				
+
 				log_info(logger, "## (%d) - Solicitó syscall: STDOUT", pid);
 
 				if (process != NULL) {
@@ -212,6 +212,31 @@ void cpu_handler (int cpu_fd) {
 				break;
 			}
 
+			case SEGMENTATION_FAULT: {
+				uint32_t pid = uint32_decode(cpu->fd);
+
+				pthread_mutex_lock(&scheduler_mutex);
+
+				t_process *process = get_process_from_pid(pid);
+
+				if (process != NULL) {
+					process_set_state(process, EXIT, logger);
+					process_set_cpu(process, NULL);
+					remove_process_from_list(exec_processes, process);
+				}
+
+				cpu->is_available = true;
+
+				pthread_mutex_unlock(&scheduler_mutex);
+
+				send_pid_with_op_code(pid, PROCESS_END, kernel_memory->fd, &kernel_memory->network_mutex);
+
+				log_info(logger, "## (%d) finalizo su ejecución con motivo de SEGMENTATION_FAULT", pid);
+
+				sem_post(&short_term_scheduler_sem);
+				break;
+			}
+
 			case CONFIRMATION: { // Confirms a process was successfully evicted and is ready to be sent to the ready queue
 				uint32_t pid = uint32_decode(cpu->fd);
 				log_info(logger, "## PID %d - Confirmación recibida", pid);
@@ -244,11 +269,11 @@ void handle_cpu_disconnection (t_client_info *cpu) {
 	}
 
 	remove_client_from_list(list_cpu, cpu);
-	
+
 	pthread_mutex_unlock(&scheduler_mutex);
-	
+
 	destroy_client(cpu);
-	
+
 	if (had_process) log_warning(logger, "CPU %d estaba ejecutando el proceso %d. Devolviéndolo al estado READY.", cpu_id, pid);
 
 	sem_post(&short_term_scheduler_sem);

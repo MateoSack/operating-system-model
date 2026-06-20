@@ -218,9 +218,10 @@ void io_finish_process(uint32_t pid, t_client_info *io) {
 }
 
 void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pending_io_list, op_code op_code) {
+    log_debug(logger, "Hay %d procesos de IO %d pendientes", list_size(pending_io_list), io_type);
 	switch (io_type) {
-		case IO_TYPE_SLEEP:
-			pthread_mutex_lock(&io_mutex); {
+		case IO_TYPE_SLEEP:  {
+			pthread_mutex_lock(&io_mutex);
 
 			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
 
@@ -243,27 +244,6 @@ void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pendin
 		case IO_TYPE_STDOUT: {
 			pthread_mutex_lock(&io_mutex);
 
-			t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
-
-			if (pending_process == NULL) {
-				pthread_mutex_unlock(&io_mutex);
-				break;
-			}
-
-			pthread_mutex_lock(&io->internal_mutex);
-			io->is_available = false;
-			pthread_mutex_unlock(&io->internal_mutex);
-
-			pthread_mutex_unlock(&io_mutex);
-			
-			io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
-
-			break;
-		}
-
-		case IO_TYPE_STDIN: {
-			pthread_mutex_lock(&io_mutex);
-			
 			t_io_string_process *pending_process = get_next_io_string_process_from_list(pending_io_list);
 
 			if (pending_process == NULL) {
@@ -277,8 +257,29 @@ void handle_next_operation (t_client_info *io, t_io_type io_type, t_list *pendin
 
 			pthread_mutex_unlock(&io_mutex);
 			
-
 			io_string_process_send(pending_process, op_code, io->fd, &io->network_mutex);
+
+			break;
+		}
+
+		case IO_TYPE_STDIN: {
+			pthread_mutex_lock(&io_mutex);
+			
+            t_io_numeric_process *pending_process = get_next_io_numeric_process_from_list(pending_io_list);
+
+			if (pending_process == NULL) {
+				pthread_mutex_unlock(&io_mutex);
+				break;
+			}
+
+			pthread_mutex_lock(&io->internal_mutex);
+			io->is_available = false;
+			pthread_mutex_unlock(&io->internal_mutex);
+
+			pthread_mutex_unlock(&io_mutex);
+			
+
+            io_numeric_process_send(pending_process, op_code, io->fd, &io->network_mutex);
 
 			break;
 		}

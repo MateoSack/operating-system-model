@@ -213,8 +213,8 @@ bool bool_deserialize(void *buffer, int *offset) { // Deserializes a bool from a
 t_module_id t_module_id_deserialize(void *buffer, int *offset) { // Deserializes a t_module_id from a buffer, updating the offset
 	int size;
 	t_module_id value;
-	memcpy(&size, buffer + *offset, sizeof(t_module_id));
-	*offset += sizeof(t_module_id);
+	memcpy(&size, buffer + *offset, sizeof(int));
+	*offset += sizeof(int);
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
@@ -478,10 +478,9 @@ t_io_type t_io_type_receive (int client_fd) { // Receives a t_io_type from the c
 t_io_type t_io_type_deserialize(void *buffer, int *offset) { // Deserializes a t_io_type from a buffer, updating the offset
 	int size;
 	t_io_type value;
-	memcpy(&size, buffer + *offset, sizeof(t_io_type));
-	*offset += sizeof(t_io_type);
+	memcpy(&size, buffer + *offset, sizeof(int));
+	*offset += sizeof(int);
 	memcpy(&value, buffer + *offset, size);
 	*offset += size;
 	return value;
 }
- 

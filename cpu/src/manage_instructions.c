@@ -562,11 +562,13 @@ void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context
 }
 
 void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
-    uint32_t size = atoi(decoded_instruction[1]);
+    uint32_t segment_id = atoi(decoded_instruction[1]);
+    uint32_t size = atoi(decoded_instruction[2]);
     // Send MEM_ALLOC operation to kernel scheduler
     t_package *pkg = package_create();
     pkg->op_code = MEM_ALLOC;
     package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &segment_id, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);

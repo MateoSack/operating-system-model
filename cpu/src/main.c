@@ -41,10 +41,10 @@ int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
 	t_config *config = config_create(argv[1]);
 	if(config == NULL) return EXIT_FAILURE;
+	cpu_identifier = strdup(argv[2]); 
 	logger = start_logger(config);
 	log_info(logger, "CPU started");
 	list_memory_stick = list_create();
-	cpu_identifier = strdup(argv[2]); 
 	
 	sem_init(&sem_instruction_fetch_ready, 0, 0);
 	sem_init(&sem_instruction_response_ready, 0, 0); 
@@ -315,9 +315,13 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 
 t_log *start_logger(t_config *config)
 {
+	char *logger_file_name = string_new();
+	string_append(&logger_file_name, "cpu");
+	string_append(&logger_file_name, cpu_identifier);
+	string_append(&logger_file_name, ".log");
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
 	t_log_level level = log_level_from_string(level_str);
-	t_log *logger = log_create("cpu.log", "CPU", true, level);
+	t_log *logger = log_create(logger_file_name, "CPU", true, level);
 	return logger;
 }
 

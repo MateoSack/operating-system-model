@@ -7,6 +7,7 @@
 #include<commons/log.h>
 #include<commons/string.h>
 #include<commons/config.h>
+#include<readline/readline.h>
 
 const t_io_type io_type_from_string(const char *str);
 void handle_operation(int client_fd, t_io_type io_type);
