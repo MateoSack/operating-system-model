@@ -7,6 +7,7 @@
 extern t_log *logger;
 extern t_client_info *kernel_memory;
 extern int quantum;
+extern bool queue_preemption;
 extern t_temporal *system_timer;
 extern t_list *list_processes;
 extern t_list **ready_queue;

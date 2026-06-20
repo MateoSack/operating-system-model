@@ -9,6 +9,8 @@ int quantum = 0;
 t_scheduler_algorithm *queue_algorithms = NULL;
 int queue_algorithms_count = 1;
 
+bool queue_preemption = false;
+
 bool can_schedule = true;
 
 pthread_mutex_t can_schedule_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -144,6 +146,14 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 
 	scheduler_algorithm = scheduler_algorithm_from_string(scheduler_algorithm_str);
 	quantum = config_get_int_value(config, "RR_QUANTUM");
+
+	char *queue_preemption_str = config_get_string_value(config, "QUEUE_PREEMPTION");
+
+	if (strcmp(queue_preemption_str, "TRUE") == 0) {
+		queue_preemption = true;
+	}
+
+	log_debug(logger, "Desalojo entre colas habilitado: %d", queue_preemption);
 
 	free(scheduler_algorithm_str);
 

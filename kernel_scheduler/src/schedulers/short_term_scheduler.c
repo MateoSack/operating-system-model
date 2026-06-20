@@ -23,7 +23,7 @@ void *short_term_scheduler_main (void *arg) { // Main function for the short-ter
             no_processes = (process == NULL);
             no_cpus = (cpu == NULL);
 
-            if (!no_processes && no_cpus && scheduler_algorithm == CMN) {
+            if (!no_processes && no_cpus && scheduler_algorithm == CMN && queue_preemption) {
                 // If there are no CPUs available and we're using CMN, we can try to evict a lower priority process to free up a CPU
                 t_process *lowest_priority_process = get_lowest_priority_process(exec_processes);
 
