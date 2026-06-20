@@ -87,13 +87,24 @@ int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentia
                 t_memory_stick_info *msr = list_find(list_memory_stick, find_by_fd2);
                 pthread_mutex_unlock(&list_memory_stick_mutex);
 
-                if (msr != NULL) {
+                if (msr != NULL) { 
                     int response_size;
                     void *buffer = buffer_receive(&response_size, client_fd);
+                    int offset = 0;
+                    uint32_t data_size;
+                    // The package payload starts with a 4-byte header containing the actual size of the data that follows (added by package_add)
+                    memcpy(&data_size, buffer, sizeof(uint32_t));
+                    offset = sizeof(uint32_t);
+
+                    void *data = malloc(data_size);
+                    memcpy(data, (char *)buffer + offset, data_size); // Copy only the actual data bytes without the size header
+                    free(buffer);
+
                     pthread_mutex_lock(&msr->mutex);
-                    msr->last_read_buffer = buffer;
-                    msr->last_read_size = response_size;
+                    msr->last_read_buffer = data;
+                    msr->last_read_size = data_size;
                     pthread_mutex_unlock(&msr->mutex);
+
                     sem_post(&msr->response_sem);
                 }
                 break;

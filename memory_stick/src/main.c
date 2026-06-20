@@ -237,6 +237,7 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
     free(buffer);
 
     log_info(logger, "## Escritura de %u bytes", write_size);
+    log_debug(logger, "Contenido escrito: %.*s", write_size, (char *)(memory + local_offset));
 
     t_package *pkg = package_create();
     pkg->op_code = MS_WRITE_RESPONSE;
@@ -268,6 +269,7 @@ void handle_read(int fd, pthread_mutex_t *net_mutex) {
     }
 
     log_info(logger, "## Lectura de %u bytes", read_size);
+    log_debug(logger, "Contenido leído: %.*s", read_size, (char *)(memory + local_offset));
 
     t_package *pkg = package_create();
     pkg->op_code = MS_READ_RESPONSE;

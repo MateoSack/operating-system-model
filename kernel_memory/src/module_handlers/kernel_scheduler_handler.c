@@ -172,6 +172,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 uint32_t size_to_read = uint32_deserialize(buffer, &offset);
                 free(buffer);
 
+                log_debug(logger, "Leyendo direccion: %u - Tamaño a leer: %u", physical_address, size_to_read);
                 char *data = memory_read(physical_address, size_to_read);
                 if (data == NULL) {
                     log_error(logger, "Error al leer memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_read);
@@ -214,7 +215,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 char *data = string_deserialize(buffer, &offset);
                 free(buffer);
 
-                uint32_t size_to_write = strlen(data) + 1;
+                uint32_t size_to_write = strlen(data);
 
                 log_debug(logger, "Datos a escribir: %s, con tamaño: %d", data, size_to_write);
 
