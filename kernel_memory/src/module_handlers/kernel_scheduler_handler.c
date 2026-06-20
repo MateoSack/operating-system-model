@@ -210,10 +210,12 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 uint32_t pid = uint32_deserialize(buffer, &offset);
                 uint32_t physical_address = uint32_deserialize(buffer, &offset);
-                uint32_t size_to_write = size - offset; // Remaining bytes in buffer are the data to write
-                void *data = malloc(size_to_write);
-                memcpy(data, buffer + offset, size_to_write);
+                char *data = string_deserialize(buffer, &offset);
                 free(buffer);
+
+                uint32_t size_to_write = strlen(data);
+
+                log_debug(logger, "Datos a escribir: %s, con tamaño: %d", data, size_to_write);
 
                 t_package *pkg = package_create();
                 pkg->op_code = IO_MEMORY_WRITE;

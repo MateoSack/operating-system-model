@@ -73,9 +73,7 @@ void io_string_process_send (t_io_string_process *io_process, op_code op_code, i
     t_package *package = package_create();
     package->op_code = op_code;
     package_add(package, &io_process->pid, sizeof(uint32_t));
-    uint32_t value_length = strlen(io_process->value) + 1; // +1 for null terminator
-    package_add(package, &value_length, sizeof(uint32_t));
-    package_add(package, io_process->value, value_length);
+    package_string_add(package, io_process->value);
     package_add(package, &io_process->io_type, sizeof(t_io_type));
     package_send(package, client_socket, mutex);
     package_delete(package);
@@ -90,10 +88,7 @@ t_io_string_process *io_string_process_receive(int client_socket) { // Receives 
     t_io_string_process *io_process = malloc(sizeof(t_io_string_process));
 
     io_process->pid = uint32_deserialize(buffer, &offset);
-    uint32_t value_length = uint32_deserialize(buffer, &offset);
-    io_process->value = malloc(value_length);
-    memcpy(io_process->value, buffer + offset, value_length);
-    offset += value_length;
+    io_process->value = string_deserialize(buffer, &offset);
     io_process->io_type = t_io_type_deserialize(buffer, &offset);
 
     free(buffer);

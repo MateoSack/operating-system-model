@@ -80,13 +80,15 @@ void io_handler (int io_fd) {
 
 				free(pending_stdin);
 
+				log_debug(logger, "Proceso %d realizó una operación de IO STDIN con valor: %s", io_process->pid, io_process->value);
+
 				send_memory_write(io_process->pid, physical_address, io_process->value);
+
+				log_debug(logger, "Escritura de datos enviada a memoria");
 
 				pthread_mutex_lock(&io->internal_mutex);
 				io->is_available = true;
 				pthread_mutex_unlock(&io->internal_mutex);
-
-				log_debug(logger, "Proceso %d realizó una operación de IO STDIN con valor: %s", io_process->pid, io_process->value);
 
 				t_process *process = get_process_from_pid(io_process->pid);
 
