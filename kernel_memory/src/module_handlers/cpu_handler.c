@@ -56,6 +56,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 pthread_mutex_unlock(&list_processes_mutex);
 
                 pcb->context = *ctx;
+                log_debug(logger, "CONTEXT_TRANSFER: pcb->context.pc actualizado a %u para PID %d", pcb->context.pc, pid);
                 pthread_mutex_unlock(&pcb->mutex);
                 free(ctx);
                 log_info(logger, "Contexto actualizado correctamente para PID %d", pid);
@@ -133,6 +134,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
 }
 
 void context_send_from_pcb(t_pcb *pcb, uint32_t pid, int fd, pthread_mutex_t *mutex) {
+    log_debug(logger, "context_send_from_pcb: enviando pc=%u para PID %d", pcb->context.pc, pid);
     t_package *pkg = package_create();
     pkg->op_code = CONTEXT_TRANSFER;
     package_add(pkg, &pcb->context.pc,  sizeof(uint32_t));

@@ -3,6 +3,8 @@
 bool should_exit = false;
 bool should_stop = false;
 t_interrupt_reason stop_reason = 0;
+op_code pending_syscall_op = (op_code)0;
+char *pending_syscall_payload = NULL;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
@@ -63,6 +65,13 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
                 sem_post(&sem_eviction_ready);
             }
             send_process_interrupted(pid, stop_reason);
+
+            if (pending_syscall_op != 0) {
+                message_send_with_op_code(pending_syscall_payload, pending_syscall_op, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                free(pending_syscall_payload);
+                pending_syscall_payload = NULL;
+                pending_syscall_op = 0;
+            }
         }
         pthread_mutex_unlock(&process_control_mutex);
         if(stop_flag) break;
@@ -304,21 +313,30 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
         }
 
 		case INS_MUTEX_CREATE: {
-			instruction_mutex_create(decoded_instruction, context);
-			log_debug(logger, "MUTEX_CREATE ejecutado");
-			break;
+            instruction_mutex_create(decoded_instruction, context);
+            log_debug(logger, "MUTEX_CREATE ejecutado");
+            // Advance PC here and mark hasJumped to avoid the automatic increment
+            context->pc++;
+            *hasJumped = true;
+            break;
 		}
 
 		case INS_MUTEX_LOCK: {
-			instruction_mutex_lock(decoded_instruction, context);
-			log_debug(logger, "MUTEX_LOCK ejecutado");
-			break;
+            instruction_mutex_lock(decoded_instruction, context);
+            log_debug(logger, "MUTEX_LOCK ejecutado");
+            // Advance PC here and mark hasJumped to avoid the automatic increment
+            context->pc++;
+            *hasJumped = true;
+            break;
 		}
 
 		case INS_MUTEX_UNLOCK: {
-			instruction_mutex_unlock(decoded_instruction, context);
-			log_debug(logger, "MUTEX_UNLOCK ejecutado");
-			break;
+            instruction_mutex_unlock(decoded_instruction, context);
+            log_debug(logger, "MUTEX_UNLOCK ejecutado");
+            // Advance PC here and mark hasJumped to avoid the automatic increment
+            context->pc++;
+            *hasJumped = true;
+            break;
 		}
 
 		case INS_MEM_ALLOC: {
@@ -536,27 +554,27 @@ void *process_execution_handler(void *args) {
 // Syscall instructions implementations
 
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
-    // Send MUTEX_CREATE operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_CREATE, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     pthread_mutex_lock(&process_control_mutex);
+    pending_syscall_op = MUTEX_CREATE;
+    pending_syscall_payload = strdup(decoded_instruction[1]);
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
-    // Send MUTEX_LOCK operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_LOCK, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     pthread_mutex_lock(&process_control_mutex);
+    pending_syscall_op = MUTEX_LOCK;
+    pending_syscall_payload = strdup(decoded_instruction[1]);
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);
 }
 
 void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
-    // Send MUTEX_UNLOCK operation to kernel scheduler
-    message_send_with_op_code(decoded_instruction[1], MUTEX_UNLOCK, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     pthread_mutex_lock(&process_control_mutex);
+    pending_syscall_op = MUTEX_UNLOCK;
+    pending_syscall_payload = strdup(decoded_instruction[1]);
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
     pthread_mutex_unlock(&process_control_mutex);

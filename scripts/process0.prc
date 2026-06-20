@@ -1,2 +1,2 @@
-INIT_PROC MUTEX_TEST_0.prc 0
+INIT_PROC mutexTest.prc 0
 EXIT
