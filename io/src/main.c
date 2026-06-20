@@ -125,15 +125,15 @@ char *io_stdin(uint32_t pid, uint32_t size) {
 
 	char *read = readline("> ");
 
-	int missing_characters = strlen(read) - size;
+	int missing_characters = size -strlen(read);
 
 	if (missing_characters > 0) {
 		string_append(&input, read);
 		for (int i = 0; i < missing_characters; i++) {
-			string_append(&input, '\0');
+			string_append(&input, "\0");
 		}
 	} else if (missing_characters < 0) {
-		string_n_append(&input, read, missing_characters);
+		string_n_append(&input, read, size);
 	} else {
 		string_append(&input, read);
 	}
