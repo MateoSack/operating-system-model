@@ -119,7 +119,7 @@ void handle_operation(int client_fd, t_io_type io_type) {
 }
 
 char *io_stdin(uint32_t pid, uint32_t size) {
-    char *input = string_new();
+    char *input = calloc(size + 1, sizeof(char));
 
     log_info(logger, "## PID: %d - Ingrese %d caracteres:", pid, size);
 

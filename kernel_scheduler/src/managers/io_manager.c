@@ -55,7 +55,7 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phys
     }
 
     t_io_numeric_process *io_process = t_io_numeric_process_create(pid, to_read, IO_TYPE_STDIN);
-    t_pending_stdin *pending_stdin = t_pending_stdin_create(pid, physical_address);
+    t_pending_stdin *pending_stdin = t_pending_stdin_create(pid, physical_address, to_read);
 
     pthread_mutex_lock(&pending_io_stdin_reading_mutex);
     list_add(pending_io_stdin_reading, pending_stdin);
@@ -117,11 +117,12 @@ t_pending_stdin *get_pending_stdin_from_pid (uint32_t pid) {
     return pending_stdin;
 }
 
-t_pending_stdin *t_pending_stdin_create (uint32_t pid, uint32_t physical_address) {
+t_pending_stdin *t_pending_stdin_create (uint32_t pid, uint32_t physical_address, uint32_t size) {
     t_pending_stdin *p = malloc(sizeof(t_pending_stdin));
 
     p->pid = pid;
     p->physical_address = physical_address;
+    p->size = size;
 
     return p;
 }

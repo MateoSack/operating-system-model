@@ -75,6 +75,7 @@ void io_handler (int io_fd) {
 					break;
 				}
 				uint32_t physical_address = pending_stdin->physical_address;
+				uint32_t size = pending_stdin->size;
 				list_remove_element(pending_io_stdin_reading, pending_stdin);
 				pthread_mutex_unlock(&pending_io_stdin_reading_mutex);
 
@@ -82,7 +83,7 @@ void io_handler (int io_fd) {
 
 				log_debug(logger, "Proceso %d realizó una operación de IO STDIN con valor: %s", io_process->pid, io_process->value);
 
-				send_memory_write(io_process->pid, physical_address, io_process->value);
+				send_memory_write(io_process->pid, physical_address, size, io_process->value);
 
 				log_debug(logger, "Escritura de datos enviada a memoria");
 

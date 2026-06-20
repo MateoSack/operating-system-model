@@ -212,18 +212,27 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 uint32_t pid = uint32_deserialize(buffer, &offset);
                 uint32_t physical_address = uint32_deserialize(buffer, &offset);
-                char *data = string_deserialize(buffer, &offset);
+                uint32_t size_to_write = uint32_deserialize(buffer, &offset);
+                char *raw_data = string_deserialize(buffer, &offset);
                 free(buffer);
 
-                uint32_t size_to_write = strlen(data);
+                char *padded_data = calloc(size_to_write, 1); // Clean memory with \0
 
-                log_debug(logger, "Datos a escribir: %s, con tamaño: %d", data, size_to_write);
+                size_t bytes_to_copy = strlen(raw_data);
+                if (bytes_to_copy > size_to_write) {
+                    bytes_to_copy = size_to_write; // if sended more than size to write
+                }
+                memcpy(padded_data, raw_data, bytes_to_copy);
+
+                free(raw_data);
+
+                log_debug(logger, "Datos a escribir: %s, con tamaño: %d", padded_data, size_to_write);
 
                 t_package *pkg = package_create();
                 pkg->op_code = IO_MEMORY_WRITE;
                 package_add(pkg, &pid, sizeof(uint32_t));
 
-                bool couldWrite = memory_write(physical_address, data, size_to_write);
+                bool couldWrite = memory_write(physical_address, padded_data, size_to_write);
 
                 if (!couldWrite) {
                     log_error(logger, "Error al escribir memoria para PID %u - Dir. Física: %u - Tamaño: %u", pid, physical_address, size_to_write);
@@ -234,7 +243,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 package_add(pkg, &couldWrite, sizeof(bool));
                 package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                 package_delete(pkg);
-                free(data);
+                free(padded_data);
                 break;
             }
         }
