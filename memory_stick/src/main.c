@@ -200,7 +200,10 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
 
         t_package *pkg = package_create();
         pkg->op_code = MS_WRITE_RESPONSE;
-        package_add(pkg, true, sizeof(bool));
+        {
+            bool ok = false;
+            package_add(pkg, &ok, sizeof(bool));
+        }
         package_send(pkg, fd, net_mutex);
         package_delete(pkg);
         return;
@@ -221,7 +224,10 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
 
         t_package *pkg = package_create();
         pkg->op_code = MS_WRITE_RESPONSE;
-        package_add(pkg, true, sizeof(bool));
+        {
+            bool ok = false;
+            package_add(pkg, &ok, sizeof(bool));
+        }
         package_send(pkg, fd, net_mutex);
         package_delete(pkg);
         return;
@@ -234,7 +240,10 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
 
     t_package *pkg = package_create();
     pkg->op_code = MS_WRITE_RESPONSE;
-    package_add(pkg, true, sizeof(bool));
+    {
+        bool ok = true;
+        package_add(pkg, &ok, sizeof(bool));
+    }
     package_send(pkg, fd, net_mutex);
     package_delete(pkg);
 }

@@ -340,13 +340,13 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 		}
 
 		case INS_STDOUT: {
-			instruction_stdout(decoded_instruction, context, pid);
+			instruction_stdout(decoded_instruction, context, pid, segment_table);
 			log_debug(logger, "STDOUT ejecutado");
 			break;
 		}
 
 		case INS_STDIN: {
-			instruction_stdin(decoded_instruction, context, pid);
+			instruction_stdin(decoded_instruction, context, pid, segment_table);
 			log_debug(logger, "STDIN ejecutado");
 			break;
 		}
@@ -609,7 +609,7 @@ void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint3
     pthread_mutex_unlock(&process_control_mutex);
 }
 
-void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
     // Send STDOUT operation to kernel scheduler with logical address and size registers
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid STDOUT register operand: %s", decoded_instruction[1]);
@@ -620,13 +620,14 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
         return;
     }
 
-    uint32_t logical_address = read_register_value(context, decoded_instruction[1]);
     uint32_t size = read_register_value(context, decoded_instruction[2]);
+    uint32_t physicall_address = mmu_translate(read_register_value(context, decoded_instruction[1]), size, segment_table, pid);
+    if (should_exit) return;
 
     t_package *pkg = package_create();
     pkg->op_code = STDOUT;
     package_add(pkg, &pid, sizeof(uint32_t));
-    package_add(pkg, &logical_address, sizeof(uint32_t));
+    package_add(pkg, &physicall_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
@@ -637,7 +638,7 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     pthread_mutex_unlock(&process_control_mutex);
 }
 
-void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
     // Send STDIN operation to kernel scheduler with logical address and size registers
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid STDIN register operand: %s", decoded_instruction[1]);
@@ -648,13 +649,14 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
         return;
     }
 
-    uint32_t logical_address = read_register_value(context, decoded_instruction[1]);
     uint32_t size = read_register_value(context, decoded_instruction[2]);
+    uint32_t physicall_address = mmu_translate(read_register_value(context, decoded_instruction[1]), size, segment_table, pid);
+    if (should_exit) return;
 
     t_package *pkg = package_create();
     pkg->op_code = STDIN;
     package_add(pkg, &pid, sizeof(uint32_t));
-    package_add(pkg, &logical_address, sizeof(uint32_t));
+    package_add(pkg, &physicall_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
@@ -693,7 +695,7 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
     uint32_t num_segment = logical_address / segment_max_size;
     uint32_t seg_offset = logical_address % segment_max_size;
 
-    if (num_segment >= (uint32_t)list_size(segment_table)) {
+    if (num_segment >= (uint32_t)list_size(segment_table)) { // Accessing non-existing segment
         log_error(logger, "PID: %d - SEGMENTATION_FAULT", pid);
         t_package *pkg = package_create();
         pkg->op_code = SEGMENTATION_FAULT;
@@ -708,7 +710,7 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
 
     t_segment *segment = list_get(segment_table, num_segment);
 
-    if (seg_offset + size > segment->size) {
+    if (seg_offset + size > segment->size) { // Access beyond segment limit
         log_error(logger, "PID: %d - Acceso fuera de segmento (offset=%d, size=%d, seg_size=%d) - SEGMENTATION_FAULT", pid, seg_offset, size, segment->size);
         t_package *pkg = package_create();
         pkg->op_code = SEGMENTATION_FAULT;

@@ -48,6 +48,8 @@ int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentia
                 int offset = 0;
                 void *buffer = buffer_receive(&size, client_fd);
                 bool result = bool_deserialize(buffer, &offset);
+                free(buffer);
+
                 pthread_mutex_lock(&list_memory_stick_mutex);
                 bool find_by_fd(void *ptr) {
                     return ((t_memory_stick_info *)ptr)->fd == client_fd;
@@ -55,12 +57,25 @@ int memory_stick_handler (t_log *logger, int client_fd, t_memory_stick_credentia
                 t_memory_stick_info *ms = list_find(list_memory_stick, find_by_fd);
                 pthread_mutex_unlock(&list_memory_stick_mutex);
 
-                if (ms != NULL) {
+                if(ms == NULL) { // Should never happen
+                    log_error(logger, "No se encontró el Memory Stick correspondiente al fd %d", client_fd);
+                    break;
+                }
+
+                if (!result) { // If the write operation failed, we log an error and set last_op_result to -1 to indicate failure
+                    log_error(logger, "Error en escritura en Memory Stick %d", client->id);
                     pthread_mutex_lock(&ms->mutex);
-                    ms->last_op_result = MS_WRITE_RESPONSE;
+                    ms->last_op_result = -1;
                     pthread_mutex_unlock(&ms->mutex);
                     sem_post(&ms->response_sem);
+                    break;
                 }
+
+                pthread_mutex_lock(&ms->mutex);
+                ms->last_op_result = MS_WRITE_RESPONSE;
+                pthread_mutex_unlock(&ms->mutex);
+                sem_post(&ms->response_sem);
+                
                 break;
             }
 

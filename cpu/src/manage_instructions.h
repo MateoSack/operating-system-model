@@ -90,8 +90,8 @@ void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context
 void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
+void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
+void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 
