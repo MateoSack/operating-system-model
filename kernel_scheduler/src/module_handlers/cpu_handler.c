@@ -86,7 +86,17 @@ void cpu_handler (int cpu_fd) {
 				if (mutex != NULL) {
 					mutex_lock(mutex, process);
 				} else {
-					log_warning(logger, "Mutex '%s' no encontrado", mutex_name);
+					log_warning(logger, "Mutex '%s' no encontrado. Terminando proceso", mutex_name);
+					pthread_mutex_lock(&cpu->internal_mutex);
+					cpu->is_available = true;
+					pthread_mutex_unlock(&cpu->internal_mutex);
+
+					pthread_mutex_lock(&scheduler_mutex);
+					remove_process_from_list(exec_processes, process);
+					process_set_state(process, EXIT, logger);
+					pthread_mutex_unlock(&scheduler_mutex);
+
+					sem_post(&short_term_scheduler_sem);
 				}
 
 				free(mutex_name);
@@ -111,7 +121,17 @@ void cpu_handler (int cpu_fd) {
 				if (mutex != NULL) {
 					mutex_unlock(mutex, process);
 				} else {
-					log_warning(logger, "Mutex '%s' no encontrado", mutex_name);
+					log_warning(logger, "Mutex '%s' no encontrado. Terminando proceso", mutex_name);
+					pthread_mutex_lock(&cpu->internal_mutex);
+					cpu->is_available = true;
+					pthread_mutex_unlock(&cpu->internal_mutex);
+
+					pthread_mutex_lock(&scheduler_mutex);
+					remove_process_from_list(exec_processes, process);
+					process_set_state(process, EXIT, logger);
+					pthread_mutex_unlock(&scheduler_mutex);
+
+					sem_post(&short_term_scheduler_sem);
 				}
 
 				free(mutex_name);

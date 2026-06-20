@@ -1,3 +1,4 @@
+MUTEX_CREATE mutex_double_block
 MUTEX_LOCK mutex_double_block
 SET AX 1
 MUTEX_LOCK mutex_double_block

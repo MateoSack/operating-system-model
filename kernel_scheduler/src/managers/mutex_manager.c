@@ -52,12 +52,16 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         if (mutex->lockedBy == process) { // If the process already owns the mutex, do nothing (avoid deadlock)
             pthread_mutex_unlock(&mutex->internal_mutex);
             log_warning(logger, "## (%d) El proceso %d ya posee el mutex '%s'", process->pid, process->pid, mutex->name);
+
+            send_pid_to_execute(process->pid, process->cpu);
             return;
         }
 
         pthread_mutex_lock(&scheduler_mutex);
 
         list_add(mutex->waitingProcesses, process);
+
+        t_client_info *cpu = process->cpu;
 
         process_set_state(process, BLOCK, logger);
         process_set_cpu(process, NULL);
@@ -73,6 +77,12 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         pthread_mutex_unlock(&scheduler_mutex);
 
         pthread_mutex_unlock(&mutex->internal_mutex);
+
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_available = true;
+        pthread_mutex_unlock(&cpu->internal_mutex);
+
+        sem_post(&short_term_scheduler_sem);
     }
 }
 
