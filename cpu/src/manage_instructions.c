@@ -3,8 +3,6 @@
 bool should_exit = false;
 bool should_stop = false;
 t_interrupt_reason stop_reason = 0;
-op_code pending_syscall_op = (op_code)0;
-char *pending_syscall_payload = NULL;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
@@ -55,9 +53,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
         if(stop_flag) {
             log_debug(logger, "Deteniendo proceso PID %d", pid);
             should_stop = false;
-            // Send context to Kernel Memory before yielding for IO/stop
-            context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
-            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
+
             if(interrupt) { // If an interruption was commanded while stopping, we just reset the flag and post the semaphore to unblock eviction handler
                 pthread_mutex_lock(&interrupt_mutex);
                 interruptPending = false;
@@ -66,12 +62,6 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
             }
             send_process_interrupted(pid, stop_reason);
 
-            if (pending_syscall_op != 0) {
-                message_send_with_op_code(pending_syscall_payload, pending_syscall_op, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-                free(pending_syscall_payload);
-                pending_syscall_payload = NULL;
-                pending_syscall_op = 0;
-            }
         }
         pthread_mutex_unlock(&process_control_mutex);
         if(stop_flag) break;
@@ -312,62 +302,53 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
             break;
         }
 
-		case INS_MUTEX_CREATE: {
-            instruction_mutex_create(decoded_instruction, context);
+        case INS_MUTEX_CREATE: {
+            instruction_mutex_create(decoded_instruction, context, pid, hasJumped);
             log_debug(logger, "MUTEX_CREATE ejecutado");
-            // Advance PC here and mark hasJumped to avoid the automatic increment
-            context->pc++;
-            *hasJumped = true;
             break;
-		}
+        }
 
-		case INS_MUTEX_LOCK: {
-            instruction_mutex_lock(decoded_instruction, context);
+        case INS_MUTEX_LOCK: {
+            instruction_mutex_lock(decoded_instruction, context, pid, hasJumped);
             log_debug(logger, "MUTEX_LOCK ejecutado");
-            // Advance PC here and mark hasJumped to avoid the automatic increment
-            context->pc++;
-            *hasJumped = true;
             break;
-		}
+        }
 
-		case INS_MUTEX_UNLOCK: {
-            instruction_mutex_unlock(decoded_instruction, context);
+        case INS_MUTEX_UNLOCK: {
+            instruction_mutex_unlock(decoded_instruction, context, pid, hasJumped);
             log_debug(logger, "MUTEX_UNLOCK ejecutado");
-            // Advance PC here and mark hasJumped to avoid the automatic increment
-            context->pc++;
-            *hasJumped = true;
             break;
-		}
+        }
 
-		case INS_MEM_ALLOC: {
-			instruction_mem_alloc(decoded_instruction, context, pid);
-			log_debug(logger, "MEM_ALLOC ejecutado");
-			break;
-		}
+        case INS_MEM_ALLOC: {
+            instruction_mem_alloc(decoded_instruction, context, pid, hasJumped);
+            log_debug(logger, "MEM_ALLOC ejecutado");
+            break;
+        }
 
-		case INS_MEM_FREE: {
-			instruction_mem_free(decoded_instruction, context, pid);
-			log_debug(logger, "MEM_FREE ejecutado");
-			break;
-		}
+        case INS_MEM_FREE: {
+            instruction_mem_free(decoded_instruction, context, pid, hasJumped);
+            log_debug(logger, "MEM_FREE ejecutado");
+            break;
+        }
 
-		case INS_SLEEP: {
-			instruction_sleep(decoded_instruction, context, pid);
-			log_debug(logger, "SLEEP ejecutado");
-			break;
-		}
+        case INS_SLEEP: {
+            instruction_sleep(decoded_instruction, context, pid, hasJumped);
+            log_debug(logger, "SLEEP ejecutado");
+            break;
+        }
 
-		case INS_STDOUT: {
-			instruction_stdout(decoded_instruction, context, pid, segment_table);
-			log_debug(logger, "STDOUT ejecutado");
-			break;
-		}
+        case INS_STDOUT: {
+            instruction_stdout(decoded_instruction, context, pid, segment_table, hasJumped);
+            log_debug(logger, "STDOUT ejecutado");
+            break;
+        }
 
-		case INS_STDIN: {
-			instruction_stdin(decoded_instruction, context, pid, segment_table);
-			log_debug(logger, "STDIN ejecutado");
-			break;
-		}
+        case INS_STDIN: {
+            instruction_stdin(decoded_instruction, context, pid, segment_table, hasJumped);
+            log_debug(logger, "STDIN ejecutado");
+            break;
+        }
 
 		case INS_INIT_PROC: {
 			instruction_init_proc(decoded_instruction, context, pid);
@@ -553,84 +534,139 @@ void *process_execution_handler(void *args) {
 
 // Syscall instructions implementations
 
-void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context) {
+void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
+    // Prepare package for MUTEX_CREATE
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_CREATE;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
-    pending_syscall_op = MUTEX_CREATE;
-    pending_syscall_payload = strdup(decoded_instruction[1]);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    // Send package to scheduler
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context) {
+void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
+    // Prepare package for MUTEX_LOCK
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_LOCK;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
-    pending_syscall_op = MUTEX_LOCK;
-    pending_syscall_payload = strdup(decoded_instruction[1]);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context) {
+void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
+    // Prepare package for MUTEX_UNLOCK
+    t_package *pkg = package_create();
+    pkg->op_code = MUTEX_UNLOCK;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, decoded_instruction[1], strlen(decoded_instruction[1]) + 1);
+
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
-    pending_syscall_op = MUTEX_UNLOCK;
-    pending_syscall_payload = strdup(decoded_instruction[1]);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = MUTEX_REQUEST;
     should_stop = true;
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
     uint32_t segment_id = atoi(decoded_instruction[1]);
     uint32_t size = atoi(decoded_instruction[2]);
-    // Send MEM_ALLOC operation to kernel scheduler
+    // Prepare package for MEM_ALLOC
     t_package *pkg = package_create();
     pkg->op_code = MEM_ALLOC;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &segment_id, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
 
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = MEMORY_REQUEST;
     should_stop = true;
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
     uint32_t address = atoi(decoded_instruction[1]);
-    // Send MEM_FREE operation to kernel scheduler
+    // Prepare package for MEM_FREE
     t_package *pkg = package_create();
     pkg->op_code = MEM_FREE;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &address, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
 
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = MEMORY_REQUEST;
     should_stop = true;
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {
+void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped) {
     uint32_t time = atoi(decoded_instruction[1]);
-    // Send SLEEP operation to kernel scheduler
+    // Prepare package for SLEEP
     t_package *pkg = package_create();
     pkg->op_code = SLEEP;
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &time, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
 
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped) {
     // Send STDOUT operation to kernel scheduler with logical address and size registers
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid STDOUT register operand: %s", decoded_instruction[1]);
@@ -650,16 +686,22 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &physicall_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
 
+    // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
+    context->pc++;
+    *hasJumped = true;
     stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
+    // Send context to Kernel Memory so KM stores the updated PC, then notify Scheduler
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
-void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped) {
     // Send STDIN operation to kernel scheduler with logical address and size registers
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid STDIN register operand: %s", decoded_instruction[1]);
@@ -679,13 +721,19 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     package_add(pkg, &pid, sizeof(uint32_t));
     package_add(pkg, &physicall_address, sizeof(uint32_t));
     package_add(pkg, &size, sizeof(uint32_t));
-    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-    package_delete(pkg);
 
+    // Send context to Kernel Memory first to avoid race, then notify Scheduler
     pthread_mutex_lock(&process_control_mutex);
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
+    // Advance PC so context sent reflects next instruction and avoid re-execution
+    context->pc++;
+    *hasJumped = true;
     stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
     pthread_mutex_unlock(&process_control_mutex);
+
+    package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+    package_delete(pkg);
 }
 
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid) {

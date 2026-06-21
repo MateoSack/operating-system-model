@@ -84,14 +84,14 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *h
 void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
-void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context);
-void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context);
-void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context);
-void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
-void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
-void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
+void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_mutex_lock(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_mutex_unlock(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_mem_alloc(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_mem_free(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_sleep(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);
+void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped);
+void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped);
 void instruction_init_proc(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32_t pid);
 
