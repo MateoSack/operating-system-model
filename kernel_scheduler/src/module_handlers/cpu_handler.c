@@ -46,7 +46,9 @@ void cpu_handler (int cpu_fd) {
 					remove_process_from_list(exec_processes, process);
 				}
 
+				pthread_mutex_lock(&cpu->internal_mutex);
 				cpu->is_available = true;
+				pthread_mutex_unlock(&cpu->internal_mutex);
 
 				pthread_mutex_unlock(&scheduler_mutex);
 

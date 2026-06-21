@@ -110,6 +110,14 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
             hasJumped = false;
         }
 
+        pthread_mutex_lock(&process_control_mutex);
+        bool finishing_now = should_exit || should_stop;
+        pthread_mutex_unlock(&process_control_mutex);
+
+        if (finishing_now) {
+            continue;
+        }
+
         pthread_mutex_lock(&interrupt_mutex);
         interrupt = interruptPending;
         pthread_mutex_unlock(&interrupt_mutex);
