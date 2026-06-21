@@ -6,6 +6,40 @@ extern uint32_t target_pid;
 extern sem_t compaction_sem;
 extern t_client_info *kernel_scheduler;
 
+typedef struct {
+    uint32_t pid;
+    uint32_t segment_id;
+    uint32_t segment_size;
+} t_segment_create_args;
+
+static void *segment_create_thread(void *arg) {
+    t_segment_create_args *args = (t_segment_create_args *)arg;
+    uint32_t pid = args->pid;
+    uint32_t segment_id = args->segment_id;
+    uint32_t segment_size = args->segment_size;
+    free(args);
+
+    t_segment_result result = segment_create(pid, segment_id, segment_size);
+
+    switch (result) {
+        case SEGMENT_OK:
+            log_info(logger, "## PID: %u - Segmento Creado %u - Tamaño: %u", pid, segment_id, segment_size);
+            send_segment_result(pid, segment_id, SEGMENT_OK);
+            break;
+        case SEGMENT_NO_SPACE:
+            log_warning(logger, "PID: %u - No hay espacio para crear segmento %u de tamaño %u", pid, segment_id, segment_size);
+            send_segment_result(pid, segment_id, SEGMENT_NO_SPACE);
+            break;
+        case SEGMENT_ERROR:
+        default:
+            log_error(logger, "No se pudo crear el segmento PID:%u seg:%u size:%u", pid, segment_id, segment_size);
+            send_segment_result(pid, segment_id, SEGMENT_ERROR);
+            break;
+    }
+
+    return NULL;
+}
+
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
     char *base_path = config_get_string_value(config, "SCRIPTS_BASEPATH");
     
@@ -97,23 +131,25 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 free(buffer);
                 log_debug(logger, "Pedido de SEGMENT_CREATE para PID %u - Segmento ID %u - Tamaño %u", pid, segment_id, segment_size);
 
-                t_segment_result result = segment_create(pid, segment_id, segment_size);
-                
-                switch (result) {
-                    // Send result to scheduler
-                    case SEGMENT_OK:
-                        log_info(logger, "## PID: %u - Segmento Creado %u - Tamaño: %u", pid, segment_id, segment_size);
-                        send_segment_result(pid, segment_id, SEGMENT_OK);
-                        break;
-                    case SEGMENT_NO_SPACE:
-                        log_warning(logger, "PID: %u - No hay espacio para crear segmento %u de tamaño %u", pid, segment_id, segment_size);
-                        send_segment_result(pid, segment_id, SEGMENT_NO_SPACE);
-                        break;
-                    case SEGMENT_ERROR:
-                        log_error(logger, "No se pudo crear el segmento");
-                        send_segment_result(pid, segment_id, SEGMENT_ERROR);
-                        break;
+                t_segment_create_args *args = malloc(sizeof(t_segment_create_args));
+                if (args == NULL) {
+                    log_error(logger, "No se pudo asignar memoria para manejar SEGMENT_CREATE");
+                    send_segment_result(pid, segment_id, SEGMENT_ERROR);
+                    break;
                 }
+                args->pid = pid;
+                args->segment_id = segment_id;
+                args->segment_size = segment_size;
+
+                pthread_t thread;
+                if (pthread_create(&thread, NULL, segment_create_thread, args) != 0) {
+                    log_error(logger, "No se pudo crear hilo para SEGMENT_CREATE");
+                    free(args);
+                    send_segment_result(pid, segment_id, SEGMENT_ERROR);
+                    break;
+                }
+                pthread_detach(thread);
+
                 break;
             }
 

@@ -1,2 +1,2 @@
-INIT_PROC memTest.prc 0
+INIT_PROC cmn1.prc 0
 EXIT

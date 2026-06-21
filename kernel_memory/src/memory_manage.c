@@ -137,7 +137,9 @@ void request_and_compact(void) { // Send compaction request to Kernel Scheduler 
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 
+    log_debug(logger, "Solicitud de compactación enviada al Kernel Scheduler, esperando confirmación...");
     sem_wait(&compaction_sem);
+    log_debug(logger, "Confirmación de compactación recibida, iniciando compactación...");
 
     compact_memory();
 

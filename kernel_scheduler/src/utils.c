@@ -194,33 +194,27 @@ t_process *get_lowest_priority_process (t_list *process_list) { // Get the lowes
     return lowest_priority_process;
 }
 
-bool evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state) {
+void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state) {
     pthread_mutex_lock(&cpu->internal_mutex);
-    if (cpu->is_evicting) {
-        pthread_mutex_unlock(&cpu->internal_mutex);
-        log_debug(logger, "CPU %d ya tiene un desalojo en curso, no se envia un PROCESS_EVICT adicional por motivo de %s", cpu->id, interrupt_reason_to_string(reason));
-        return false;
-    }
     cpu->is_evicting = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
- 
+
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EVICT;
     package_add(pkg, &reason, sizeof(t_interrupt_reason));
     package_send(pkg, cpu->fd, &cpu->network_mutex);
     package_delete(pkg);
- 
+
     log_debug(logger, "Enviada orden de evict al CPU %d por motivo de %s", cpu->id, interrupt_reason_to_string(reason));
- 
+
     pthread_t thread;
     if (should_handle_state) {
         pthread_create(&thread, NULL, wait_confirmation_thread_and_handle_state, (void*)cpu);
     } else {
         pthread_create(&thread, NULL, wait_confirmation_thread, (void*)cpu);
     }
- 
+    
     pthread_detach(thread);
-    return true;
 }
 
 void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted and is ready to be sent to the ready queue
@@ -276,69 +270,55 @@ void *wait_confirmation_thread(void *arg) { // Wait for a confirmation from the 
 }
 
 void evict_all_processes (t_interrupt_reason reason) {
+    void _evict_process_no_thread(t_client_info *cpu, t_interrupt_reason reason) {
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_evicting = true;
+        pthread_mutex_unlock(&cpu->internal_mutex);
+
+        t_package *pkg = package_create();
+        pkg->op_code = PROCESS_EVICT;
+        package_add(pkg, &reason, sizeof(t_interrupt_reason));
+        package_send(pkg, cpu->fd, &cpu->network_mutex);
+        package_delete(pkg);
+
+        log_debug(logger, "Enviada orden de evict al CPU %d por motivo de %s", cpu->id, interrupt_reason_to_string(reason));
+    }
+
     pthread_mutex_lock(&scheduler_mutex);
     int count = list_size(exec_processes);
     if (count == 0) {
         pthread_mutex_unlock(&scheduler_mutex);
         return;
     }
- 
+
     t_client_info **cpus = malloc(count * sizeof(t_client_info*));
     for (int i = 0; i < count; i++) {
         t_process *process = list_get(exec_processes, i);
         cpus[i] = process->cpu;
     }
     pthread_mutex_unlock(&scheduler_mutex);
- 
-    // evict_process ya filtra solo, internamente, las CPUs que ya tengan
-    // un desalojo en curso (is_evicting == true) -- no manda un segundo
-    // PROCESS_EVICT en ese caso. should_handle_state=false porque el manejo
-    // de estado (READY + insercion al principio de cola) se hace aca abajo,
-    // como excepcion especial de compactacion.
-    int cpus_to_evict_count = 0;
-    t_client_info **cpus_evicted = malloc(count * sizeof(t_client_info*));
- 
+
     for (int i = 0; i < count; i++) {
-        if (evict_process(cpus[i], reason, false)) {
-            cpus_evicted[cpus_to_evict_count++] = cpus[i];
-        }
+        _evict_process_no_thread(cpus[i], reason);
     }
-    free(cpus);
- 
-    for (int i = 0; i < cpus_to_evict_count; i++) {
-        sem_wait(&cpus_evicted[i]->response_sem);
+
+    for (int i = 0; i < count; i++) {
+        sem_wait(&cpus[i]->response_sem);
         pthread_mutex_lock(&scheduler_mutex);
-        t_process *process = get_process_from_cpu(cpus_evicted[i]);
+        t_process *process = get_process_from_cpu(cpus[i]);
         if (process != NULL) {
             remove_process_from_list(exec_processes, process);
             process_set_state(process, READY, logger);
-            process_set_cpu(process, NULL);
- 
-            // processes evicted from compaction are added at the start of ready_queue
-            int queue_index;
-            if (scheduler_algorithm == CMN) {
-                if (process->effective_priority >= queue_algorithms_count) {
-                    log_warning(logger, "Proceso %d tiene una prioridad efectiva (%d) mayor a la cantidad de colas de planificación (%d). Agregándolo al principio de la última cola.", process->pid, process->effective_priority, queue_algorithms_count);
-                    queue_index = queue_algorithms_count - 1;
-                } else {
-                    queue_index = process->effective_priority;
-                }
-            } else {
-                queue_index = 0;
-            }
-            list_add_in_index(ready_queue[queue_index], 0, process);
- 
-            pthread_mutex_lock(&cpus_evicted[i]->internal_mutex);
-            cpus_evicted[i]->is_available = true;
-            cpus_evicted[i]->is_evicting = false;
-            pthread_mutex_unlock(&cpus_evicted[i]->internal_mutex);
-        } else {
-            log_warning(logger, "No se encontro el proceso asociado a la CPU %d para agregarlo a la cola de listo luego de la compactacion", cpus_evicted[i]->id);
+            list_add_in_index(ready_queue[0], 0, process);
+            pthread_mutex_lock(&cpus[i]->internal_mutex);
+            cpus[i]->is_available = true;
+            cpus[i]->is_evicting = false;
+            pthread_mutex_unlock(&cpus[i]->internal_mutex);
         }
         pthread_mutex_unlock(&scheduler_mutex);
     }
- 
-    free(cpus_evicted);
+
+    free(cpus);
 }
 
 void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
