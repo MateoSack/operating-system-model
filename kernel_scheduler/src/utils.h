@@ -57,7 +57,7 @@ t_process *get_process_from_cpu (t_client_info *cpu);
 t_process *get_highest_priority_process_from_ready_queue ();
 t_process *get_highest_priority_process (t_list *process_list);
 t_process *get_lowest_priority_process (t_list *process_list);
-void evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state);
+bool evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state);
 void *wait_confirmation_thread_and_handle_state (void *arg);
 void *wait_confirmation_thread (void *arg);
 void evict_all_processes (t_interrupt_reason reason);

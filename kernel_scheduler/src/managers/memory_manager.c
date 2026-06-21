@@ -109,10 +109,14 @@ void *compaction_requested_thread (void *arg) {
 
     evict_all_processes(COMPACTION);
 
+    log_debug(logger, "Ya se han desalojado todos los procesos");
+
     t_package *package = package_create();
     package->op_code = COMPACTION_READY;
     package_send(package, kernel_memory->fd, &kernel_memory->network_mutex);
     package_delete(package);
+
+    log_debug(logger, "Enviado COMPACTION_READY");
 
     sem_wait(&compaction_finished_sem);
 
