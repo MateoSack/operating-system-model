@@ -1,0 +1,5 @@
+SET AX 5
+SET BX 3
+INIT_PROC sum.prc 0
+SUM AX BX
+EXIT

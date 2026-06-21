@@ -1,0 +1,4 @@
+INIT_PROC sum.prc 1
+INIT_PROC sum.prc 1
+INIT_PROC sumCMN.prc 0
+EXIT
