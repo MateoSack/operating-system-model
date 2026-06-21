@@ -60,6 +60,7 @@ extern t_interrupt_reason stopReason;
 extern t_instruction_response instruction_response;
 extern uint32_t segment_max_size;
 extern t_list *list_memory_stick;
+extern bool is_executing;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex);
 void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table);

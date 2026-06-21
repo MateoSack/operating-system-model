@@ -3,6 +3,7 @@
 bool should_exit = false;
 bool should_stop = false;
 t_interrupt_reason stop_reason = 0;
+bool is_executing = false;
 
 void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t *mutex) {
     t_package *pkg = package_create();
@@ -523,8 +524,12 @@ void *process_execution_handler(void *args) {
 	uint32_t exec_pid = exec_args->pid;
 	t_cpu_context *exec_context = exec_args->context;
     t_list *segment_table = exec_args->segment_table;
-	
-	instructions_cicle(exec_context, exec_pid, segment_table);
+
+    // Mark that this PID has an active execution thread
+    is_executing = true;
+    instructions_cicle(exec_context, exec_pid, segment_table);
+    // Execution finished
+    is_executing = false;
 	
 	free(exec_context);
 	free(exec_args);

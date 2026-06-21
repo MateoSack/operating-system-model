@@ -300,10 +300,20 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				interruptReason = reason;
 				pthread_mutex_unlock(&interrupt_mutex);
 
-				sem_wait(&sem_eviction_ready);
-				log_debug(logger, "Proceso desalojado correctamente");
-				send_confirmation(current_pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-				sem_post(&sem_eviction_handled);
+				// If there's no active execution thread, there's nothing to wait on
+				if (!is_executing) {
+					log_debug(logger, "PROCESS_EVICT received but no execution active; replying immediately");
+					pthread_mutex_lock(&interrupt_mutex);
+					interruptPending = false;
+					pthread_mutex_unlock(&interrupt_mutex);
+					send_confirmation(current_pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+					sem_post(&sem_eviction_handled);
+				} else {
+					sem_wait(&sem_eviction_ready);
+					log_debug(logger, "Proceso desalojado correctamente");
+					send_confirmation(current_pid, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+					sem_post(&sem_eviction_handled);
+				}
 				break;
 			}
 			default: {

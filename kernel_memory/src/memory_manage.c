@@ -100,7 +100,7 @@ t_hole *select_hole(t_list *holes, uint32_t size) {
 }
 
 void compact_memory(void) {
-    log_debug(logger, "Inicio de compactación");
+    log_warning(logger, "Inicio de compactación");
 
     pthread_mutex_lock(&list_processes_mutex);
     uint32_t cursor = 0;
