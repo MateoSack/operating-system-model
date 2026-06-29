@@ -89,6 +89,7 @@ t_process *get_next_process_to_execute () { // Returns the next process to execu
             break;
     }
 
+    if (process->state != READY) return NULL;
     return process;
 }
 
