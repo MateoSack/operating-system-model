@@ -54,6 +54,8 @@ typedef enum {
     MS_WRITE,
     MS_READ_RESPONSE, // Ver de unificar con MS_READ
     MS_WRITE_RESPONSE,
+    SWAP_IN,
+    SWAP_OUT,
 } op_code;
 
 typedef struct {
