@@ -17,6 +17,7 @@ t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a ne
     process->state = NEW;
     process->cpu = NULL;
     process->start_exec_time = 0;
+    process->start_block_time = 0;
     process->owned_mutexes = list_create();
     sem_init(&process->io_request_sem, 0, 0);
     sem_init(&process->memory_request_sem, 0, 0);

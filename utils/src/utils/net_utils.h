@@ -125,6 +125,7 @@ void t_module_id_send (int server_fd, t_module_id module_id, t_log *logger, pthr
 t_module_id t_module_id_decode (int client_fd);
 uint32_t uint32_receive (int client_fd);
 void uint32_send (int client_fd, uint32_t value, pthread_mutex_t *mutex);
+void uint32_send_with_op_code (int client_fd, uint32_t value, op_code op_code, pthread_mutex_t *mutex);
 void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex);
 t_list *receive_credentials_list (int socket_cliente);
 void send_credentials (int fd, t_memory_stick_credentials *cred, t_log *logger, pthread_mutex_t *mutex);
@@ -141,5 +142,7 @@ void t_io_type_send (int server_fd, t_io_type module_type, t_log *logger, pthrea
 t_io_type t_io_type_receive (int client_fd);
 t_io_type t_io_type_deserialize(void *buffer, int *offset);
 char *bytes_to_safe_string(void *data, uint32_t size);
+void uint32_list_send (int fd, pthread_mutex_t *mutex, t_list *list, op_code op_code);
+t_list *uint32_list_decode (int fd);
 
 #endif

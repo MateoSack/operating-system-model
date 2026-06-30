@@ -15,6 +15,7 @@ typedef struct {
     uint8_t effective_priority;
     t_client_info *cpu;
     uint64_t start_exec_time;
+    uint64_t start_block_time;
     t_list *owned_mutexes;
     sem_t io_request_sem;
     sem_t memory_request_sem;

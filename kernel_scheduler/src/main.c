@@ -5,6 +5,7 @@ t_config *config;
 
 t_scheduler_algorithm scheduler_algorithm;
 int quantum = 0;
+int suspension_timeout = 0;
 
 t_scheduler_algorithm *queue_algorithms = NULL;
 int queue_algorithms_count = 1;
@@ -31,6 +32,8 @@ pthread_mutex_t pending_io_stdin_reading_mutex = PTHREAD_MUTEX_INITIALIZER;
 t_list *list_processes = NULL;
 t_list **ready_queue = NULL; // In CMN, this is an array of ready queues, one per priority level. In FIFO and RR, this is a single ready queue at index 0.
 t_list *exec_processes = NULL;
+t_list *block_processes = NULL;
+t_list *suspended_processes = NULL;
 
 t_list *list_mutexes = NULL;
 
@@ -41,6 +44,9 @@ pthread_mutex_t list_mutex_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t cpu_id_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t io_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t block_processes_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t suspended_processes_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 sem_t short_term_scheduler_sem;
 
@@ -146,6 +152,7 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 
 	scheduler_algorithm = scheduler_algorithm_from_string(scheduler_algorithm_str);
 	quantum = config_get_int_value(config, "RR_QUANTUM");
+	suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
 
 	char *queue_preemption_str = config_get_string_value(config, "QUEUE_PREEMPTION");
 
@@ -201,6 +208,8 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 	list_processes = list_create();
 
 	exec_processes = list_create();
+	block_processes = list_create();
+	suspended_processes = list_create();
 
 	list_mutexes = list_create();
 

@@ -274,6 +274,14 @@ void uint32_send (int client_fd, uint32_t value, pthread_mutex_t *mutex) { // Se
     package_delete(pkg);
 }
 
+void uint32_send_with_op_code (int client_fd, uint32_t value, op_code op_code, pthread_mutex_t *mutex) { // Sends a uint32_t to the client with custom op_code
+	t_package *pkg = package_create();
+	pkg->op_code = op_code;
+    package_add(pkg, &value, sizeof(uint32_t));
+	package_send(pkg, client_fd, mutex);
+    package_delete(pkg);
+}
+
 void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t *mutex) { // Sends a list of t_memory_stick_credentials to the client as part of a package
 	t_package *pkg = package_create();
 	pkg->op_code = PACKAGE;
@@ -548,4 +556,46 @@ char *bytes_to_safe_string(void *data, uint32_t size) {
 	}
 	result[pos] = '\0';
 	return result;
+}
+
+void uint32_list_send (int fd, pthread_mutex_t *mutex, t_list *list, op_code op_code) { // Sends a list of uint32 to the client
+	t_package *pkg = package_create();
+	pkg->op_code = op_code;
+	for(int i = 0; i < list_size(list); i++) {
+		uint32_t *value = list_get(list, i);
+		package_add(pkg, value, sizeof(uint32_t));
+	}
+
+	package_send(pkg, fd, mutex);
+	package_delete(pkg);
+	log_info(logger, "Paquete de uint32 enviado a fd: %d, elementos: %d", fd, list_size(list));
+}
+
+t_list *uint32_list_decode (int fd) { // Decodes a list of uint32 from the client, returns the list
+	t_list *list = list_create();
+
+    int size;
+    int offset = 0;
+	log_debug(logger, "Leyendo el buffer para uint32_list_decode");
+    void *buffer = buffer_receive(&size, fd);
+	log_debug(logger, "Buffer recibido para uint32_list_decode");
+
+	if (size == 0) {
+		free(buffer);
+		log_info(logger, "Lista de uint32 vacía");
+		return list;
+	}
+
+	while (offset < size) {
+		uint32_t *value = malloc(sizeof(uint32_t));
+
+		*value = uint32_deserialize(buffer, &offset);
+
+		list_add(list, value);
+	}
+
+	log_info(logger, "Lista de uint32 recibida con %d elementos", list_size(list));
+
+    free(buffer);
+    return list;
 }
