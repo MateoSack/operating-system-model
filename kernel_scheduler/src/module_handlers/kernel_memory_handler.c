@@ -101,6 +101,9 @@ void *kernel_memory_handler (void *arg) {
 				if (!write_succesful) {
 					log_error(logger, "Hubo un error en la escritura de datos. Finalizando proceso...");
 					process_set_state(process, EXIT, logger);
+
+					uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
+
 					break;
 				}
 

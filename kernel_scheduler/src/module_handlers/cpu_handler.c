@@ -52,7 +52,7 @@ void cpu_handler (int cpu_fd) {
 
 				pthread_mutex_unlock(&scheduler_mutex);
 
-				send_pid_with_op_code(pid, PROCESS_END, kernel_memory->fd, &kernel_memory->network_mutex);
+				uint32_send_with_op_code(kernel_memory->fd, pid, PROCESS_END, &kernel_memory->network_mutex);
 
 				log_info(logger, "## (%d) finalizo su ejecución con motivo de EXIT", pid);
 
@@ -98,6 +98,8 @@ void cpu_handler (int cpu_fd) {
 					process_set_state(process, EXIT, logger);
 					pthread_mutex_unlock(&scheduler_mutex);
 
+					uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
+
 					sem_post(&short_term_scheduler_sem);
 				}
 
@@ -132,6 +134,8 @@ void cpu_handler (int cpu_fd) {
 					remove_process_from_list(exec_processes, process);
 					process_set_state(process, EXIT, logger);
 					pthread_mutex_unlock(&scheduler_mutex);
+
+					uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
 
 					sem_post(&short_term_scheduler_sem);
 				}
@@ -251,7 +255,7 @@ void cpu_handler (int cpu_fd) {
 
 				pthread_mutex_unlock(&scheduler_mutex);
 
-				send_pid_with_op_code(pid, PROCESS_END, kernel_memory->fd, &kernel_memory->network_mutex);
+				uint32_send_with_op_code(kernel_memory->fd, pid, PROCESS_END, &kernel_memory->network_mutex);
 
 				log_info(logger, "## (%d) finalizo su ejecución con motivo de SEGMENTATION_FAULT", pid);
 
@@ -330,12 +334,4 @@ void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd
 	*reason = t_interrupt_reason_deserialize(buffer, &offset);
 
 	free(buffer);
-}
-
-void send_pid_with_op_code (uint32_t pid, op_code op_code, int client_socket, pthread_mutex_t *mutex) {
-	t_package *pkg = package_create();
-	pkg->op_code = op_code;
-	package_add(pkg, &pid, sizeof(uint32_t));
-	package_send(pkg, client_socket, mutex);
-	package_delete(pkg);
 }

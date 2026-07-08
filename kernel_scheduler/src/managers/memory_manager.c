@@ -90,6 +90,9 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
             process_set_state(process, EXIT, logger);
             remove_process_from_list(exec_processes, process);
             pthread_mutex_unlock(&scheduler_mutex);
+
+            uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
+
             sem_post(&short_term_scheduler_sem);
         }
         return;
@@ -118,10 +121,12 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
         remove_process_from_list(exec_processes, process);
         remove_process_from_ready_queue(process);
         pthread_mutex_unlock(&scheduler_mutex);
-        
+
         pthread_mutex_lock(&cpu->internal_mutex);
         if (!cpu->is_evicting) cpu->is_available = true;
         pthread_mutex_unlock(&cpu->internal_mutex);
+
+        uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
 
         sem_post(&short_term_scheduler_sem);
     }

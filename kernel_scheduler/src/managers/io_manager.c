@@ -53,6 +53,7 @@ int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phys
     if (to_read == 0) {
         log_warning(logger, "Proceso %d pidio leer 0 bytes. Terminando proceso...", pid);
         process_set_state(process, EXIT, logger);
+        uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
         return EXIT_FAILURE;
     }
 
@@ -152,6 +153,7 @@ void stdout_wait_memory_read (uint32_t pid, char *value) {
     if (strcmp(value, "") == 0) {
         log_warning(logger, "Hubo un error al leer los datos. Finalizando proceso...");
         process_set_state(get_process_from_pid(pid), EXIT, logger);
+        uint32_send_with_op_code(kernel_memory->fd, pid, PROCESS_END, &kernel_memory->network_mutex);
     }
 
     log_debug(logger, "Datos leidos: %s", value);

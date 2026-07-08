@@ -30,7 +30,6 @@ void handle_cpu_disconnection (t_client_info *cpu);
 void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char **path, int cpu_fd);
 t_client_info *get_available_io_type (t_list *io_list);
 void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd);
-void send_pid_with_op_code (uint32_t pid, op_code op_code, int client_socket, pthread_mutex_t *mutex);
 void receive_instruction_mem_alloc (uint32_t *pid, uint32_t *segment_id, uint32_t *size, int cpu_fd);
 
 #endif
