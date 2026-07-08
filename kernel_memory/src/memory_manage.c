@@ -377,3 +377,287 @@ void send_segment_result(uint32_t pid, uint32_t segment_id, int result) {
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }
+
+// ========================== SWAP MANAGEMENT ==========================
+
+uint32_t target_suspended_pid;
+bool find_suspended_by_pid(void *element) {
+    t_suspended_pcb *sp = (t_suspended_pcb *)element;
+    return sp->pid == target_suspended_pid;
+}
+
+t_list *get_free_swap_blocks(uint32_t blocks_needed) {
+    uint32_t total_blocks = swap_total_size / swap_block_size;
+
+    bool *usedBlocks = calloc(total_blocks, sizeof(bool));
+
+    pthread_mutex_lock(&list_suspended_processes_mutex);
+    for(int i = 0; i < list_size(list_suspended_processes); i++) {
+        t_suspended_pcb *sp = list_get(list_suspended_processes, i);
+        for(int j = 0; j < list_size(sp->suspended_segments); j++) {
+            t_suspended_segment *ss = list_get(sp->suspended_segments, j);
+            for(int k = 0; k < list_size(ss->swap_blocks); k++) {
+                uint32_t *block = list_get(ss->swap_blocks, k);
+                if (*block < total_blocks) usedBlocks[*block] = true; // Check to evade out of bounds
+            }
+        }
+    }
+    pthread_mutex_unlock(&list_suspended_processes_mutex);
+
+    t_list *free_blocks = list_create();
+    for(uint32_t i = 0; i < total_blocks && list_size(free_blocks) < (int)blocks_needed; i++) {
+        if(!usedBlocks[i]) {
+            uint32_t *block = malloc(sizeof(uint32_t));
+            *block = i;
+            list_add(free_blocks, block);
+        }
+    }
+    free(usedBlocks);
+
+    if(list_size(free_blocks) < (int)blocks_needed) {
+        list_destroy_and_destroy_elements(free_blocks, free);
+        return NULL;
+    }
+    return free_blocks;
+}
+
+bool write_segment_to_swap(t_suspended_segment *ss, void *data) {
+    uint32_t bytes_done = 0;
+
+    for(int b = 0; b < list_size(ss->swap_blocks); b++) {
+        uint32_t *block_num = list_get(ss->swap_blocks, b);
+
+        uint32_t chunk = swap_block_size;
+        if(bytes_done + chunk > ss->size) { // If the last block to write is smaller than the swap block size, adjust the chunk size to match it
+            chunk = ss->size - bytes_done;
+        }
+        void *block_buffer = calloc(swap_block_size, 1);
+        memcpy(block_buffer, data + bytes_done, chunk);
+
+        t_package *pkg = package_create();
+        pkg->op_code = SWAP_OUT;
+        package_add(pkg, block_num, sizeof(uint32_t));
+        package_add(pkg, block_buffer, swap_block_size);
+        package_send(pkg, swap_fd, NULL);
+        package_delete(pkg);
+        free(block_buffer);
+
+        sem_wait(&sem_swap_write_done); // Wait for confirmation
+
+        bytes_done += chunk;
+    }
+    return true;
+}
+
+void *read_segment_from_swap(t_suspended_segment *ss) {
+    void *data = malloc(ss->size);
+    if (data == NULL) return NULL;
+    uint32_t bytes_done = 0;
+
+    for (int b = 0; b < list_size(ss->swap_blocks); b++) {
+        uint32_t *block_num = list_get(ss->swap_blocks, b);
+
+        t_package *pkg = package_create();
+        pkg->op_code = SWAP_IN;
+        package_add(pkg, block_num, sizeof(uint32_t));
+        package_send(pkg, swap_fd, NULL);
+        package_delete(pkg);
+
+        sem_wait(&swap_read_response.sem);
+
+        pthread_mutex_lock(&swap_read_response.mutex);
+        void *block_buffer  = swap_read_response.data;
+        swap_read_response.data  = NULL; // Clean the buffer for the next read
+        swap_read_response.ready = false;
+        pthread_mutex_unlock(&swap_read_response.mutex);
+
+        if (block_buffer == NULL) {
+            log_error(logger, "read_segment_from_swap: respuesta NULL para bloque %u", *block_num);
+            free(data);
+            return NULL;
+        }
+
+        uint32_t chunk = swap_block_size;
+        if (bytes_done + chunk > ss->size) { // If the last block to read is smaller than the swap block size, adjust the chunk size to match it
+            chunk = ss->size - bytes_done;
+        }
+        memcpy(data + bytes_done, block_buffer, chunk);
+        free(block_buffer);
+
+        bytes_done += chunk;
+    }
+    return data;
+}
+
+bool process_suspend(uint32_t pid) {
+    pthread_mutex_lock(&list_processes_mutex);
+    target_pid = pid;
+    t_pcb *pcb = list_find(list_processes, find_by_pid);
+    if (pcb == NULL) {
+        pthread_mutex_unlock(&list_processes_mutex);
+        log_warning(logger, "process_suspend: PID %u no encontrado", pid);
+        return false;
+    }
+    pthread_mutex_lock(&pcb->mutex);
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    t_suspended_pcb *sp = malloc(sizeof(t_suspended_pcb));
+    sp->pid = pid;
+    sp->suspended_segments = list_create();
+
+    for (int i = 0; i < list_size(pcb->segment_table); i++) {
+        t_segment *seg = list_get(pcb->segment_table, i);
+
+        uint32_t blocks_needed = (seg->size + swap_block_size - 1) / swap_block_size; // Calculate the number of swap blocks needed to store the segment (rounding up)
+        t_list *blocks = get_free_swap_blocks(blocks_needed); // Get the free blocks in swap to store the segment
+        if (blocks == NULL) {
+            log_error(logger, "process_suspend: sin espacio en SWAP para PID: %u segmento: %u", pid, seg->segment_id);
+            for (int j = 0; j < list_size(sp->suspended_segments); j++) { // Clean up any segments that were already suspended before returning false
+                t_suspended_segment *ss = list_get(sp->suspended_segments, j);
+                list_destroy_and_destroy_elements(ss->swap_blocks, free);
+                free(ss);
+            }
+            list_destroy(sp->suspended_segments);
+            free(sp);
+            pthread_mutex_unlock(&pcb->mutex);
+            return false;
+        }
+
+        void *data = memory_read(seg->base, seg->size);
+        if (data == NULL) {
+            list_destroy_and_destroy_elements(blocks, free);
+            for (int j = 0; j < list_size(sp->suspended_segments); j++) { // Clean up any segments that were already suspended before returning false
+                t_suspended_segment *ss = list_get(sp->suspended_segments, j);
+                list_destroy_and_destroy_elements(ss->swap_blocks, free);
+                free(ss);
+            }
+            list_destroy(sp->suspended_segments);
+            free(sp);
+            pthread_mutex_unlock(&pcb->mutex);
+            return false;
+        }
+
+        t_suspended_segment *ss = malloc(sizeof(t_suspended_segment));
+        ss->segment_id  = seg->segment_id;
+        ss->size        = seg->size;
+        ss->swap_blocks = blocks;
+
+        bool could_write = write_segment_to_swap(ss, data);
+        free(data);
+
+        if (!could_write) {
+            list_destroy_and_destroy_elements(ss->swap_blocks, free);
+            free(ss);
+            for (int j = 0; j < list_size(sp->suspended_segments); j++) {
+                t_suspended_segment *prev = list_get(sp->suspended_segments, j);
+                list_destroy_and_destroy_elements(prev->swap_blocks, free);
+                free(prev);
+            }
+            list_destroy(sp->suspended_segments);
+            free(sp);
+            pthread_mutex_unlock(&pcb->mutex);
+            return false;
+        }
+
+        list_add(sp->suspended_segments, ss);
+    }
+
+    // Clean up the PCB's segment table, so the process is effectively suspended and has no segments in memory (the space before ocuppied is now free)
+    list_destroy_and_destroy_elements(pcb->segment_table, free);
+    pcb->segment_table = list_create();
+
+    pthread_mutex_unlock(&pcb->mutex);
+
+    pthread_mutex_lock(&list_suspended_processes_mutex);
+    list_add(list_suspended_processes, sp);
+    pthread_mutex_unlock(&list_suspended_processes_mutex);
+
+    log_debug(logger, "PID %u suspendido correctamente", pid);
+    return true;
+}
+
+bool process_desuspend(uint32_t pid) { // Chequear bien
+    pthread_mutex_lock(&list_suspended_processes_mutex);
+    target_suspended_pid = pid;
+    t_suspended_pcb *sp = list_find(list_suspended_processes, find_suspended_by_pid);
+    if(sp == NULL) {
+        pthread_mutex_unlock(&list_suspended_processes_mutex);
+        log_error(logger, "process_desuspend: PID %u no encontrado en suspendidos", pid);
+        return false;
+    }
+    list_remove_element(list_suspended_processes, sp);
+    pthread_mutex_unlock(&list_suspended_processes_mutex);
+
+    pthread_mutex_lock(&list_processes_mutex);
+    target_pid = pid;
+    t_pcb *pcb = list_find(list_processes, find_by_pid);
+    if(pcb == NULL) {
+        pthread_mutex_unlock(&list_processes_mutex);
+        log_error(logger, "process_desuspend: PID %u no encontrado en list_processes", pid);
+        for(int i = 0; i < list_size(sp->suspended_segments); i++) {
+            t_suspended_segment *ss = list_get(sp->suspended_segments, i);
+            list_destroy_and_destroy_elements(ss->swap_blocks, free);
+            free(ss);
+        }
+        list_destroy(sp->suspended_segments);
+        free(sp);
+        return false;
+    }
+    pthread_mutex_lock(&pcb->mutex);
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    for(int i = 0; i < list_size(sp->suspended_segments); i++) {
+        t_suspended_segment *ss = list_get(sp->suspended_segments, i);
+
+        t_list *holes = get_free_holes();
+        t_hole *chosen = select_hole(holes, ss->size);
+
+        if(chosen == NULL) {
+            list_destroy_and_destroy_elements(holes, free);
+            pthread_mutex_unlock(&pcb->mutex);
+            log_error(logger, "process_desuspend: sin espacio en memoria para PID %u seg %u",
+                      pid, ss->segment_id);
+            return false;
+        }
+
+        uint32_t new_base = chosen->base;
+        list_destroy_and_destroy_elements(holes, free);
+
+        void *data = read_segment_from_swap(ss);
+        if(data == NULL) {
+            pthread_mutex_unlock(&pcb->mutex);
+            return false;
+        }
+
+        bool could_write = memory_write(new_base, data, ss->size);
+        free(data);
+
+        if(!could_write) {
+            pthread_mutex_unlock(&pcb->mutex);
+            log_error(logger, "process_desuspend: fallo al escribir en MS para PID %u seg %u",
+                      pid, ss->segment_id);
+            return false;
+        }
+
+        t_segment *seg = malloc(sizeof(t_segment));
+        seg->segment_id = ss->segment_id;
+        seg->base       = new_base;
+        seg->size       = ss->size;
+        list_add(pcb->segment_table, seg);
+
+        log_debug(logger, "Segmento %u del PID %u restaurado en base %u", ss->segment_id, pid, new_base);
+    }
+
+    pthread_mutex_unlock(&pcb->mutex);
+
+    for(int i = 0; i < list_size(sp->suspended_segments); i++) {
+        t_suspended_segment *ss = list_get(sp->suspended_segments, i);
+        list_destroy_and_destroy_elements(ss->swap_blocks, free);
+        free(ss);
+    }
+    list_destroy(sp->suspended_segments);
+    free(sp);
+
+    log_debug(logger, "PID %u des-suspendido correctamente", pid);
+    return true;
+}

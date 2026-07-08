@@ -168,7 +168,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
                 t_segment_result result = segment_delete(pid, segment_id);
 
-                switch (result) { // VER DE MANDAR LOS RESULTADOS A KS
+                switch (result) {
                     case SEGMENT_OK:
                         log_debug(logger, "PID: %u - Segmento Eliminado %u", pid, segment_id);
                         send_segment_result(pid, segment_id, SEGMENT_OK);
@@ -280,6 +280,52 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
                 package_delete(pkg);
                 free(padded_data);
+                break;
+            }
+
+            case SWAP_OUT: {
+                uint32_t pid = uint32_decode(client_fd);
+                log_debug(logger, "Solicitud de suspensión para PID %u", pid);
+
+                bool couldSuspend = process_suspend(pid);
+
+                t_package *pkg = package_create();
+                pkg->op_code = SWAP_OUT;
+                package_add(pkg, &pid, sizeof(uint32_t));
+                package_add(pkg, &couldSuspend, sizeof(bool));
+                package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                package_delete(pkg);
+                break;
+            }
+
+            case SWAP_IN: {
+                t_list *pids = uint32_list_decode(client_fd);
+                t_list *desuspended_pids = list_create();
+                for (int i = 0; i < list_size(pids); i++) {
+                    uint32_t *pid = list_get(pids, i);
+                    log_debug(logger, "SWAP_IN para PID %u", *pid);
+                    if (process_desuspend(*pid)) {
+                        list_add(desuspended_pids, pid);
+                    } else {
+                        log_debug(logger, "No se pudo desuspender el proceso PID %u", *pid);
+                        free(pid);
+                    }
+                    log_debug(logger, "SWAP_IN completado - PID %u", *pid);
+                }
+
+                list_destroy_and_destroy_elements(pids, free);
+                uint32_t desuspended_count = list_size(desuspended_pids);
+
+                t_package *pkg = package_create();
+                pkg->op_code = SWAP_IN;
+                package_add(pkg, &desuspended_count, sizeof(uint32_t));
+                for (int i = 0; i < desuspended_count; i++) {
+                    uint32_t *pid = list_get(desuspended_pids, i);
+                    package_add(pkg, pid, sizeof(uint32_t));
+                }
+                list_destroy_and_destroy_elements(desuspended_pids, free);
+                package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
+                package_delete(pkg);
                 break;
             }
         }

@@ -12,6 +12,14 @@ typedef struct {
     pthread_mutex_t mutex; // Mutex for synchronizing access to the PCB, always lock before unlocking list_processes_mutex to avoid sync issues
 } t_pcb;
 
+typedef struct {
+    void *data;
+    uint32_t size;
+    bool ready;
+    pthread_mutex_t mutex;
+    sem_t sem;
+} t_swap_read_response;
+
 extern uint32_t target_pid;
 extern t_client_info *kernel_scheduler;
 

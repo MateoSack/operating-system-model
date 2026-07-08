@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
 
     FILE *swap_file = fopen(swap_file_path, "r+b");
     if (swap_file == NULL) {
-        // El archivo no existe, lo creamos del tamaño correcto
+        // The file does not exist, create it
         swap_file = fopen(swap_file_path, "w+b");
         if (swap_file == NULL) {
             log_error(logger, "No se pudo crear el archivo de SWAP en %s", swap_file_path);
@@ -41,9 +41,7 @@ int main(int argc, char *argv[]) {
     int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
     kernel_memory = create_client_info(kernel_memory_fd, 0);
-
-    if(kernel_memory_fd == -1)
-    {
+    if(kernel_memory_fd == -1) {
         log_error(logger, "Conexion con Kernel Memory fallida");
         return EXIT_FAILURE;
     }
@@ -91,7 +89,7 @@ t_log *start_logger(t_config *config) {
 }
 
 void send_swap_info(t_client_info *kernel_memory, uint32_t block_size, uint32_t swap_file_size) {
-    uint32_send(kernel_memory->fd, block_size, &kernel_memory->network_mutex); // VER SI ESTOY USANDO BIEN EL MUTEX
+    uint32_send(kernel_memory->fd, block_size, &kernel_memory->network_mutex);
     uint32_send(kernel_memory->fd, swap_file_size, &kernel_memory->network_mutex);
 }
 
@@ -101,7 +99,7 @@ void handle_block_read(int client_fd, FILE *swap_file, uint32_t block_size, pthr
     void *buffer = malloc(block_size);
 
     pthread_mutex_lock(write_mutex);
-    fseek(swap_file, (long)block_number * block_size, SEEK_SET);
+    fseek(swap_file, (long)block_number * block_size, SEEK_SET); // Move the file pointer to the correct position (SEEK_SET starts from the beginning of the file)
     fread(buffer, block_size, 1, swap_file);
     pthread_mutex_unlock(write_mutex);
 
@@ -125,7 +123,7 @@ void handle_block_write(int client_fd, FILE *swap_file, uint32_t block_size, pth
     void *block_data = buffer + offset;
 
     pthread_mutex_lock(write_mutex);
-    fseek(swap_file, (long)block_number * block_size, SEEK_SET);
+    fseek(swap_file, (long)block_number * block_size, SEEK_SET); // Move the file pointer to the correct position (SEEK_SET starts from the beginning of the file)
     fwrite(block_data, block_size, 1, swap_file);
     fflush(swap_file);
     pthread_mutex_unlock(write_mutex);

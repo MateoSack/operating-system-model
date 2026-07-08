@@ -11,6 +11,8 @@ int swap_fd = -1;
 
 uint32_t total_memory_size = 0;
 uint32_t segment_max_size = 0;
+uint32_t swap_block_size = 0;
+uint32_t swap_total_size = 0;
 
 pthread_mutex_t total_memory_size_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_cpu_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -18,13 +20,23 @@ pthread_mutex_t list_memory_stick_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_memory_stick_credentials_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_processes_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t next_memory_stick_id_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t list_suspended_processes_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+t_swap_read_response swap_read_response = {
+    .data  = NULL,
+    .size  = 0,
+    .ready = false,
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+};
+
+sem_t sem_swap_write_done;
 sem_t compaction_sem;
 
 t_list *list_cpu = NULL;
 t_list *list_memory_stick = NULL;
 t_list *list_memory_stick_credentials = NULL;
 t_list *list_processes = NULL;
+t_list *list_suspended_processes = NULL;
 
 uint32_t next_memory_stick_id = 0;
 
@@ -63,8 +75,11 @@ int main(int argc, char *argv[]) {
     list_memory_stick = list_create();
     list_memory_stick_credentials = list_create();
     list_processes = list_create();
+    list_suspended_processes = list_create();
 
     sem_init(&compaction_sem, 0, 0);
+    sem_init(&sem_swap_write_done, 0, 0);
+    sem_init(&swap_read_response.sem, 0, 0);
 
 	char *port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
