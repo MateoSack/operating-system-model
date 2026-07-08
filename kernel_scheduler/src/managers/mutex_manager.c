@@ -66,6 +66,11 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
         process_set_state(process, BLOCK, logger);
         process_set_cpu(process, NULL);
 
+        process->start_block_time = temporal_gettime(system_timer);
+        pthread_mutex_lock(&block_processes_mutex);
+        list_add(block_processes, process);
+        pthread_mutex_unlock(&block_processes_mutex);
+
         t_process *owner = mutex->lockedBy;
 
         if (scheduler_algorithm == CMN && process->effective_priority < owner->effective_priority) { // Priority inheritance
@@ -134,15 +139,15 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
         mutex->lockedBy = next_process;
 
         pthread_mutex_lock(&scheduler_mutex);
-        process_set_state(next_process, READY, logger);
+        process_set_ready(next_process);
         list_add(next_process->owned_mutexes, mutex);
-        add_process_to_ready_queue(next_process);
-        
+        if (next_process->state == READY) {
+            add_process_to_ready_queue(next_process);
+            sem_post(&short_term_scheduler_sem);
+        }
         pthread_mutex_unlock(&scheduler_mutex);
         
         pthread_mutex_unlock(&mutex->internal_mutex);
-
-        sem_post(&short_term_scheduler_sem);
 
         log_info(logger, "## (%d) Libera el Mutex '%s' y se asigna al proceso %d", previous_owner_pid, mutex->name, next_process->pid);
 

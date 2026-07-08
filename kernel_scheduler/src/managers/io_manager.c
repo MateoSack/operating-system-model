@@ -5,6 +5,10 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
     process_set_state(process, BLOCK, logger);
     process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
+    process->start_block_time = temporal_gettime(system_timer);
+    pthread_mutex_lock(&block_processes_mutex);
+    list_add(block_processes, process);
+    pthread_mutex_unlock(&block_processes_mutex);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
 
@@ -40,22 +44,29 @@ int sleep_syscall_manager (t_process *process, t_client_info *cpu, uint32_t slee
 
 int stdin_syscall_manager (t_process *process, t_client_info *cpu, uint32_t physical_address, uint32_t to_read) { // Manages the stdin syscall for a process, sending it to an available IO device of type STDIN
     pthread_mutex_lock(&scheduler_mutex);
-    process_set_state(process, BLOCK, logger);
-    process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
     int pid = process->pid;
+
+    if (to_read == 0) {
+        process_set_state(process, EXIT, logger);
+        pthread_mutex_unlock(&scheduler_mutex);
+        log_warning(logger, "Proceso %d pidio leer 0 bytes. Terminando proceso...", pid);
+        uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
+        return EXIT_FAILURE;
+    }
+
+    process_set_state(process, BLOCK, logger);
+    process_set_cpu(process, NULL);
+    process->start_block_time = temporal_gettime(system_timer);
+    pthread_mutex_lock(&block_processes_mutex);
+    list_add(block_processes, process);
+    pthread_mutex_unlock(&block_processes_mutex);
+
     pthread_mutex_unlock(&scheduler_mutex);
 
     pthread_mutex_lock(&cpu->internal_mutex);
     cpu->is_available = true;
     pthread_mutex_unlock(&cpu->internal_mutex);
-
-    if (to_read == 0) {
-        log_warning(logger, "Proceso %d pidio leer 0 bytes. Terminando proceso...", pid);
-        process_set_state(process, EXIT, logger);
-        uint32_send_with_op_code(kernel_memory->fd, process->pid, PROCESS_END, &kernel_memory->network_mutex);
-        return EXIT_FAILURE;
-    }
 
     t_io_numeric_process *io_process = t_io_numeric_process_create(pid, to_read, IO_TYPE_STDIN);
     t_pending_stdin *pending_stdin = t_pending_stdin_create(pid, physical_address, to_read);
@@ -95,8 +106,10 @@ void *wait_memory_write_confirmation (void *arg) {
 
     if (process != NULL) {
         pthread_mutex_lock(&scheduler_mutex);
-        process_set_state(process, READY, logger);
-        add_process_to_ready_queue(process);
+        process_set_ready(process);
+        if (process->state == READY) {
+            add_process_to_ready_queue(process);
+        }
         pthread_mutex_unlock(&scheduler_mutex);
 
         log_info(logger, "## PID: %d finalizó IO y pasa a READY / SUSP. READY", process->pid);
@@ -135,6 +148,10 @@ int stdout_syscall_manager (t_process *process, t_client_info *cpu, uint32_t phy
     process_set_state(process, BLOCK, logger);
     process_set_cpu(process, NULL);
     remove_process_from_list(exec_processes, process);
+    process->start_block_time = temporal_gettime(system_timer);
+    pthread_mutex_lock(&block_processes_mutex);
+    list_add(block_processes, process);
+    pthread_mutex_unlock(&block_processes_mutex);
     int pid = process->pid;
     pthread_mutex_unlock(&scheduler_mutex);
 
@@ -212,8 +229,10 @@ void io_finish_process(uint32_t pid, t_client_info *io) {
     t_process *process = get_process_from_pid(pid);
 
     if (process != NULL) {
-        process_set_state(process, READY, logger);
-        add_process_to_ready_queue(process);
+        process_set_ready(process);
+        if (process->state == READY) {
+            add_process_to_ready_queue(process);
+        }
         pthread_mutex_unlock(&scheduler_mutex);
 
         pthread_mutex_lock(&io->internal_mutex);

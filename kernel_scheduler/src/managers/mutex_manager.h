@@ -2,6 +2,7 @@
 #define MUTEX_MANAGER_H
 
 #include <utils.h>
+#include <commons/temporal.h>
 
 extern t_log *logger;
 extern t_scheduler_algorithm scheduler_algorithm;
@@ -10,6 +11,9 @@ extern pthread_mutex_t list_mutex_mutex;
 extern sem_t short_term_scheduler_sem;
 extern t_list **ready_queue;
 extern t_list *list_mutexes;
+extern t_temporal *system_timer;
+extern t_list *block_processes;
+extern pthread_mutex_t block_processes_mutex;
 
 typedef struct {
     char *name;

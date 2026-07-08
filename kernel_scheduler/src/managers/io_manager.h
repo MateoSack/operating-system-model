@@ -2,7 +2,11 @@
 #define IO_MANAGER_H
 
 #include <utils.h>
+#include <commons/temporal.h>
 
+extern t_temporal *system_timer;
+extern t_list *block_processes;
+extern pthread_mutex_t block_processes_mutex;
 typedef struct {  // Use for before sending data to kernel memory
     uint32_t pid;
     uint32_t physical_address;
