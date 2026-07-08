@@ -37,7 +37,7 @@ void add_process_to_list (t_list *list_processes, t_process *process) { // Add a
     list_add(list_processes, process);
 }
 
-void add_process_to_ready_queue (t_process *process) { // Add a process to the ready queue based on its priority and scheduling algorithm
+void add_process_to_ready_queue (t_process *process) { // Add a process to the ready queue based on its priority and scheduling algorithm. Use under mutex
     if (scheduler_algorithm == CMN) {
         int queue_index;
 
@@ -438,4 +438,36 @@ void send_memory_read (uint32_t pid, uint32_t physical_address, uint32_t size) {
     package_add(pkg, &size, sizeof(uint32_t));
 	package_send(pkg, kernel_memory->fd, &kernel_memory->network_mutex);
     package_delete(pkg);
+}
+
+t_list *sort_processes_by_priority (t_list *process_list) { // Sorts a list of processes by their effective priority, returns a new sorted list
+    t_list *sorted_list = list_duplicate(process_list);
+
+    bool _compare_process_priority(void *a, void *b) {
+        t_process *process_a = (t_process*)a;
+        t_process *process_b = (t_process*)b;
+        return process_a->effective_priority < process_b->effective_priority; // 0 is the highest priority
+    }
+
+    list_sort(sorted_list, _compare_process_priority);
+
+    return sorted_list;
+}
+
+t_list *process_list_to_pid_list(t_list *process_list) { // Converts a list of processes to a list of their PIDs, returns a new list of PIDs
+    t_list *pid_list = list_create();
+
+    for (int i = 0; i < list_size(process_list); i++) {
+        t_process *process = list_get(process_list, i);
+        uint32_t *pid = malloc(sizeof(uint32_t));
+        *pid = process->pid;
+        list_add(pid_list, pid);
+    }
+
+    return pid_list;
+}
+
+void process_set_ready (t_process *process) { // Set process state to READY or SUSP_READY based on its current state. Use under mutex
+    if (process->state == SUSP_BLOCK) process_set_state(process, SUSP_READY, logger);
+    else process_set_state(process, READY, logger);
 }

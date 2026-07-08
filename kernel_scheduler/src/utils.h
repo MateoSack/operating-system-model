@@ -72,5 +72,8 @@ void can_schedule_write (bool new_value);
 void process_set_priority (t_process *process, uint8_t new_priority);
 void send_memory_write (uint32_t pid, uint32_t physical_address, uint32_t size, char *data);
 void send_memory_read (uint32_t pid, uint32_t physical_address, uint32_t size);
+t_list *sort_processes_by_priority (t_list *process_list);
+t_list *process_list_to_pid_list(t_list *process_list);
+void process_set_ready (t_process *process);
 
 #endif

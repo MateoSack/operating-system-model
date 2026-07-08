@@ -18,4 +18,9 @@ extern pthread_mutex_t block_processes_mutex;
 extern pthread_mutex_t suspended_processes_mutex;
 extern sem_t short_term_scheduler_sem;
 
+void *suspension_manager (void *arg);
+void wait_confirmation_swap_out (uint32_t pid, bool ok);
+void request_swap_in ();
+void wait_confirmation_swap_in (t_list *pid_list);
+
 #endif

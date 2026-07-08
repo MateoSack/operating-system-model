@@ -2,6 +2,7 @@
 #define MEMORY_MANAGER_H
 
 #include <commons/log.h>
+#include <schedulers/medium_term_scheduler.h>
 #include <utils/server_utils.h>
 #include <utils/memory_utils.h>
 #include <utils.h>

@@ -188,5 +188,5 @@ void *memory_corrupted_thread (void *arg) {
 void memory_update (uint32_t new_size) {
     log_debug(logger, "Actualización de memoria recibida (Tamaño libre: %d), intentado traer procesos a memoria", new_size);
 
-    // TODO: Send list of PIDs in swap to memory and wait for which ones were able to make it
+    request_swap_in();
 }
