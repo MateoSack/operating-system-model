@@ -22,6 +22,8 @@ void context_send(t_cpu_context *context, uint32_t pid, int fd, pthread_mutex_t 
     package_add(pkg, &context->di, sizeof(uint32_t));
     package_send(pkg, fd, mutex);
     package_delete(pkg);
+
+    log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
 }
 
 void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_table) {
@@ -132,7 +134,6 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 
             log_debug(logger, "Interrupcion pendiente para PID %d con razon %s, enviando contexto a Kernel Memory", pid, interrupt_reason_to_string(reason_local));
             context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
-            log_debug(logger, "Contexto enviado a Kernel Memory para PID %d", pid);
 
             send_process_interrupted(pid, reason_local);
 
@@ -694,12 +695,6 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     uint32_t physicall_address = mmu_translate(read_register_value(context, decoded_instruction[1]), size, segment_table, pid);
     if (should_exit) return;
 
-    t_package *pkg = package_create();
-    pkg->op_code = STDOUT;
-    package_add(pkg, &pid, sizeof(uint32_t));
-    package_add(pkg, &physicall_address, sizeof(uint32_t));
-    package_add(pkg, &size, sizeof(uint32_t));
-
     // Advance PC so context sent reflects next instruction and avoid re-execution
     pthread_mutex_lock(&process_control_mutex);
     context->pc++;
@@ -710,6 +705,11 @@ void instruction_stdout(char **decoded_instruction, t_cpu_context *context, uint
     context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
 
+    t_package *pkg = package_create();
+    pkg->op_code = STDOUT;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &physicall_address, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }
@@ -729,22 +729,21 @@ void instruction_stdin(char **decoded_instruction, t_cpu_context *context, uint3
     uint32_t physicall_address = mmu_translate(read_register_value(context, decoded_instruction[1]), size, segment_table, pid);
     if (should_exit) return;
 
-    t_package *pkg = package_create();
-    pkg->op_code = STDIN;
-    package_add(pkg, &pid, sizeof(uint32_t));
-    package_add(pkg, &physicall_address, sizeof(uint32_t));
-    package_add(pkg, &size, sizeof(uint32_t));
-
     // Send context to Kernel Memory first to avoid race, then notify Scheduler
     pthread_mutex_lock(&process_control_mutex);
-    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     // Advance PC so context sent reflects next instruction and avoid re-execution
     context->pc++;
     *hasJumped = true;
     stop_reason = IO_REQUEST;
     should_stop = true; // Deberia parar por generar interrupcion de IO
+    context_send(context, pid, kernel_memory->fd, &kernel_memory->network_mutex);
     pthread_mutex_unlock(&process_control_mutex);
 
+    t_package *pkg = package_create();
+    pkg->op_code = STDIN;
+    package_add(pkg, &pid, sizeof(uint32_t));
+    package_add(pkg, &physicall_address, sizeof(uint32_t));
+    package_add(pkg, &size, sizeof(uint32_t));
     package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
     package_delete(pkg);
 }

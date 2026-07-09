@@ -112,9 +112,13 @@ void request_swap_in () { // Requests a SWAP_IN for all processes in the SUSP_RE
     int suspended_processes_count = list_size(suspended_processes);
     pthread_mutex_unlock(&suspended_processes_mutex);
 
-    log_debug(logger, "Solicitando SWAP_IN para %d de %d procesos suspendidos (filtrados por SUSP_READY)", list_size(to_swap_in_list), suspended_processes_count);
+    if (list_size(to_swap_in_list) == 0) {
+        log_debug(logger, "No hay procesos en SUSP_READY para hacer SWAP_IN");
+    } else {
+        log_debug(logger, "Solicitando SWAP_IN para %d de %d procesos suspendidos (filtrados por SUSP_READY)", list_size(to_swap_in_list), suspended_processes_count);
 
-    uint32_list_send(kernel_memory->fd, &kernel_memory->network_mutex, to_swap_in_list, SWAP_IN);
+        uint32_list_send(kernel_memory->fd, &kernel_memory->network_mutex, to_swap_in_list, SWAP_IN);
+    }
 
     list_destroy(ready_to_swap);
     list_destroy(sorted_list);
