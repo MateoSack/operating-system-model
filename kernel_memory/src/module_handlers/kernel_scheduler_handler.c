@@ -301,31 +301,23 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             case SWAP_IN: {
                 t_list *pids = uint32_list_decode(client_fd);
                 t_list *desuspended_pids = list_create();
-                for (int i = 0; i < list_size(pids); i++) {
+                int size = list_size(pids);
+                for (int i = 0; i < size; i++) {
                     uint32_t *pid = list_get(pids, i);
-                    log_debug(logger, "SWAP_IN para PID %u", *pid);
+                    log_debug(logger, "Comenzando SWAP_IN para PID %u", *pid);
                     if (process_desuspend(*pid)) {
                         list_add(desuspended_pids, pid);
+                        log_debug(logger, "SWAP_IN completado - PID %u", *pid);
                     } else {
                         log_debug(logger, "No se pudo desuspender el proceso PID %u", *pid);
                         free(pid);
                     }
-                    log_debug(logger, "SWAP_IN completado - PID %u", *pid);
                 }
 
                 list_destroy_and_destroy_elements(pids, free);
-                uint32_t desuspended_count = list_size(desuspended_pids);
 
-                t_package *pkg = package_create();
-                pkg->op_code = SWAP_IN;
-                package_add(pkg, &desuspended_count, sizeof(uint32_t));
-                for (int i = 0; i < desuspended_count; i++) {
-                    uint32_t *pid = list_get(desuspended_pids, i);
-                    package_add(pkg, pid, sizeof(uint32_t));
-                }
+                uint32_list_send(kernel_scheduler->fd, &kernel_scheduler->network_mutex, desuspended_pids, SWAP_IN);
                 list_destroy_and_destroy_elements(desuspended_pids, free);
-                package_send(pkg, kernel_scheduler->fd, &kernel_scheduler->network_mutex);
-                package_delete(pkg);
                 break;
             }
         }

@@ -576,7 +576,7 @@ bool process_suspend(uint32_t pid) {
     return true;
 }
 
-bool process_desuspend(uint32_t pid) { // Chequear bien
+bool process_desuspend(uint32_t pid) { 
     pthread_mutex_lock(&list_suspended_processes_mutex);
     target_suspended_pid = pid;
     t_suspended_pcb *sp = list_find(list_suspended_processes, find_suspended_by_pid);
@@ -585,7 +585,6 @@ bool process_desuspend(uint32_t pid) { // Chequear bien
         log_error(logger, "process_desuspend: PID %u no encontrado en suspendidos", pid);
         return false;
     }
-    list_remove_element(list_suspended_processes, sp);
     pthread_mutex_unlock(&list_suspended_processes_mutex);
 
     pthread_mutex_lock(&list_processes_mutex);
@@ -612,11 +611,15 @@ bool process_desuspend(uint32_t pid) { // Chequear bien
         t_list *holes = get_free_holes();
         t_hole *chosen = select_hole(holes, ss->size);
 
-        if(chosen == NULL) {
+        if (chosen == NULL) {
             list_destroy_and_destroy_elements(holes, free);
             pthread_mutex_unlock(&pcb->mutex);
-            log_error(logger, "process_desuspend: sin espacio en memoria para PID %u seg %u",
-                      pid, ss->segment_id);
+            log_error(logger, "process_desuspend: sin espacio en memoria para PID %u seg %u. Se revierte restauración.", pid, ss->segment_id);
+            for (int j = 0; j < i; j++) {
+                t_segment *seg = list_get(pcb->segment_table, list_size(pcb->segment_table) - 1 - (i - 1 - j));
+                list_remove_element(pcb->segment_table, seg);
+                free(seg);
+            }
             return false;
         }
 
@@ -624,18 +627,28 @@ bool process_desuspend(uint32_t pid) { // Chequear bien
         list_destroy_and_destroy_elements(holes, free);
 
         void *data = read_segment_from_swap(ss);
-        if(data == NULL) {
+        if(data == NULL) { // If reading from swap fails, we need to revert any segments that were already restored before returning false
             pthread_mutex_unlock(&pcb->mutex);
+            log_error(logger, "process_desuspend: fallo al leer segmento de SWAP para PID %u seg %u. Se revierte restauración.", pid, ss->segment_id);
+            for (int j = 0; j < i; j++) {
+                t_segment *seg = list_get(pcb->segment_table, list_size(pcb->segment_table) - 1 - (i - 1 - j));
+                list_remove_element(pcb->segment_table, seg);
+                free(seg);
+            }
             return false;
         }
 
         bool could_write = memory_write(new_base, data, ss->size);
         free(data);
 
-        if(!could_write) {
+        if (!could_write) {
             pthread_mutex_unlock(&pcb->mutex);
-            log_error(logger, "process_desuspend: fallo al escribir en MS para PID %u seg %u",
-                      pid, ss->segment_id);
+            log_error(logger, "process_desuspend: fallo al escribir en MS para PID %u seg %u", pid, ss->segment_id);
+            for (int j = 0; j < i; j++) {
+                t_segment *seg = list_get(pcb->segment_table, list_size(pcb->segment_table) - 1 - (i - 1 - j));
+                list_remove_element(pcb->segment_table, seg);
+                free(seg);
+            }
             return false;
         }
 
@@ -649,8 +662,11 @@ bool process_desuspend(uint32_t pid) { // Chequear bien
     }
 
     pthread_mutex_unlock(&pcb->mutex);
+    pthread_mutex_lock(&list_suspended_processes_mutex);
+    list_remove_element(list_suspended_processes, sp);
+    pthread_mutex_unlock(&list_suspended_processes_mutex);
 
-    for(int i = 0; i < list_size(sp->suspended_segments); i++) {
+    for (int i = 0; i < list_size(sp->suspended_segments); i++) {
         t_suspended_segment *ss = list_get(sp->suspended_segments, i);
         list_destroy_and_destroy_elements(ss->swap_blocks, free);
         free(ss);
