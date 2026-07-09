@@ -12,6 +12,7 @@ extern t_list *list_suspended_processes;
 extern pthread_mutex_t list_suspended_processes_mutex;
 extern t_swap_read_response swap_read_response;
 extern sem_t sem_swap_write_done;
+extern sem_t swap_read_response_sem;
 
 typedef struct {
     uint32_t segment_id;

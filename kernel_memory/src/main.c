@@ -32,6 +32,7 @@ t_swap_read_response swap_read_response = {
 
 sem_t sem_swap_write_done;
 sem_t compaction_sem;
+sem_t swap_read_response_sem;
 
 t_list *list_cpu = NULL;
 t_list *list_memory_stick = NULL;
@@ -80,7 +81,7 @@ int main(int argc, char *argv[]) {
 
     sem_init(&compaction_sem, 0, 0);
     sem_init(&sem_swap_write_done, 0, 0);
-    sem_init(&swap_read_response.sem, 0, 0);
+    sem_init(&swap_read_response_sem, 0, 0);
 
 	char *port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 

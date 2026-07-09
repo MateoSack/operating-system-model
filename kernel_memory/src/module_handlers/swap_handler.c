@@ -25,7 +25,7 @@ int swap_handler (t_log *logger, int swap_fd){
                 swap_read_response.ready = true;
                 pthread_mutex_unlock(&swap_read_response.mutex);
 
-                sem_post(&swap_read_response.sem); // Signal that the read operation is done
+                sem_post(&swap_read_response_sem);
                 break;
             }
 

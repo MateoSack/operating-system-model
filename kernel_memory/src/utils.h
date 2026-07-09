@@ -17,7 +17,6 @@ typedef struct {
     uint32_t size;
     bool ready;
     pthread_mutex_t mutex;
-    sem_t sem;
 } t_swap_read_response;
 
 extern uint32_t target_pid;

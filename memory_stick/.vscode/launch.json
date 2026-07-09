@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": ["mem_stick.config", "32"],
+      "args": ["mem_stick.config", "256"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

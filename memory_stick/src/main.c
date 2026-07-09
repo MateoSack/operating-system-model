@@ -261,12 +261,11 @@ void handle_read(int fd, pthread_mutex_t *net_mutex) {
     }
 
     uint32_t local_offset = uint32_deserialize(buffer, &offset);
-    uint32_t read_size    = uint32_deserialize(buffer, &offset);
+    uint32_t read_size = uint32_deserialize(buffer, &offset);
     free(buffer);
 
     if (local_offset + read_size > size) {
-        log_error(logger, "handle_read: lectura fuera de rango (offset=%u size=%u total=%u)",
-                  local_offset, read_size, size);
+        log_error(logger, "handle_read: lectura fuera de rango (offset=%u size=%u total=%u)", local_offset, read_size, size);
         return;
     }
 

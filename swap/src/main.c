@@ -103,7 +103,10 @@ void handle_block_read(int client_fd, FILE *swap_file, uint32_t block_size, pthr
     fread(buffer, block_size, 1, swap_file);
     pthread_mutex_unlock(write_mutex);
 
+    char *data_str = bytes_to_safe_string(buffer, block_size);
     log_info(logger, "## Lectura del bloque: %u", block_number);
+    log_debug(logger, "Contenido leído del bloque %u: %s", block_number, data_str);
+    free(data_str);
 
     t_package *pkg = package_create();
     pkg->op_code = SWAP_IN;
@@ -120,15 +123,23 @@ void handle_block_write(int client_fd, FILE *swap_file, uint32_t block_size, pth
     void *buffer = buffer_receive(&size, client_fd);
 
     uint32_t block_number = uint32_deserialize(buffer, &offset);
-    void *block_data = buffer + offset;
+    
+    // Leer el tamaño del segundo campo y saltarlo
+    int data_size;
+    memcpy(&data_size, buffer + offset, sizeof(int));
+    offset += sizeof(int);
+    void *block_data = buffer + offset; // ahora sí apunta a los datos reales
 
     pthread_mutex_lock(write_mutex);
-    fseek(swap_file, (long)block_number * block_size, SEEK_SET); // Move the file pointer to the correct position (SEEK_SET starts from the beginning of the file)
+    fseek(swap_file, (long)block_number * block_size, SEEK_SET);
     fwrite(block_data, block_size, 1, swap_file);
     fflush(swap_file);
     pthread_mutex_unlock(write_mutex);
 
+    char *data_str = bytes_to_safe_string(block_data, block_size);
     log_info(logger, "## Escritura del bloque: %u", block_number);
+    log_debug(logger, "Contenido escrito en bloque %u: %s", block_number, data_str);
+    free(data_str);
 
     free(buffer);
 
