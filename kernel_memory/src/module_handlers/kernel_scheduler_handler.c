@@ -315,8 +315,9 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                     }
                 }
 
-                list_destroy_and_destroy_elements(pids, free);
+                list_destroy(pids);
 
+                log_debug(logger, "Enviando lista de PIDs desuspendidos al Kernel Scheduler");
                 uint32_list_send(kernel_scheduler->fd, &kernel_scheduler->network_mutex, desuspended_pids, SWAP_IN);
                 list_destroy_and_destroy_elements(desuspended_pids, free);
                 break;
