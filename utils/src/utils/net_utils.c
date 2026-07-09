@@ -568,7 +568,7 @@ void uint32_list_send (int fd, pthread_mutex_t *mutex, t_list *list, op_code op_
 
 	package_send(pkg, fd, mutex);
 	package_delete(pkg);
-	log_info(logger, "Paquete de uint32 enviado a fd: %d, elementos: %d", fd, list_size(list));
+	log_debug(logger, "Paquete de uint32 enviado a fd: %d, elementos: %d", fd, list_size(list));
 }
 
 t_list *uint32_list_decode (int fd) { // Decodes a list of uint32 from the client, returns the list
@@ -582,7 +582,7 @@ t_list *uint32_list_decode (int fd) { // Decodes a list of uint32 from the clien
 
 	if (size == 0) {
 		free(buffer);
-		log_info(logger, "Lista de uint32 vacía");
+		log_debug(logger, "Lista de uint32 vacía");
 		return list;
 	}
 
@@ -594,7 +594,7 @@ t_list *uint32_list_decode (int fd) { // Decodes a list of uint32 from the clien
 		list_add(list, value);
 	}
 
-	log_info(logger, "Lista de uint32 recibida con %d elementos", list_size(list));
+	log_debug(logger, "Lista de uint32 recibida con %d elementos", list_size(list));
 
     free(buffer);
     return list;

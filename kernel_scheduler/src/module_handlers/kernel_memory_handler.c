@@ -126,6 +126,7 @@ void *kernel_memory_handler (void *arg) {
 				if (buffer == NULL) break;
 				uint32_t pid = uint32_deserialize(buffer, &offset);
 				bool ok = bool_deserialize(buffer, &offset);
+				free(buffer);
 
 				wait_confirmation_swap_out(pid, ok);
 				break;
