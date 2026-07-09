@@ -140,6 +140,11 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
         pthread_mutex_lock(&scheduler_mutex);
         process_set_ready(next_process);
+
+        pthread_mutex_lock(&block_processes_mutex);
+        list_remove_element(block_processes, next_process); // if it isnt in the list, it will do nothing
+        pthread_mutex_unlock(&block_processes_mutex);
+
         list_add(next_process->owned_mutexes, mutex);
         if (next_process->state == READY) {
             add_process_to_ready_queue(next_process);

@@ -160,7 +160,7 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 		queue_preemption = true;
 	}
 
-	log_debug(logger, "Desalojo entre colas habilitado: %d", queue_preemption);
+	log_debug(logger, "Desalojo entre colas habilitado: %s", queue_preemption_str);
 
 	free(scheduler_algorithm_str);
 
@@ -232,6 +232,10 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
         pthread_create(&quantum_thread, NULL, quantum_manager, NULL);
         pthread_detach(quantum_thread);
 	}
+
+	pthread_t suspension_thread;
+	pthread_create(&suspension_thread, NULL, suspension_manager, NULL);
+	pthread_detach(suspension_thread);
 
 	return EXIT_SUCCESS;
 }

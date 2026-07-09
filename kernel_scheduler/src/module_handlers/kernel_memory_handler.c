@@ -112,6 +112,25 @@ void *kernel_memory_handler (void *arg) {
 				break;
 			}
 
+			case SWAP_IN: {
+				t_list *pid_list = uint32_list_decode(kernel_memory->fd);
+				log_debug(logger, "Se recibieron %d PIDs para SWAP_IN", list_size(pid_list));
+				wait_confirmation_swap_in(pid_list);
+				break;
+			}
+
+			case SWAP_OUT: {
+				int size;
+				int offset = 0;
+				void *buffer = buffer_receive(&size, kernel_memory->fd);
+				if (buffer == NULL) break;
+				uint32_t pid = uint32_deserialize(buffer, &offset);
+				bool ok = bool_deserialize(buffer, &offset);
+
+				wait_confirmation_swap_out(pid, ok);
+				break;
+			}
+
 			default:{
 				log_warning(logger, "Operación desconocida recibida: %d", op);
 				break;

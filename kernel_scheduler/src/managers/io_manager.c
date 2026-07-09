@@ -107,6 +107,11 @@ void *wait_memory_write_confirmation (void *arg) {
     if (process != NULL) {
         pthread_mutex_lock(&scheduler_mutex);
         process_set_ready(process);
+
+        pthread_mutex_lock(&block_processes_mutex);
+        list_remove_element(block_processes, process); // if it isnt in the list, it will do nothing
+        pthread_mutex_unlock(&block_processes_mutex);
+
         if (process->state == READY) {
             add_process_to_ready_queue(process);
         }
@@ -230,6 +235,11 @@ void io_finish_process(uint32_t pid, t_client_info *io) {
 
     if (process != NULL) {
         process_set_ready(process);
+
+        pthread_mutex_lock(&block_processes_mutex);
+        list_remove_element(block_processes, process); // if it isnt in the list, it will do nothing
+        pthread_mutex_unlock(&block_processes_mutex);
+
         if (process->state == READY) {
             add_process_to_ready_queue(process);
         }
