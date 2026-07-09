@@ -22,11 +22,14 @@ typedef struct {
 
 extern uint32_t target_pid;
 extern t_client_info *kernel_scheduler;
+extern pthread_mutex_t list_processes_mutex;
+extern t_list *list_processes;
 
 t_pcb *create_pcb(uint32_t pid, char *path);
 bool find_by_pid(void *element);
 char **get_instructions_from_file(char *path);
 void send_memory_update(uint32_t new_total);
 t_memory_stick_info *create_memory_stick_info(int fd, uint32_t id);
+int process_get_segment_count(uint32_t pid);
 
 #endif

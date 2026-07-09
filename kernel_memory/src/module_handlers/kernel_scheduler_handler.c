@@ -285,7 +285,8 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
             case SWAP_OUT: {
                 uint32_t pid = uint32_decode(client_fd);
-                log_debug(logger, "Solicitud de suspensión para PID %u", pid);
+                int segment_count = process_get_segment_count(pid);
+                log_debug(logger, "Solicitud de suspensión para PID %u con %u segmentos", pid, segment_count);
 
                 bool couldSuspend = process_suspend(pid);
 

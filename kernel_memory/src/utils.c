@@ -75,3 +75,20 @@ t_memory_stick_info *create_memory_stick_info(int fd, uint32_t id) {
     return memory_stick;
 }
 
+int process_get_segment_count(uint32_t pid) {
+    pthread_mutex_lock(&list_processes_mutex);
+    target_pid = pid;
+    t_pcb *pcb = list_find(list_processes, find_by_pid);
+    if (pcb == NULL) {
+        pthread_mutex_unlock(&list_processes_mutex);
+        return -1; // Process not found
+    }
+    pthread_mutex_lock(&pcb->mutex);
+    pthread_mutex_unlock(&list_processes_mutex);
+
+    int segment_count = list_size(pcb->segment_table);
+
+    pthread_mutex_unlock(&pcb->mutex);
+    return segment_count;
+}
+

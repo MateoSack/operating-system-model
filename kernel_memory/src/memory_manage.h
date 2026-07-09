@@ -7,6 +7,7 @@
 extern uint32_t swap_block_size;
 extern uint32_t swap_total_size;
 extern int swap_fd;
+extern pthread_mutex_t swap_network_mutex;
 extern t_list *list_suspended_processes;
 extern pthread_mutex_t list_suspended_processes_mutex;
 extern t_swap_read_response swap_read_response;

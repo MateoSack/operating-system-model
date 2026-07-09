@@ -8,6 +8,7 @@ t_config *config = NULL;
 
 t_client_info *kernel_scheduler = NULL;
 int swap_fd = -1;
+pthread_mutex_t swap_network_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 uint32_t total_memory_size = 0;
 uint32_t segment_max_size = 0;

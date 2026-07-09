@@ -438,7 +438,7 @@ bool write_segment_to_swap(t_suspended_segment *ss, void *data) {
         pkg->op_code = SWAP_OUT;
         package_add(pkg, block_num, sizeof(uint32_t));
         package_add(pkg, block_buffer, swap_block_size);
-        package_send(pkg, swap_fd, NULL);
+        package_send(pkg, swap_fd, &swap_network_mutex);
         package_delete(pkg);
         free(block_buffer);
 
@@ -460,7 +460,7 @@ void *read_segment_from_swap(t_suspended_segment *ss) {
         t_package *pkg = package_create();
         pkg->op_code = SWAP_IN;
         package_add(pkg, block_num, sizeof(uint32_t));
-        package_send(pkg, swap_fd, NULL);
+        package_send(pkg, swap_fd, &swap_network_mutex);
         package_delete(pkg);
 
         sem_wait(&swap_read_response.sem);

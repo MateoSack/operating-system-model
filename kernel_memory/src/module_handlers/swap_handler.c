@@ -30,6 +30,11 @@ int swap_handler (t_log *logger, int swap_fd){
             }
 
             case SWAP_OUT: {
+                int buf_size;
+                void *buffer = buffer_receive(&buf_size, swap_fd); // Consume the empty package body
+                if (buffer != NULL) {
+                    free(buffer);
+                }
                 sem_post(&sem_swap_write_done); // Signal that the write operation is done
                 break;
             }
