@@ -225,9 +225,9 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 	pthread_create(&short_term_scheduler_thread, NULL, short_term_scheduler_main, NULL);
 	pthread_detach(short_term_scheduler_thread);
 
+	system_timer = temporal_create();
+	
 	if (scheduler_algorithm == RR || has_rr) {
-		system_timer = temporal_create();
-
         pthread_t quantum_thread;
         pthread_create(&quantum_thread, NULL, quantum_manager, NULL);
         pthread_detach(quantum_thread);
