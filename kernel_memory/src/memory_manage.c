@@ -96,7 +96,7 @@ static bool compare_segment_by_base(void *a, void *b) {
 }
 
 void compact_memory(void) {
-    log_warning(logger, "Inicio de compactación");
+    log_debug(logger, "Inicio de compactación");
 
     pthread_mutex_lock(&list_processes_mutex);
 

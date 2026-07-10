@@ -238,6 +238,9 @@ t_register_descriptor get_register_descriptor(t_cpu_context *context, const char
     } else if (strcasecmp(register_name, "di") == 0) {
         descriptor.field_address = &context->di;
         descriptor.field_size = sizeof(context->di);
+    } else if (strcasecmp(register_name, "pc") == 0) {
+        descriptor.field_address = &context->pc;
+        descriptor.field_size = sizeof(context->pc);
     }
 
     return descriptor;
@@ -281,13 +284,13 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 		}
 
 		case SET: {
-			instruction_set(decoded_instruction, context);
+			instruction_set(decoded_instruction, context, hasJumped);
 			log_debug(logger, "SET ejecutado");
 			break;
 		}
 
         case MOV_IN: {
-            instruction_mov_in(decoded_instruction, context, pid, segment_table);
+            instruction_mov_in(decoded_instruction, context, pid, segment_table, hasJumped);
             log_debug(logger, "MOV_IN ejecutado");
             break;
         }
@@ -299,13 +302,13 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
         }
 		
 		case SUM: {
-			instruction_sum(decoded_instruction, context);
+			instruction_sum(decoded_instruction, context, hasJumped);
 			log_debug(logger, "SUM ejecutado");
 			break;
 		}
 
         case SUB: {
-			instruction_sub(decoded_instruction, context);
+			instruction_sub(decoded_instruction, context, hasJumped);
 			log_debug(logger, "SUB ejecutado");
 			break;
 		}
@@ -388,7 +391,7 @@ void execute_instruction(char **decoded_instruction, t_cpu_context *context, uin
 	}
 }
 
-void instruction_set(char **decoded_instruction, t_cpu_context *context){
+void instruction_set(char **decoded_instruction, t_cpu_context *context, bool *hasJumped) {
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid register: %s", decoded_instruction[1]);
         return;
@@ -398,9 +401,13 @@ void instruction_set(char **decoded_instruction, t_cpu_context *context){
     if (!write_register_value(context, decoded_instruction[1], value)) {
         log_error(logger, "Failed to set register: %s", decoded_instruction[1]);
     }
+
+    if (strcasecmp(decoded_instruction[1], "pc") == 0) {
+        *hasJumped = true;
+    }
 }
 
-void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table) {
+void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped) {
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
         return;
@@ -424,6 +431,11 @@ void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint
     }
 
     free(data);
+
+    if (strcasecmp(decoded_instruction[1], "pc") == 0) {
+        *hasJumped = true;
+    }
+
     log_debug(logger, "MOV_IN - SI=%u - dir. físico=%u - %s=%u", context->si, physical_address, decoded_instruction[1], read_register_value(context, decoded_instruction[1]));
 }
 
@@ -447,7 +459,7 @@ void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uin
     log_debug(logger, "MOV_OUT - DI=%u - dir. físico=%u - %s=%u", context->di, physical_address, decoded_instruction[1], value);
 }
 
-void instruction_sum(char **decoded_instruction, t_cpu_context *context){
+void instruction_sum(char **decoded_instruction, t_cpu_context *context, bool *hasJumped) {
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
         return;
@@ -463,9 +475,13 @@ void instruction_sum(char **decoded_instruction, t_cpu_context *context){
     if (!write_register_value(context, decoded_instruction[1], left_value + right_value)) {
         log_error(logger, "Failed to write SUM result to register: %s", decoded_instruction[1]);
     }
+
+    if (strcasecmp(decoded_instruction[1], "pc") == 0) {
+        *hasJumped = true;
+    }
 }
 
-void instruction_sub(char **decoded_instruction, t_cpu_context *context){
+void instruction_sub(char **decoded_instruction, t_cpu_context *context, bool *hasJumped){
     if (!check_if_register(decoded_instruction[1])) {
         log_error(logger, "Invalid destination register: %s", decoded_instruction[1]);
         return;
@@ -480,6 +496,10 @@ void instruction_sub(char **decoded_instruction, t_cpu_context *context){
 
     if (!write_register_value(context, decoded_instruction[1], left_value - right_value)) {
         log_error(logger, "Failed to write SUB result to register: %s", decoded_instruction[1]);
+    }
+
+    if (strcasecmp(decoded_instruction[1], "pc") == 0) {
+        *hasJumped = true;
     }
 }
 
@@ -502,7 +522,7 @@ void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *h
 bool check_if_register(char *operand) {
     if (strcasecmp(operand, "ax") == 0 || strcasecmp(operand, "bx") == 0 || strcasecmp(operand, "cx") == 0 || strcasecmp(operand, "dx") == 0 ||
         strcasecmp(operand, "eax") == 0 || strcasecmp(operand, "ebx") == 0 || strcasecmp(operand, "ecx") == 0 || strcasecmp(operand, "edx") == 0 ||
-        strcasecmp(operand, "si") == 0 || strcasecmp(operand, "di") == 0) {
+        strcasecmp(operand, "si") == 0 || strcasecmp(operand, "di") == 0 || strcasecmp(operand, "pc") == 0) {
         return true;
     }
     return false;
@@ -908,7 +928,7 @@ void *memory_read(uint32_t physical_address, uint32_t size, uint32_t pid) {
 
     uint32_t value = 0;
     memcpy(&value, result, size < sizeof(value) ? size : sizeof(value));
-    log_info(logger, "## PID %u - Accion: LEER - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
+    log_info(logger, "## PID: %u - Accion: LEER - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
     
     return result;
 }
@@ -952,7 +972,7 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size, uint32_t
     }
     uint32_t value = 0;
     memcpy(&value, data, size < sizeof(value) ? size : sizeof(value));
-    log_info(logger, "## PID %u - Accion: ESCRIBIR - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
+    log_info(logger, "## PID: %u - Accion: ESCRIBIR - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
 
     return true;
 }

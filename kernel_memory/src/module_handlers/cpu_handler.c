@@ -110,7 +110,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                     break;
                 }
                 
-                if (pcb->instructions == NULL) {
+                if(pcb->instructions == NULL) {
                     log_error(logger, "ERROR: Instructions not loaded for PID %d - file may not exist", pid);
                     break;
                 }

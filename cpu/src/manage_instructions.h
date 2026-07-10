@@ -68,9 +68,9 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 t_instruction_type instruction_to_type(char *instruction_str);
 char **decode_instruction(char *content);
 void execute_instruction(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped);
-void instruction_set(char **decoded_instruction, t_cpu_context *context);
-void instruction_sum(char **decoded_instruction, t_cpu_context *context);
-void instruction_sub(char **decoded_instruction, t_cpu_context *context);
+void instruction_set(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
+void instruction_sum(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
+void instruction_sub(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
 void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
 void *process_execution_handler(void *args);
 bool check_if_register(char *operand);
@@ -79,11 +79,8 @@ t_register_descriptor get_register_descriptor(t_cpu_context *context, const char
 uint32_t read_register_value(t_cpu_context *context, const char *register_name);
 bool write_register_value(t_cpu_context *context, const char *register_name, uint32_t value);
 
-void instruction_set(char **decoded_instruction, t_cpu_context *context);
-void instruction_sum(char **decoded_instruction, t_cpu_context *context);
-void instruction_sub(char **decoded_instruction, t_cpu_context *context);
-void instruction_jnz(char **decoded_instruction, t_cpu_context *context, bool *hasJumped);
-void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
+
+void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table, bool *hasJumped);
 void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, uint32_t pid, t_list *segment_table);
 void instruction_mutex_create(char **decoded_instruction, t_cpu_context *context, uint32_t pid, bool *hasJumped);

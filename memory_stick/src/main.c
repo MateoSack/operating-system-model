@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-	log_info(logger, "Memory Stick listo, esperando conexiones...");
+	log_debug(logger, "Memory Stick listo, esperando conexiones...");
 
 	/*-------------------Handle connections-------------------*/
 	while(1) {
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-		log_info(logger, "Nuevo cliente conectado: %d", new_client_fd);
+		log_debug(logger, "Nuevo cliente conectado: %d", new_client_fd);
 
         int *fd_for_thread = malloc(sizeof(int));
         *fd_for_thread = new_client_fd;
@@ -120,7 +120,7 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	uint32_send(kernel_memory->fd, size, &kernel_memory->network_mutex);
 	
 	log_info(logger, "## Conectado a Kernel Memory");
-	log_info(logger, "MEMORY STICK ID: %d", mem_stick_id);
+	log_debug(logger, "MEMORY STICK ID: %d", mem_stick_id);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_thread, NULL);
@@ -173,7 +173,7 @@ void *cpu_handler (void *fd_ptr) {
 
 	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "## CPU %d Conectada", id);
-	log_info(logger, "Total de CPUs conectadas: %d", list_size(list_cpu));
+	log_debug(logger, "Total de CPUs conectadas: %d", list_size(list_cpu));
 
 	while (1) {
 		//Handle connection with CPU
