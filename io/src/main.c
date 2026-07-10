@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	t_io_type_send(kernel_scheduler->fd, io_type, logger, &kernel_scheduler->network_mutex);
 	io_id = uint32_receive(kernel_scheduler->fd);
 	log_info(logger, "## Conectado a Kernel Scheduler");
-	log_debug(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);
+	log_debug(logger, "IO ID asignada por Kernel Scheduler: %d", io_id);
 
 	while (1) {
 		int op = operation_receive(kernel_scheduler->fd);
