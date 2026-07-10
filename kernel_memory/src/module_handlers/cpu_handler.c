@@ -52,7 +52,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 log_debug(logger, "CONTEXT_TRANSFER: pcb->context.pc actualizado a %u para PID %d", pcb->context.pc, pid);
                 pthread_mutex_unlock(&pcb->mutex);
                 free(ctx);
-                log_info(logger, "Contexto actualizado correctamente para PID %d", pid);
+                log_debug(logger, "Contexto actualizado correctamente para PID %d", pid);
                 break;
             }
 
@@ -67,7 +67,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
 
                 uint32_t pid = uint32_deserialize(buffer, &offset);
                 free(buffer);
-                log_info(logger, "Pedido de CONTEXT_SEEK para PID %d desde CPU %d", pid, cpu->id);
+                log_debug(logger, "Pedido de CONTEXT_SEEK para PID %d desde CPU %d", pid, cpu->id);
                 
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
@@ -81,7 +81,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 context_send_from_pcb(pcb, pid, cpu->fd, &cpu->network_mutex);
                 pthread_mutex_unlock(&pcb->mutex);
                 
-                log_info(logger, "Contexto enviado correctamente para PID %d", pid);
+                log_debug(logger, "Contexto enviado correctamente para PID %d", pid);
                 break;
             }
 

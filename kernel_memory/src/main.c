@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    log_info(logger, "Kernel Memory ready, now waiting...");
+    log_debug(logger, "Kernel Memory ready, now waiting...");
 
 /*-------------------Handle connections-------------------*/
     while (1) {
@@ -171,7 +171,7 @@ void *handle_module(void *fd_ptr) {
             uint32_send(cpu->fd, segment_max_size, &cpu->network_mutex);
 
             log_info(logger, "## CPU %d Conectada", cpu->id);
-            log_info(logger, "Total de CPUs conectadas: %d", cpu_count);
+            log_debug(logger, "Total de CPUs conectadas: %d", cpu_count);
 
             if(cpu_handler(logger, cpu) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero
             break;
@@ -179,7 +179,7 @@ void *handle_module(void *fd_ptr) {
 
         case MODULE_SWAP: {
             swap_fd = client_fd;
-            log_info(logger, "Swap connected");
+            log_debug(logger, "Swap connected");
             if(swap_handler(logger, swap_fd) == -1) return NULL; // IMPLEMENTAR: Cierre verdadero (tal vez falta el free client_fd)
             break;
         }

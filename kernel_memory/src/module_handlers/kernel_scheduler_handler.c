@@ -86,7 +86,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
 
             case PROCESS_END: {
                 uint32_t pid = uint32_decode(client_fd);
-                log_info(logger, "Finalizando proceso - PID:%u", pid);
+                log_debug(logger, "Finalizando proceso - PID:%u", pid);
                 
                 pthread_mutex_lock(&list_processes_mutex);
                 target_pid = pid;
@@ -108,10 +108,10 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                     pthread_mutex_unlock(&pcb_to_remove->mutex);
                     pthread_mutex_destroy(&pcb_to_remove->mutex);
                     free(pcb_to_remove);
-                    log_info(logger, "Process PID:%u ended correctly", pid);
+                    log_debug(logger, "Proceso PID:%u terminado correctamente", pid);
                 } else {
                     pthread_mutex_unlock(&list_processes_mutex);
-                    log_warning(logger, "Process PID:%u not found in list", pid);
+                    log_warning(logger, "Proceso PID: %d no encontrado en la lista", pid);
                 }
                 
                 break;

@@ -99,7 +99,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 			context->pc++;
 			break;
 		}
-		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
+		log_debug(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
         execute_instruction(decoded_instruction, context, pid, segment_table, &hasJumped);
 		char *params = "";
@@ -154,7 +154,7 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 
             break;
 		}
-		log_info(logger, "No hay interrupciones pendientes para PID %d, continuando ejecucion", pid);
+		log_debug(logger, "No hay interrupciones pendientes para PID %d, continuando ejecucion", pid);
 	}
 }
 
@@ -829,7 +829,7 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
     }
 
     uint32_t physical_address = segment->base + seg_offset;
-    log_info(logger, "PID: %d - MMU - Dirección lógica %d → física %d (segmento=%d, desplazamiento=%d)", pid, logical_address, physical_address, num_segment, seg_offset);
+    log_debug(logger, "PID: %d - MMU - Dirección lógica %d → física %d (segmento=%d, desplazamiento=%d)", pid, logical_address, physical_address, num_segment, seg_offset);
     return physical_address;
 }
 

@@ -358,7 +358,7 @@ int segment_delete(uint32_t pid, uint32_t segment_id) {
     }
 
     pthread_mutex_unlock(&pcb->mutex);
-    log_info(logger, "Segmento ID %u eliminado para PID %u", segment_id, pid);
+    log_debug(logger, "Segmento ID %u eliminado para PID %u", segment_id, pid);
     return SEGMENT_OK;
 }
 

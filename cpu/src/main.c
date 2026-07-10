@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 	if(config == NULL) return EXIT_FAILURE;
 	cpu_identifier = strdup(argv[2]); 
 	logger = start_logger(config);
-	log_info(logger, "CPU started");
+	log_debug(logger, "CPU started");
 	list_memory_stick = list_create();
 	
 	sem_init(&sem_instruction_fetch_ready, 0, 0);
@@ -78,7 +78,7 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
-		log_info(logger, "No se pudo conectar con Kernel Memory");
+		log_error(logger, "No se pudo conectar con Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
@@ -87,19 +87,19 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	t_module_id_send(kernel_memory->fd, MODULE_CPU, logger, &kernel_memory->network_mutex);
 	uint32_send(kernel_memory->fd, cpu_id, &kernel_memory->network_mutex);
 
-	log_info(logger, "Coneccion exitosa con Kernel Memory");
+	log_debug(logger, "Coneccion exitosa con Kernel Memory");
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory->fd);
-	log_info(logger, "Recibida lista de credenciales con %d entradas", list_size(credentials_list));
+	log_debug(logger, "Recibida lista de credenciales con %d entradas", list_size(credentials_list));
 	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
 			return EXIT_FAILURE;
 	} else {
-		log_info(logger, "Lista de credenciales vacía.");
+		log_debug(logger, "Lista de credenciales vacía.");
 	}
 
 	segment_max_size = uint32_receive(kernel_memory->fd);
-	log_info(logger, "Tamaño máximo de segmento recibido de Kernel Memory: %d bytes", segment_max_size);
+	log_debug(logger, "Tamaño máximo de segmento recibido de Kernel Memory: %d bytes", segment_max_size);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_handler, NULL);
@@ -129,7 +129,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 	t_module_id_send(kernel_scheduler->fd, MODULE_CPU, logger, &kernel_scheduler->network_mutex);
 
 	cpu_id = uint32_receive(kernel_scheduler->fd);
-	log_info(logger, "Coneccion exitosa con Kernel Scheduler, CPU ID: %d", cpu_id);
+	log_debug(logger, "Coneccion exitosa con Kernel Scheduler, CPU ID: %d", cpu_id);
 
 	free(kernel_scheduler_ip);
 	free(kernel_scheduler_port);
