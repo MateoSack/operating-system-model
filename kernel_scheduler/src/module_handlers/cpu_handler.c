@@ -1,7 +1,7 @@
 #include "cpu_handler.h"
 
 void cpu_handler (int cpu_fd) {
-	uint32_t id = id_assigner(&next_cpu_id, cpu_fd, &cpu_id_mutex);
+	uint32_t id = uint32_receive(cpu_fd);
 
 	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
 	log_info(logger, "CPU %d Conectada", id);

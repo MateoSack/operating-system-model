@@ -43,11 +43,11 @@ int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
 	t_config *config = config_create(argv[1]);
 	if(config == NULL) return EXIT_FAILURE;
-	cpu_identifier = strdup(argv[2]); 
-	logger = start_logger(config);
+	cpu_id = atoi(argv[2]);
+	logger = start_logger(config, argv[2]);
 	log_debug(logger, "CPU started");
 	list_memory_stick = list_create();
-	
+
 	sem_init(&sem_instruction_fetch_ready, 0, 0);
 	sem_init(&sem_instruction_response_ready, 0, 0); 
 	sem_init(&sem_eviction_ready, 0, 0);
@@ -110,8 +110,7 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	return EXIT_SUCCESS;
 }
 
-int connect_kernel_scheduler(t_log *logger, t_config *config)
-{
+int connect_kernel_scheduler(t_log *logger, t_config *config) {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
@@ -128,7 +127,7 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 
 	t_module_id_send(kernel_scheduler->fd, MODULE_CPU, logger, &kernel_scheduler->network_mutex);
 
-	cpu_id = uint32_receive(kernel_scheduler->fd);
+	uint32_send(kernel_scheduler->fd, cpu_id, &kernel_scheduler->network_mutex);
 	log_debug(logger, "Coneccion exitosa con Kernel Scheduler, CPU ID: %d", cpu_id);
 
 	free(kernel_scheduler_ip);
@@ -201,23 +200,20 @@ void *kernel_memory_handler() {
 	return NULL;
 }
 
-void kernel_scheduler_handler(t_client_info *kernel_scheduler)
-{
-	while (1)
-	{
+void kernel_scheduler_handler(t_client_info *kernel_scheduler) {
+	while (1) {
 		uint32_t pid = 0;
 		// Handle connection with Kernel Scheduler
 		int op = operation_receive(kernel_scheduler->fd);
-		if (op == -1)
-		{
+		if (op == -1) {
 			log_error(logger, "Kernel Scheduler disconnected");
 			destroy_client(kernel_scheduler);
 			destroy_client(kernel_memory);
 			exit(EXIT_FAILURE);
 		}
+
 		switch (op) {
-			case PROCESS_EXECUTE:
-			{
+			case PROCESS_EXECUTE: {
 				pid = uint32_decode(kernel_scheduler->fd);
 				current_pid = pid;
 				log_debug(logger, "PID %d recibido del Kernel Scheduler", pid);
@@ -318,6 +314,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				}
 				break;
 			}
+
 			default: {
 				log_warning(logger, "Operacion desconocida recibida de Kernel Scheduler: %d", op);
 				break;
@@ -326,23 +323,23 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 	}
 }
 
-t_log *start_logger(t_config *config)
-{
+t_log *start_logger(t_config *config, char *cpu_id) {
 	char *logger_file_name = string_new();
 	string_append(&logger_file_name, "cpu");
-	string_append(&logger_file_name, cpu_identifier);
+	string_append(&logger_file_name, cpu_id); // Append the CPU identifier to the log file name
 	string_append(&logger_file_name, ".log");
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
 	t_log_level level = log_level_from_string(level_str);
 	t_log *logger = log_create(logger_file_name, "CPU", true, level);
+	// free(cpu_id); // we don't free cpu_id as its a pointer to argv[2] and should not be freed
+	free(logger_file_name);
+	free(level_str);
 	return logger;
 }
 
-int iterate_connection_create_with_memory_sticks(t_list *list)
-{
+int iterate_connection_create_with_memory_sticks(t_list *list) {
 	int i;
-	for (i = 0; i < list_size(list); i++)
-	{
+	for (i = 0; i < list_size(list); i++) {
 		t_memory_stick_credentials *credentials = list_get(list, i);
 		if (connect_with_memory_stick(logger, credentials) == EXIT_FAILURE)
 			return EXIT_FAILURE;
@@ -352,8 +349,7 @@ int iterate_connection_create_with_memory_sticks(t_list *list)
 	return EXIT_SUCCESS;
 }
 
-int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credentials)
-{
+int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credentials) {
 	log_debug(logger, "Intentando conectarse con ip: %s, port: %s", credentials->ip, credentials->port);
 	int memory_stick_fd = connection_create(credentials->ip, credentials->port, logger);
 

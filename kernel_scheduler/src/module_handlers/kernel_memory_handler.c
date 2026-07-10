@@ -133,7 +133,7 @@ void *kernel_memory_handler (void *arg) {
 			}
 
 			default:{
-				log_warning(logger, "Operación desconocida recibida: %d", op);
+				log_warning(logger, "Operación desconocida recibida de Kernel Memory: %d", op);
 				break;
 			}
 		}

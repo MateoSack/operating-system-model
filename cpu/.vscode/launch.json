@@ -2,11 +2,35 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "run",
+      "name": "run (0)",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
-      "args": ["cpu.config", "THECPU"],
+      "args": ["cpu.config", "0"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "linux": {
+        "MIMode": "gdb"
+      },
+      "osx": {
+        "MIMode": "lldb"
+      },
+      "setupCommands": [
+        {
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "build"
+    },
+    {
+      "name": "run (1)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/bin/${workspaceFolderBasename}",
+      "args": ["cpu.config", "1"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

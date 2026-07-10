@@ -27,7 +27,7 @@ typedef struct {
 } t_process_execution_args;
 
 void end_program(int, t_log*, t_config*);
-t_log *start_logger(t_config *config);
+t_log *start_logger(t_config *config, char *cpu_id);
 int connect_kernel_memory(t_log *logger, t_config *config);
 int connect_kernel_scheduler(t_log *logger, t_config *config);
 void *kernel_memory_handler();
