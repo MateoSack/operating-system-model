@@ -21,6 +21,7 @@ t_process *create_process (uint32_t pid, uint8_t base_priority) { // Create a ne
     process->owned_mutexes = list_create();
     sem_init(&process->io_request_sem, 0, 0);
     sem_init(&process->memory_request_sem, 0, 0);
+    process->pending_memory_syscall = false;
 
     return process;
 }
@@ -260,18 +261,23 @@ void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a conf
     pthread_mutex_lock(&scheduler_mutex);
     t_process *process = get_process_from_cpu(cpu);
     if (process != NULL) {
-        remove_process_from_list(exec_processes, process);
-        process_set_state(process, READY, logger);
-        add_process_to_ready_queue(process);
-        process_set_cpu(process, NULL);
         pthread_mutex_lock(&cpu->internal_mutex);
         cpu->is_available = true;
         cpu->is_evicting = false; // Mark the CPU as not evicting anymore so it can be assigned a new process
         pthread_mutex_unlock(&cpu->internal_mutex);
 
-        pthread_mutex_unlock(&scheduler_mutex);
+        remove_process_from_list(exec_processes, process);
+        process_set_cpu(process, NULL);
 
-        log_debug(logger, "Proceso %d desalojado y agregado a la cola de ready", process->pid);
+        if (process->pending_memory_syscall) {
+            pthread_mutex_unlock(&scheduler_mutex);
+            log_debug(logger, "Proceso %d desalojado con syscall de memoria pendiente; redespacho diferido", process->pid);
+        } else {
+            process_set_state(process, READY, logger);
+            add_process_to_ready_queue(process);
+            pthread_mutex_unlock(&scheduler_mutex);
+            log_debug(logger, "Proceso %d desalojado y agregado a la cola de ready", process->pid);
+        }
     } else {
         pthread_mutex_lock(&cpu->internal_mutex);
         cpu->is_available = true;
@@ -279,7 +285,7 @@ void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a conf
         pthread_mutex_unlock(&cpu->internal_mutex);
         pthread_mutex_unlock(&scheduler_mutex);
 
-        log_warning(logger, "No se encontró el proceso asociado a la CPU %d para agregarlo a la cola de listo para ejecutar después de la confirmación de evict", cpu->id);
+        log_debug(logger, "No se encontró el proceso asociado a la CPU %d para agregarlo a la cola de listo para ejecutar después de la confirmación de evict", cpu->id);
     }
 
     sem_post(&short_term_scheduler_sem); // Signal the short term scheduler that a process was evicted and is ready to be scheduled again
@@ -338,9 +344,11 @@ void evict_all_processes (t_interrupt_reason reason) {
         t_process *process = get_process_from_cpu(current_cpu);
         if (process != NULL) {
             remove_process_from_list(exec_processes, process);
-            process_set_state(process, READY, logger);
             process_set_cpu(process, NULL);
-            add_process_at_start_of_ready_queue(process);
+            if (!process->pending_memory_syscall) {
+                process_set_state(process, READY, logger);
+                add_process_at_start_of_ready_queue(process);
+            }
             pthread_mutex_lock(&current_cpu->internal_mutex);
             current_cpu->is_available = true;
             current_cpu->is_evicting = false;

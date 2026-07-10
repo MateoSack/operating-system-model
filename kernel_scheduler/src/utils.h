@@ -19,6 +19,7 @@ typedef struct {
     t_list *owned_mutexes;
     sem_t io_request_sem;
     sem_t memory_request_sem;
+    bool pending_memory_syscall;
 } t_process;
 
 typedef enum {

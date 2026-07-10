@@ -26,6 +26,10 @@ void mem_alloc_syscall_manager(uint32_t pid, uint32_t segment_id, uint32_t segme
         return;
     }
 
+    pthread_mutex_lock(&scheduler_mutex);
+    process->pending_memory_syscall = true;
+    pthread_mutex_unlock(&scheduler_mutex);
+
     t_package *package = package_create();
     package->op_code = SEGMENT_CREATE;
     package_add(package, &pid, sizeof(uint32_t));
@@ -56,6 +60,10 @@ void mem_free_syscall_manager(uint32_t pid, uint32_t segment_id) {
         return;
     }
 
+    pthread_mutex_lock(&scheduler_mutex);
+    process->pending_memory_syscall = true;
+    pthread_mutex_unlock(&scheduler_mutex);
+
     t_package *package = package_create();
     package->op_code = SEGMENT_DELETE;
     package_add(package, &pid, sizeof(uint32_t));
@@ -75,6 +83,7 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
 
     pthread_mutex_lock(&scheduler_mutex);
     t_client_info *cpu = process->cpu;
+    process->pending_memory_syscall = false;
 
     if (cpu == NULL) {
         if (result == SEGMENT_OK) {
