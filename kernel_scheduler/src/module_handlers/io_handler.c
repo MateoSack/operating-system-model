@@ -13,19 +13,19 @@ void io_handler (int io_fd) {
 
 	if (io_type == IO_TYPE_STDIN) {
 		io = add_client_to_list(list_io_stdin, io_fd, id);
-		log_info(logger, "IO STDIN %d conectada (total: %d)", id, list_size(list_io_stdin));
+		log_debug(logger, "IO STDIN %d conectada (total: %d)", id, list_size(list_io_stdin));
 		io_list = list_io_stdin;
 		pending_io_list = pending_request_io_stdin;
 		standard_op = STDIN;
 	} else if (io_type == IO_TYPE_STDOUT) {
 		io = add_client_to_list(list_io_stdout, io_fd, id);
-		log_info(logger, "IO STDOUT %d conectada (total: %d)", id, list_size(list_io_stdout));
+		log_debug(logger, "IO STDOUT %d conectada (total: %d)", id, list_size(list_io_stdout));
 		io_list = list_io_stdout;
 		pending_io_list = pending_request_io_stdout;
 		standard_op = STDOUT;
 	} else if (io_type == IO_TYPE_SLEEP) {
 		io = add_client_to_list(list_io_sleep, io_fd, id);
-		log_info(logger, "IO SLEEP %d conectada (total: %d)", id, list_size(list_io_sleep));
+		log_debug(logger, "IO SLEEP %d conectada (total: %d)", id, list_size(list_io_sleep));
 		io_list = list_io_sleep;
 		pending_io_list = pending_request_io_sleep;
 		standard_op = SLEEP;

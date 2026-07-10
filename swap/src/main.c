@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
     uint32_t swap_file_size = (uint32_t) config_get_int_value(config, "SWAP_FILE_SIZE");
     uint32_t block_size = (uint32_t) config_get_int_value(config, "BLOCK_SIZE");
 
-    log_info(logger, "SWAP iniciado");
+    log_debug(logger, "SWAP iniciado");
 
     FILE *swap_file = fopen(swap_file_path, "r+b");
     if (swap_file == NULL) {

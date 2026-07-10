@@ -4,7 +4,7 @@ void cpu_handler (int cpu_fd) {
 	uint32_t id = id_assigner(&next_cpu_id, cpu_fd, &cpu_id_mutex);
 
 	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
-	log_info(logger, "CPU %d conectado (total: %d)", id, list_size(list_cpu));
+	log_info(logger, "CPU %d Conectada", id);
 
 	sem_post(&short_term_scheduler_sem);
 
@@ -24,7 +24,8 @@ void cpu_handler (int cpu_fd) {
 
 				receive_instruction_process_create(&pid, &priority, &path, cpu->fd);
 
-				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC (Priority: %d, Path: %s)", pid, priority, path);
+				log_info(logger, "## (%d) - Solicitó syscall: INIT_PROC", pid);
+				log_debug(logger, "Parametros: Priority: %d, Path: %s", priority, path);
 
             	long_term_scheduler(path, priority);
 
@@ -63,9 +64,14 @@ void cpu_handler (int cpu_fd) {
 			case MUTEX_CREATE : {
 				char *mutex_name = message_decode(cpu->fd);
 				t_process *process = get_process_from_cpu(cpu);
-				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE (Nombre del mutex: %s)", process->pid, mutex_name);
+
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE", process->pid);
+				log_debug(logger, "Parametros: Nombre del mutex: %s", mutex_name);
+
 				mutex_create(mutex_name);
+
 				free(mutex_name);
+
 				send_pid_to_execute(process->pid, cpu);
 				break;
 			}
@@ -75,14 +81,15 @@ void cpu_handler (int cpu_fd) {
 
 				t_process *process = get_process_from_cpu(cpu);
 
-				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK (Nombre del mutex: %s)", process->pid, mutex_name);
-
 				if (process == NULL) {
-    				log_error(logger, "Sin procesos asociados a la CPU");
+					log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
     				break;
 				}
 
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_LOCK", process->pid);
+				log_debug(logger, "Parametros: Nombre del mutex: %s", mutex_name);
+				
 				t_mutex *mutex = get_mutex_by_name(mutex_name);
 
 				if (mutex != NULL) {
@@ -112,13 +119,14 @@ void cpu_handler (int cpu_fd) {
 
 				t_process *process = get_process_from_cpu(cpu);
 
-				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK (Nombre del mutex: %s)", process->pid, mutex_name);
-
 				if (process == NULL) {
     				log_error(logger, "Sin procesos asociados a la CPU");
     				free(mutex_name);
     				break;
 				}
+
+				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_UNLOCK", process->pid);
+				log_debug(logger, "Parametros: Nombre del mutex: %s", mutex_name);
 
 				t_mutex *mutex = get_mutex_by_name(mutex_name);
 
@@ -152,7 +160,8 @@ void cpu_handler (int cpu_fd) {
 
 				t_process *process = get_process_from_pid(pid);
 
-				log_info(logger, "## (%d) - Solicitó syscall: SLEEP (Tiempo: %d ms)", pid, sleep_time);
+				log_info(logger, "## (%d) - Solicitó syscall: SLEEP", pid);
+				log_debug(logger, "Parametros: Tiempo de sleep: %d ms", sleep_time);
 
 				if (process != NULL) {
 					sleep_syscall_manager(process, cpu, sleep_time);
@@ -172,7 +181,8 @@ void cpu_handler (int cpu_fd) {
 
 				t_process *process = get_process_from_pid(pid);
 
-				log_info(logger, "## (%d) - Solicitó syscall: STDIN (Dirección física: %d, Bytes a leer: %d)", pid, physical_address, to_read);
+				log_info(logger, "## (%d) - Solicitó syscall: STDIN", pid);
+				log_debug(logger, "Parametros: Dirección física: %d, Bytes a leer: %d", physical_address, to_read);
 
 				if (process != NULL) {
 					stdin_syscall_manager(process, cpu, physical_address, to_read);
@@ -193,6 +203,7 @@ void cpu_handler (int cpu_fd) {
 				t_process *process = get_process_from_pid(pid);
 
 				log_info(logger, "## (%d) - Solicitó syscall: STDOUT", pid);
+				log_debug(logger, "Parametros: Base: %d, Límite: %d", base, limit);
 
 				if (process != NULL) {
 					stdout_syscall_manager(process, cpu, base, limit);
@@ -220,9 +231,10 @@ void cpu_handler (int cpu_fd) {
 
 				receive_instruction_mem_alloc(&pid, &segment_id, &size, cpu->fd);
 
-				mem_alloc_syscall_manager(pid, segment_id, size);
+				log_info(logger, "## PID %u - Solicitó syscall: MEM_ALLOC", pid);
+				log_debug(logger, "Parametros: Segment ID: %u, Size: %u", segment_id, size);
 
-				log_info(logger, "## PID %u - Solicitó syscall: MEM_ALLOC (Segment ID: %u, Size: %u)", pid, segment_id, size);
+				mem_alloc_syscall_manager(pid, segment_id, size);
 				break;
 			}
 
@@ -232,9 +244,10 @@ void cpu_handler (int cpu_fd) {
 
 				receive_instruction_mem_free(&pid, &segment_id, cpu->fd);
 
-				mem_free_syscall_manager(pid, segment_id);
+				log_info(logger, "## PID %u - Solicitó syscall: MEM_FREE", pid);
+				log_debug(logger, "Parametros: Segment ID: %u", segment_id);
 
-				log_info(logger, "## PID %u - Solicitó syscall: MEM_FREE (Segment ID: %u)", pid, segment_id);
+				mem_free_syscall_manager(pid, segment_id);
 				break;
 			}
 
@@ -265,7 +278,7 @@ void cpu_handler (int cpu_fd) {
 
 			case CONFIRMATION: { // Confirms a process was successfully evicted and is ready to be sent to the ready queue
 				uint32_t pid = uint32_decode(cpu->fd);
-				log_info(logger, "## PID %d - Confirmación recibida", pid);
+				log_debug(logger, "PID %d - Confirmación recibida", pid);
 				sem_post(&cpu->response_sem);
 				log_debug(logger, "sem_post hecho para CPU %d", cpu->id);
 				break;

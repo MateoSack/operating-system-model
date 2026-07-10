@@ -1,7 +1,7 @@
 #include <utils.h>
 
 void process_set_state (t_process *process, t_process_state state, t_log *logger) { // Set process state and log the transition
-    log_info(logger, "## (%d) Pasa del estado <%s> al estado <%s>", process->pid, process_state_to_string(process->state), process_state_to_string(state));
+    log_info(logger, "## (%d) Pasa del estado %s al estado %s", process->pid, process_state_to_string(process->state), process_state_to_string(state));
     process->state = state;
 }
 
@@ -416,7 +416,7 @@ void process_set_priority (t_process *process, uint8_t new_priority) { // Use un
 
     process->effective_priority = new_priority;
 
-    log_info(logger, "## <%d> Cambio de prioridad: <%d> - <%d>", process->pid, old_priority, new_priority);
+    log_info(logger, "## %d Cambio de prioridad: %d - %d", process->pid, old_priority, new_priority);
 }
 
 void send_memory_write (uint32_t pid, uint32_t physical_address, uint32_t size, char *data) {

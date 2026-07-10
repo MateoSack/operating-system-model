@@ -295,7 +295,7 @@ void send_credentials_list (int fd, t_list *list, t_log *logger, pthread_mutex_t
 
 	package_send(pkg, fd, mutex);
 	package_delete(pkg);
-	log_info(logger, "Paquete de credenciales enviado a fd: %d, elementos: %d", fd, list_size(list));
+	log_debug(logger, "Paquete de credenciales enviado a fd: %d, elementos: %d", fd, list_size(list));
 }
 
 t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_memory_stick_credentials from the client as part of a package, returns the list
@@ -315,7 +315,7 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 
 	if (size == 0) {
     free(buffer);
-    log_info(logger, "Lista de credenciales vacía");
+    log_debug(logger, "Lista de credenciales vacía");
     return list;
 	}
 
@@ -352,7 +352,7 @@ t_list *receive_credentials_list (int socket_cliente) { // Receives a list of t_
 		list_add(list, cred);
 	}
 
-	log_info(logger, "Lista de credenciales recibida con %d elementos", list_size(list));
+	log_debug(logger, "Lista de credenciales recibida con %d elementos", list_size(list));
 
     free(buffer);
     return list;

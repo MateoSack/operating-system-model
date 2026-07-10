@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_FAILURE;
 	}
 
-	log_info(logger, "Kernel Scheduler iniciado en el puerto %s, esperando conexiones...", config_get_string_value(config, "KERNEL_SCHEDULER_PORT"));
+	log_debug(logger, "Kernel Scheduler iniciado en el puerto %s, esperando conexiones...", config_get_string_value(config, "KERNEL_SCHEDULER_PORT"));
 
 	/*-------------------Handle connections-------------------*/
 	while(1) {
@@ -242,7 +242,7 @@ int setup (char *config_path) { // Initializes the configuration, logger, schedu
 
 void *shutdown_handler (void *arg) { // Waits for the shutdown signal and performs cleanup
 	sem_wait(&shutdown_sem);
-	log_info(logger, "Señal de apagado recibida, apagando...");
+	log_debug(logger, "Señal de apagado recibida, apagando...");
 
 	log_destroy(logger);
     config_destroy(config);

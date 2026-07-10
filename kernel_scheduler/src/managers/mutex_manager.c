@@ -107,6 +107,8 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
 
     uint32_t previous_owner_pid = mutex->lockedBy->pid;
 
+    log_info(logger, "## (%d) Libera el Mutex '%s' ", previous_owner_pid, mutex->name);
+
     send_pid_to_execute(process->pid, process->cpu);
 
     pthread_mutex_lock(&scheduler_mutex);
@@ -154,15 +156,13 @@ void mutex_unlock (t_mutex *mutex, t_process *process) { // Unlock a mutex, if t
         
         pthread_mutex_unlock(&mutex->internal_mutex);
 
-        log_info(logger, "## (%d) Libera el Mutex '%s' y se asigna al proceso %d", previous_owner_pid, mutex->name, next_process->pid);
+        log_debug(logger, "## (%d) Libera el Mutex '%s' y se asigna al proceso %d", previous_owner_pid, mutex->name, next_process->pid);
 
     } else {
         mutex->isLocked = false;
         mutex->lockedBy = NULL;
 
         pthread_mutex_unlock(&mutex->internal_mutex);
-
-        log_info(logger, "## (%d) Libera el Mutex '%s' ", previous_owner_pid, mutex->name);
     }
 }
 
