@@ -11,7 +11,7 @@ void *memory = NULL;
 int main(int argc, char *argv[]) {
 	/*-------------------Initial Setup-------------------*/
     if (argc < 3) {
-        printf("Mode of use: ./bin/memory_stick <config_file> <size>\n");
+        printf("Modo de uso: ./bin/memory_stick <config_file> <size>\n");
         return EXIT_FAILURE;
     }
 
@@ -100,7 +100,7 @@ int kernel_memory_handler (t_log *logger, t_config *config) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
+	log_debug(logger, "Intentando conectar con ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	kernel_memory = create_client_info(connection_create(kernel_memory_ip, kernel_memory_port, logger), 0);
 
 	if (kernel_memory->fd == -1) {
@@ -142,7 +142,7 @@ void *kernel_memory_thread(void *arg) {
                 handle_write(kernel_memory->fd, &kernel_memory->network_mutex);
                 break;
             default:
-                log_error(logger, "KM: operación desconocida: %d", op);
+                log_error(logger, "Operacion desconocida: %d", op);
                 break;
         }
     }
@@ -218,8 +218,7 @@ void handle_write(int fd, pthread_mutex_t *net_mutex) {
     void *data = buffer + offset;
 
     if (local_offset + write_size > size) { // Acá implementar escribir hasta donde se pueda y avisar al cliente que no se escribió todo
-        log_error(logger, "handle_write: escritura fuera de rango (offset=%u size=%u total=%u)",
-                  local_offset, write_size, size);
+        log_error(logger, "handle_write: escritura fuera de rango (offset=%u size=%u total=%u)", local_offset, write_size, size);
         free(buffer);
 
         t_package *pkg = package_create();

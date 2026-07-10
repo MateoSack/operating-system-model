@@ -98,8 +98,8 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
 
 uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_table, uint32_t pid);
 t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint32_t *local_offset);
-void *memory_read(uint32_t physical_address, uint32_t size);
-bool memory_write(uint32_t physical_address, void *data, uint32_t size);
+void *memory_read(uint32_t physical_address, uint32_t size, uint32_t pid);
+bool memory_write(uint32_t physical_address, void *data, uint32_t size, uint32_t pid);
 void send_process_interrupted(uint32_t pid, t_interrupt_reason reason);
 
 #endif // CPU_MANAGE_INSTRUCTIONS_H

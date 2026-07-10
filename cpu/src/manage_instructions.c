@@ -102,7 +102,16 @@ void instructions_cicle(t_cpu_context *context, uint32_t pid, t_list *segment_ta
 		log_info(logger, "Received instruction from Kernel Memory: %s", instruction);
 		char **decoded_instruction = decode_instruction(instruction);
         execute_instruction(decoded_instruction, context, pid, segment_table, &hasJumped);
-		log_info(logger, "## PID: %d - Ejecutando: %s", pid, decoded_instruction[0]);
+		char *params = "";
+        if (decoded_instruction[1] != NULL && decoded_instruction[2] != NULL) {
+            params = string_from_format("%s %s", decoded_instruction[1], decoded_instruction[2]);
+        } else if (decoded_instruction[1] != NULL) {
+            params = string_from_format("%s", decoded_instruction[1]);
+        }
+
+        log_info(logger, "## PID: %d - Ejecutando: %s - %s", pid, decoded_instruction[0], params);
+
+        if (params[0] != '\0') free(params);
 		free(instruction);
 		string_array_destroy(decoded_instruction);
 
@@ -402,7 +411,7 @@ void instruction_mov_in(char **decoded_instruction, t_cpu_context *context, uint
     
     if (should_exit) return;
 
-    void *data = memory_read(physical_address, descriptor.field_size);
+    void *data = memory_read(physical_address, descriptor.field_size, pid);
     if (data == NULL) {
         log_error(logger, "MOV_IN: error leyendo dirección física %u", physical_address);
         return;
@@ -429,7 +438,7 @@ void instruction_mov_out(char **decoded_instruction, t_cpu_context *context, uin
     if (should_exit) return;
 
     uint32_t value = read_register_value(context, decoded_instruction[1]);
-    bool ok = memory_write(physical_address, &value, descriptor.field_size);
+    bool ok = memory_write(physical_address, &value, descriptor.field_size, pid);
     if (!ok) {
         log_error(logger, "MOV_OUT: error escribiendo dirección física %u", physical_address);
         return;
@@ -513,13 +522,13 @@ void instruction_copy_mem(char **decoded_instruction, t_cpu_context *context, ui
     uint32_t physical_dst = mmu_translate(context->di, size, segment_table, pid);
     if (should_exit) return;
 
-    void *data = memory_read(physical_src, size);
+    void *data = memory_read(physical_src, size, pid);
     if (data == NULL) {
         log_error(logger, "COPY_MEM: error leyendo dirección física %u", physical_src);
         return;
     }
 
-    bool ok = memory_write(physical_dst, data, size);
+    bool ok = memory_write(physical_dst, data, size, pid);
     free(data);
     if (!ok) {
         log_error(logger, "COPY_MEM: error escribiendo dirección física %u", physical_dst);
@@ -840,7 +849,7 @@ t_memory_stick_info *get_memory_stick_by_address(uint32_t physical_address, uint
     return NULL;
 }
 
-void *memory_read(uint32_t physical_address, uint32_t size) {
+void *memory_read(uint32_t physical_address, uint32_t size, uint32_t pid) {
     void *result = malloc(size);
     if (result == NULL) return NULL;
 
@@ -851,7 +860,7 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
         t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
 
         if (ms == NULL) {
-            log_error(logger, "## memory_read: dirección física %u fuera de rango", physical_address + bytes_done);
+            log_error(logger, "memory_read: dirección física %u fuera de rango", physical_address + bytes_done);
             free(result);
             return NULL;
         }
@@ -878,7 +887,7 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
         free(data_str);
 
         if (chunk_data == NULL) {
-            log_error(logger, "## memory_read: chunk NULL en MS id=%d", ms->id);
+            log_error(logger, "memory_read: chunk NULL en MS id=%d", ms->id);
             free(result);
             return NULL;
         }
@@ -888,10 +897,12 @@ void *memory_read(uint32_t physical_address, uint32_t size) {
         bytes_done += chunk;
     }
 
+    log_info(logger, "## PID %u - Accion: LEER - Direccion fisica: %u - Valor: %s", pid, physical_address, bytes_to_safe_string(result, size));
+
     return result;
 }
 
-bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
+bool memory_write(uint32_t physical_address, void *data, uint32_t size, uint32_t pid) {
     uint32_t bytes_done = 0;
 
     while (bytes_done < size) {
@@ -899,7 +910,7 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
         t_memory_stick_info *ms = get_memory_stick_by_address(physical_address + bytes_done, &local_offset);
 
         if (ms == NULL) {
-            log_error(logger, "## memory_write: dirección física %u fuera de rango", physical_address + bytes_done);
+            log_error(logger, "memory_write: dirección física %u fuera de rango", physical_address + bytes_done);
             return false;
         }
 
@@ -922,12 +933,13 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size) {
         pthread_mutex_unlock(&ms->mutex);
 
         if (!chunk_ok) {
-            log_error(logger, "## memory_write: falló escritura en MS id=%d offset=%u chunk=%u", ms->id, local_offset, chunk);
+            log_error(logger, "memory_write: falló escritura en MS id=%d offset=%u chunk=%u", ms->id, local_offset, chunk);
             return false;
         }
 
         bytes_done += chunk;
     }
+    log_info(logger, "## PID %u - Accion: ESCRIBIR - Direccion fisica: %u - Valor: %s", pid, physical_address, bytes_to_safe_string(data, size));
 
     return true;
 }

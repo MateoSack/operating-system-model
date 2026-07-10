@@ -35,7 +35,7 @@ uint32_t segment_max_size = 0;
 int main(int argc, char *argv[]) {
 
 	if (argc < 3) {
-        printf("Mode of use: %s <config_file> <Identifier>\n", argv[0]);
+        printf("Modo de uso: %s <config_file> <Identifier>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -72,11 +72,11 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	char *kernel_memory_ip = config_get_string_value(config, "KERNEL_MEMORY_IP");
 	char *kernel_memory_port = config_get_string_value(config, "KERNEL_MEMORY_PORT");
 
-	log_debug(logger, "Attempting connection with ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
+	log_debug(logger, "Intentanto conectar con ip: %s, port: %s", kernel_memory_ip, kernel_memory_port);
 	int kernel_memory_fd = connection_create(kernel_memory_ip, kernel_memory_port, logger);
 
 	if (kernel_memory_fd == -1) {
-		log_info(logger, "Couldnt connect with Kernel Memory");
+		log_info(logger, "No se pudo conectar con Kernel Memory");
 		return EXIT_FAILURE;
 	}
 
@@ -85,19 +85,19 @@ int connect_kernel_memory(t_log *logger, t_config *config) {
 	t_module_id_send(kernel_memory->fd, MODULE_CPU, logger, &kernel_memory->network_mutex);
 	uint32_send(kernel_memory->fd, cpu_id, &kernel_memory->network_mutex);
 
-	log_info(logger, "Connection successful with Kernel Memory");
+	log_info(logger, "Coneccion exitosa con Kernel Memory");
 
 	t_list *credentials_list = receive_credentials_list(kernel_memory->fd);
-	log_info(logger, "Received credentials list from Kernel Memory with %d entries", list_size(credentials_list));
+	log_info(logger, "Recibida lista de credenciales con %d entradas", list_size(credentials_list));
 	if (list_size(credentials_list) != 0) {
 		if (iterate_connection_create_with_memory_sticks(credentials_list) == EXIT_FAILURE)
 			return EXIT_FAILURE;
 	} else {
-		log_info(logger, "Credentials list empty.");
+		log_info(logger, "Lista de credenciales vacía.");
 	}
 
 	segment_max_size = uint32_receive(kernel_memory->fd);
-	log_info(logger, "Received segment max size from Kernel Memory: %d bytes", segment_max_size);
+	log_info(logger, "Tamaño máximo de segmento recibido de Kernel Memory: %d bytes", segment_max_size);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, kernel_memory_handler, NULL);
@@ -124,11 +124,10 @@ int connect_kernel_scheduler(t_log *logger, t_config *config)
 
 	kernel_scheduler = create_client_info(kernel_scheduler_fd, 0); // ID is not relevant for kernel scheduler, set to 0
 
-	log_debug(logger, "Attempting to send t_module_id to %d", kernel_scheduler_fd);
 	t_module_id_send(kernel_scheduler->fd, MODULE_CPU, logger, &kernel_scheduler->network_mutex);
 
 	cpu_id = uint32_receive(kernel_scheduler->fd);
-	log_info(logger, "Connection successful to Kernel Scheduler, CPU ID: %d", cpu_id);
+	log_info(logger, "Coneccion exitosa con Kernel Scheduler, CPU ID: %d", cpu_id);
 
 	free(kernel_scheduler_ip);
 	free(kernel_scheduler_port);
@@ -140,7 +139,7 @@ void *kernel_memory_handler() {
 		// Centralized reader for Kernel Memory
 		int op = operation_receive(kernel_memory->fd);
 		if (op == -1) {
-			log_error(logger, "Kernel Memory disconnected");
+			log_error(logger, "Kernel Memory desconectado.");
 			close(kernel_scheduler->fd);
 			close(kernel_memory->fd);
 
@@ -150,19 +149,16 @@ void *kernel_memory_handler() {
 
 		switch (op) {
 			case INSTRUCTION_FETCH: {
-				// CPU instruction fetch flow: wait until CPU thread signals readiness
-				log_debug(logger, "Received INSTRUCTION_FETCH request from CPU thread, waiting for CPU to be ready");
 				sem_wait(&sem_instruction_fetch_ready);
-				log_debug(logger, "CPU thread is ready for instruction, receiving instruction from Kernel Memory");
 				char *instruction = message_decode(kernel_memory->fd);
-				log_debug(logger, "Instruction received from Kernel Memory");
+				log_debug(logger, "Instruccion recibida de Kernel Memory");
 
 				pthread_mutex_lock(&instruction_response.mutex);
 				instruction_response.instruction = instruction;
 				instruction_response.is_ready = true;
 				pthread_mutex_unlock(&instruction_response.mutex);
 
-				log_debug(logger, "Received instruction: %s", instruction);
+				log_debug(logger, "Instruccion recibida: %s", instruction);
 				sem_post(&sem_instruction_response_ready);
 				break;
 			}
@@ -189,13 +185,13 @@ void *kernel_memory_handler() {
 
 			case CREDENTIALS_UPDATE: {
 				t_memory_stick_credentials *credentials = receive_credentials(kernel_memory->fd);
-				log_debug(logger, "Received credentials: ip=%s, port=%s, id=%d, size=%d", credentials->ip, credentials->port, credentials->id, credentials->size);
+				log_debug(logger, "Credenciales recibidas: ip=%s, port=%s, id=%d, size=%d", credentials->ip, credentials->port, credentials->id, credentials->size);
 				connect_with_memory_stick(logger, credentials);
 				break;
 			}
 
 			default: {
-				log_warning(logger, "Received unknown operation code %d from Kernel Memory", op);
+				log_warning(logger, "Operacion desconocida %d", op);
 				break;
 			}
 		}
@@ -287,7 +283,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				int offset = 0;
 				void *buffer = buffer_receive(&size, kernel_scheduler->fd);
 				if (buffer == NULL) {
-					log_error(logger, "Failed to receive PROCESS_EVICT payload");
+					log_error(logger, "Fallo al recibir payload de PROCESS_EVICT");
 					break;
 				}
 				uint32_t reason_val = uint32_deserialize(buffer, &offset);
@@ -302,7 +298,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 
 				// If there's no active execution thread, there's nothing to wait on
 				if (!is_executing) {
-					log_debug(logger, "PROCESS_EVICT received but no execution active; replying immediately");
+					log_debug(logger, "PROCESS_EVICT recibido pero no hay proceso en ejecucion, confirmando a Kernel Scheduler");
 					pthread_mutex_lock(&interrupt_mutex);
 					interruptPending = false;
 					pthread_mutex_unlock(&interrupt_mutex);
@@ -317,7 +313,7 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				break;
 			}
 			default: {
-				log_warning(logger, "Received unknown operation code %d from Kernel Scheduler", op);
+				log_warning(logger, "Operacion desconocida recibida de Kernel Scheduler: %d", op);
 				break;
 			}
 		}
@@ -379,7 +375,7 @@ int connect_with_memory_stick(t_log *logger, t_memory_stick_credentials *credent
 
 	log_debug(logger, "Conexión establecida con Memory Stick ID %d, tamaño %d bytes", mem_stick->id, mem_stick->size);
 
-	log_debug(logger, "Memory Stick %d connected (total: %d)", credentials->id, mem_stick_count);
+	log_debug(logger, "Memory Stick %d conectado(total: %d)", credentials->id, mem_stick_count);
 
 	pthread_t thread;
 	pthread_create(&thread, NULL, memory_stick_handler, mem_stick);
