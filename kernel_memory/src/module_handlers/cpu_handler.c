@@ -4,10 +4,9 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
     while (1) {
         int op = operation_receive(cpu->fd);
         if (op == -1) {
+            log_error(logger, "CPU %d disconnected", cpu->id);
             remove_client_from_list(list_cpu, cpu);
             destroy_client(cpu);
-            
-            log_error(logger, "CPU %d disconnected", cpu->id);
 
             //Llamar función de fallo y shutdown
             break;
