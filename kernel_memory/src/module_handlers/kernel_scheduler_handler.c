@@ -82,7 +82,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
                 pthread_mutex_unlock(&list_processes_mutex);
 
                 // Send confirmation back to Kernel Scheduler
-                uint32_send_with_op_code(pid, PROCESS_CREATE, client_fd, &kernel_scheduler->network_mutex);
+                uint32_send_with_op_code(client_fd, pid, PROCESS_CREATE, &kernel_scheduler->network_mutex);
             
                 break;
             }
