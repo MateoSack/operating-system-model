@@ -49,6 +49,13 @@ void *kernel_memory_handler (void *arg) {
 				break;
 			}
 
+			case PROCESS_CREATE: {
+				uint32_t pid = uint32_decode(kernel_memory->fd);
+				log_debug(logger, "Kernel Memory creó el proceso %d", pid);
+				wait_process_create_confirmation(pid);
+				break;
+			}
+
 			case COMPACTION_REQUEST: {
 				compaction_requested();
 				break;

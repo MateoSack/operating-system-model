@@ -13,6 +13,7 @@ extern pthread_mutex_t scheduler_mutex;
 extern sem_t short_term_scheduler_sem;
 
 int long_term_scheduler (char *path, uint8_t priority);
+void wait_process_create_confirmation (uint32_t pid);
 uint32_t pid_assigner (uint32_t *current_pid);
 
 #endif
