@@ -354,6 +354,14 @@ void evict_all_processes (t_interrupt_reason reason) {
 }
 
 void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
+    pthread_mutex_lock(&cpu->internal_mutex);
+    if (cpu->is_evicting) {
+        pthread_mutex_unlock(&cpu->internal_mutex);
+        log_debug(logger, "CPU %d is currently evicting a process. Cannot send PID %d to execute.", cpu->id, pid);
+        return;
+    }
+    pthread_mutex_unlock(&cpu->internal_mutex);
+
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EXECUTE;
     package_add(pkg, &pid, sizeof(uint32_t));

@@ -84,6 +84,8 @@ void handle_segment_result (uint32_t pid, uint32_t segment_id, t_segment_result 
                 add_process_to_ready_queue(process);
                 pthread_mutex_unlock(&scheduler_mutex);
                 sem_post(&short_term_scheduler_sem);
+            } else {
+                pthread_mutex_unlock(&scheduler_mutex);
             }
         } else {
             log_debug(logger, "Error en syscall de memoria. Terminando proceso desalojado");
