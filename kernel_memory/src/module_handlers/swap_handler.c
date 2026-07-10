@@ -16,12 +16,21 @@ int swap_handler (t_log *logger, int swap_fd){
         switch (op) {
             case SWAP_IN: {
                 int buf_size;
-                void *block_buffer = buffer_receive(&buf_size, swap_fd);
+                int offset = 0;
+                void *raw = buffer_receive(&buf_size, swap_fd);
+
+                int data_size;
+                memcpy(&data_size, raw + offset, sizeof(int));
+                offset += sizeof(int);
+
+                void *block_buf = malloc(data_size);
+                memcpy(block_buf, raw + offset, data_size);
+                free(raw);
 
                 pthread_mutex_lock(&swap_read_response.mutex);
                 if (swap_read_response.data != NULL) free(swap_read_response.data);
-                swap_read_response.data  = block_buffer;
-                swap_read_response.size  = buf_size;
+                swap_read_response.data  = block_buf;
+                swap_read_response.size  = data_size;
                 swap_read_response.ready = true;
                 pthread_mutex_unlock(&swap_read_response.mutex);
 
