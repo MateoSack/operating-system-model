@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
         if (op == -1) {
             log_warning(logger, "Kernel Memory desconectado");
             destroy_client(kernel_memory);
-            break;
+            exit(EXIT_FAILURE);
         }
 
         switch (op) {

@@ -47,7 +47,7 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
         int op = operation_receive(client_fd);
         if (op == -1) {
             log_error(logger, "Kernel Scheduler desconectado");
-            break;
+            exit(EXIT_FAILURE);
         }
 
         switch (op) {

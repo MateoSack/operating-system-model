@@ -27,8 +27,6 @@ int main(int argc, char *argv[]) {
 	char *kernel_scheduler_ip = config_get_string_value(config, "KERNEL_SCHEDULER_IP");
 	char *kernel_scheduler_port = config_get_string_value(config, "KERNEL_SCHEDULER_PORT");
 
-	log_info(logger, "IO started");
-
 	kernel_scheduler = create_client_info(connection_create(kernel_scheduler_ip, kernel_scheduler_port, logger), 0);
 
 	if (kernel_scheduler->fd == -1) {
@@ -40,7 +38,7 @@ int main(int argc, char *argv[]) {
 	t_io_type_send(kernel_scheduler->fd, io_type, logger, &kernel_scheduler->network_mutex);
 	io_id = uint32_receive(kernel_scheduler->fd);
 	log_info(logger, "## Conectado a Kernel Scheduler");
-	log_info(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);
+	log_debug(logger, "## IO ID asignada por Kernel Scheduler: %d", io_id);
 
 	while (1) {
 		int op = operation_receive(kernel_scheduler->fd);
@@ -147,8 +145,6 @@ char *io_stdin(uint32_t pid, uint32_t size) {
 
 void io_stdout(uint32_t pid,char *output){
 	log_info(logger, "## PID: %d - %s",pid, output);
-	printf("%s\n", output);
-	log_info(logger, "%s", output);
 	return;
 }
 
