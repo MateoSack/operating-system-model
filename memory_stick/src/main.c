@@ -2,10 +2,15 @@
 
 
 t_log *logger;
+
 t_list *list_cpu = NULL;
+
 uint32_t mem_stick_id;
-t_client_info *kernel_memory = NULL;
 uint32_t size = 0;
+uint32_t memory_delay = 0;
+
+t_client_info *kernel_memory = NULL;
+
 void *memory = NULL;
 
 int main(int argc, char *argv[]) {
@@ -18,6 +23,8 @@ int main(int argc, char *argv[]) {
     t_config *config = config_create(argv[1]);
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
+
+    memory_delay = (uint32_t)config_get_int_value(config, "MEMORY_DELAY"); // In milliseconds
 
 	size = atoi(argv[2]);
     if (size == 0) {
@@ -136,9 +143,11 @@ void *kernel_memory_thread(void *arg) {
 
         switch (op) {
             case MS_READ:
+                usleep(memory_delay * 1000); // Convert milliseconds to microseconds for usleep
                 handle_read(kernel_memory->fd, &kernel_memory->network_mutex);
                 break;
             case MS_WRITE:
+                usleep(memory_delay * 1000); // Convert milliseconds to microseconds for usleep
                 handle_write(kernel_memory->fd, &kernel_memory->network_mutex);
                 break;
             default:

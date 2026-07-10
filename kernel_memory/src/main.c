@@ -14,6 +14,8 @@ uint32_t total_memory_size = 0;
 uint32_t segment_max_size = 0;
 uint32_t swap_block_size = 0;
 uint32_t swap_total_size = 0;
+uint32_t instruction_delay = 0;
+uint32_t compaction_delay = 0;
 
 pthread_mutex_t total_memory_size_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_cpu_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -53,7 +55,6 @@ int main(int argc, char *argv[]) {
     if(config == NULL) return EXIT_FAILURE;
     logger = start_logger(config);
 
-    /* Read allocation strategy once at startup and store in global; fail if missing */
     char *strategy_cfg = config_get_string_value(config, "ALLOCATION_STRATEGY");
     if (strategy_cfg == NULL) {
         log_error(logger, "ALLOCATION_STRATEGY not set in config, exiting");
@@ -63,15 +64,18 @@ int main(int argc, char *argv[]) {
     }
     allocation_strategy = strdup(strategy_cfg);
 
-        segment_max_size = (uint32_t)config_get_int_value(config, "SEGMENT_MAX_SIZE"); // In bytes
-        if (segment_max_size <= 0) {
-            log_error(logger, "SEGMENT_MAX_SIZE invalid or not set in config, exiting");
-            log_destroy(logger);
-            config_destroy(config);
-            free(allocation_strategy);
-            return EXIT_FAILURE;
-        }
-        log_debug(logger, "SEGMENT_MAX_SIZE read from config: %u", segment_max_size);
+    instruction_delay = (uint32_t)config_get_int_value(config, "INSTRUCTION_DELAY"); // In milliseconds
+    compaction_delay = (uint32_t)config_get_int_value(config, "COMPACTION_DELAY"); // In milliseconds
+
+    segment_max_size = (uint32_t)config_get_int_value(config, "SEGMENT_MAX_SIZE"); // In bytes
+    if (segment_max_size <= 0) {
+        log_error(logger, "SEGMENT_MAX_SIZE invalid or not set in config, exiting");
+        log_destroy(logger);
+        config_destroy(config);
+        free(allocation_strategy);
+        return EXIT_FAILURE;
+    }
+    log_debug(logger, "SEGMENT_MAX_SIZE read from config: %u", segment_max_size);
 
     list_cpu = list_create();
     list_memory_stick = list_create();

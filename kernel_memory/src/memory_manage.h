@@ -4,15 +4,31 @@
 #include <main.h>
 #include <utils/memory_utils.h>
 
-extern uint32_t swap_block_size;
-extern uint32_t swap_total_size;
-extern int swap_fd;
-extern pthread_mutex_t swap_network_mutex;
+extern t_log *logger;
+
+extern t_client_info *kernel_scheduler;
+
+extern t_list *list_memory_stick;
 extern t_list *list_suspended_processes;
-extern pthread_mutex_t list_suspended_processes_mutex;
-extern t_swap_read_response swap_read_response;
+extern t_list *list_processes;
+
 extern sem_t sem_swap_write_done;
 extern sem_t swap_read_response_sem;
+extern sem_t compaction_sem;
+
+extern uint32_t swap_block_size;
+extern uint32_t swap_total_size;
+extern uint32_t total_memory_size;
+extern uint32_t target_pid;
+extern uint32_t compaction_delay;
+extern int swap_fd;
+
+extern pthread_mutex_t swap_network_mutex;
+extern pthread_mutex_t list_suspended_processes_mutex;
+extern pthread_mutex_t list_processes_mutex;
+extern pthread_mutex_t list_memory_stick_mutex;
+
+extern t_swap_read_response swap_read_response;
 
 typedef struct {
     uint32_t segment_id;

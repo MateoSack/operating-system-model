@@ -1,14 +1,6 @@
 #include "memory_manage.h"
 
-extern t_list *list_processes;
-extern pthread_mutex_t list_processes_mutex;
-extern uint32_t total_memory_size;
-extern t_log *logger;
-extern t_client_info *kernel_scheduler;
-extern uint32_t target_pid;
-extern sem_t compaction_sem;
-extern t_list *list_memory_stick;
-extern pthread_mutex_t list_memory_stick_mutex;
+
 
 // ver de sacarla de aca
 static bool compare_by_base(void *a, void *b) {
@@ -142,6 +134,8 @@ void request_and_compact(void) { // Send compaction request to Kernel Scheduler 
     log_debug(logger, "Confirmación de compactación recibida, iniciando compactación...");
 
     compact_memory();
+
+    usleep(compaction_delay * 1000); // Convert milliseconds to microseconds for usleep
 
     t_package *pkg_finished = package_create();
     pkg_finished->op_code = COMPACTION_FINISHED;

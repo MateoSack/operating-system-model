@@ -1,12 +1,5 @@
 #include "cpu_handler.h"
 
-extern t_list *list_cpu;
-extern t_list *list_processes;
-
-extern pthread_mutex_t list_processes_mutex;
-extern uint32_t target_pid;
-
-
 int cpu_handler (t_log *logger, t_client_info *cpu) {
     while (1) {
         int op = operation_receive(cpu->fd);
@@ -124,6 +117,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 
                 char *instruction = pcb->instructions[pc];
                 log_info(logger, "## PID: %u - Obtener instruccion: %u - Instruccion: %s", pid, pc, instruction);
+                usleep(instruction_delay * 1000); // Convert milliseconds to microseconds for usleep
                 message_send_with_op_code(instruction, INSTRUCTION_FETCH, cpu->fd, &cpu->network_mutex);
                 log_debug(logger, "Instruccion enviada correctamente a PID %d: %s", pid, instruction);
                 break;
