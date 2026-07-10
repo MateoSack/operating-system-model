@@ -12,7 +12,7 @@ typedef struct {
     uint32_t segment_size;
 } t_segment_create_args;
 
-static void *segment_create_thread(void *arg) {
+void *segment_create_thread(void *arg) {
     t_segment_create_args *args = (t_segment_create_args *)arg;
     uint32_t pid = args->pid;
     uint32_t segment_id = args->segment_id;

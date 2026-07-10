@@ -783,10 +783,19 @@ void instruction_exit(char **decoded_instruction, t_cpu_context *context, uint32
 
 uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_table, uint32_t pid) {
     uint32_t num_segment = logical_address / segment_max_size;
-    uint32_t seg_offset = logical_address % segment_max_size;
+    uint32_t seg_offset  = logical_address % segment_max_size;
 
-    if (num_segment >= (uint32_t)list_size(segment_table)) { // Accessing non-existing segment
-        log_error(logger, "PID: %d - SEGMENTATION_FAULT", pid);
+    t_segment *segment = NULL;
+    for (int i = 0; i < list_size(segment_table); i++) {
+        t_segment *s = list_get(segment_table, i);
+        if (s->segment_id == num_segment) {
+            segment = s;
+            break;
+        }
+    }
+
+    if (segment == NULL) {
+        log_error(logger, "PID: %d - SEGMENTATION_FAULT - segmento %u no existe", pid, num_segment);
         t_package *pkg = package_create();
         pkg->op_code = SEGMENTATION_FAULT;
         package_add(pkg, &pid, sizeof(uint32_t));
@@ -798,10 +807,8 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
         return 0;
     }
 
-    t_segment *segment = list_get(segment_table, num_segment);
-
-    if (seg_offset + size > segment->size) { // Access beyond segment limit
-        log_error(logger, "PID: %d - Acceso fuera de segmento (offset=%d, size=%d, seg_size=%d) - SEGMENTATION_FAULT", pid, seg_offset, size, segment->size);
+    if (seg_offset + size > segment->size) {
+        log_error(logger, "PID: %d - Acceso fuera de segmento - SEGMENTATION_FAULT", pid);
         t_package *pkg = package_create();
         pkg->op_code = SEGMENTATION_FAULT;
         package_add(pkg, &pid, sizeof(uint32_t));
@@ -815,7 +822,6 @@ uint32_t mmu_translate(uint32_t logical_address, uint32_t size, t_list *segment_
 
     uint32_t physical_address = segment->base + seg_offset;
     log_info(logger, "PID: %d - MMU - Dirección lógica %d → física %d (segmento=%d, desplazamiento=%d)", pid, logical_address, physical_address, num_segment, seg_offset);
-
     return physical_address;
 }
 
@@ -897,8 +903,10 @@ void *memory_read(uint32_t physical_address, uint32_t size, uint32_t pid) {
         bytes_done += chunk;
     }
 
-    log_info(logger, "## PID %u - Accion: LEER - Direccion fisica: %u - Valor: %s", pid, physical_address, bytes_to_safe_string(result, size));
-
+    uint32_t value = 0;
+    memcpy(&value, result, size < sizeof(value) ? size : sizeof(value));
+    log_info(logger, "## PID %u - Accion: LEER - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
+    
     return result;
 }
 
@@ -939,7 +947,9 @@ bool memory_write(uint32_t physical_address, void *data, uint32_t size, uint32_t
 
         bytes_done += chunk;
     }
-    log_info(logger, "## PID %u - Accion: ESCRIBIR - Direccion fisica: %u - Valor: %s", pid, physical_address, bytes_to_safe_string(data, size));
+    uint32_t value = 0;
+    memcpy(&value, data, size < sizeof(value) ? size : sizeof(value));
+    log_info(logger, "## PID %u - Accion: ESCRIBIR - Direccion fisica: %u - Valor: %u", pid, physical_address, value);
 
     return true;
 }

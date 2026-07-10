@@ -9,6 +9,7 @@
 
 extern t_client_info *kernel_scheduler;
 
+void *segment_create_thread(void *arg);
 int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config);
 
 #endif
