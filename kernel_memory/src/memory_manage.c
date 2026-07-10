@@ -91,35 +91,50 @@ t_hole *select_hole(t_list *holes, uint32_t size) {
     }
 }
 
+static bool compare_segment_by_base(void *a, void *b) {
+    return ((t_segment *)a)->base < ((t_segment *)b)->base;
+}
+
 void compact_memory(void) {
     log_warning(logger, "Inicio de compactación");
 
     pthread_mutex_lock(&list_processes_mutex);
-    uint32_t cursor = 0;
+
+    // Collect all segments in one list
+    t_list *all_segments = list_create();
     for (int i = 0; i < list_size(list_processes); i++) {
         t_pcb *pcb = list_get(list_processes, i);
         for (int j = 0; j < list_size(pcb->segment_table); j++) {
-            t_segment *seg = list_get(pcb->segment_table, j);
-
-            if (seg->base != cursor) {
-                // Read data and write it to the new position continuously, then update the segment's base
-                pthread_mutex_unlock(&list_processes_mutex);
-                void *data = memory_read(seg->base, seg->size);
-                if (data != NULL) {
-                    memory_write(cursor, data, seg->size);
-                    free(data);
-                }
-                pthread_mutex_lock(&list_processes_mutex);
-
-                seg->base = cursor;
-            }
-
-            cursor += seg->size;
+            list_add(all_segments, list_get(pcb->segment_table, j));
         }
     }
+
+    // Sort segments by base address to process them in order
+    list_sort(all_segments, compare_segment_by_base);
+
+    // Now move all segments continuisly
+    uint32_t cursor = 0;
+    for (int i = 0; i < list_size(all_segments); i++) {
+        t_segment *seg = list_get(all_segments, i);
+
+        if (seg->base != cursor) {
+            pthread_mutex_unlock(&list_processes_mutex);
+            void *data = memory_read(seg->base, seg->size);
+            if (data != NULL) {
+                memory_write(cursor, data, seg->size);
+                free(data);
+            }
+            pthread_mutex_lock(&list_processes_mutex);
+
+            seg->base = cursor;
+        }
+
+        cursor += seg->size;
+    }
+
+    list_destroy(all_segments);
     pthread_mutex_unlock(&list_processes_mutex);
 
-    
     log_debug(logger, "Fin de compactación");
 }
 
