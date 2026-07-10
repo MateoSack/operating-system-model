@@ -220,6 +220,10 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler) {
 
 				sem_wait(&sem_execution_finished);
 
+				pthread_mutex_lock(&process_control_mutex);
+				is_executing = true;
+				pthread_mutex_unlock(&process_control_mutex);
+
 				pthread_mutex_lock(&interrupt_mutex);
     			bool hay_interrupcion = interruptPending;
    				pthread_mutex_unlock(&interrupt_mutex);
@@ -261,6 +265,10 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler) {
 
 				if (context == NULL) {
 					log_error(logger, "Fallo al recibir contexto desde Kernel Memory para PID %d", pid);
+					pthread_mutex_lock(&process_control_mutex);
+					is_executing = false;
+					pthread_mutex_unlock(&process_control_mutex);
+					sem_post(&sem_execution_finished);
 					break;
 				}
 				log_debug(logger, "Contexto recibido correctamente para PID %d", pid);
