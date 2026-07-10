@@ -544,13 +544,21 @@ void *process_execution_handler(void *args) {
     t_list *segment_table = exec_args->segment_table;
 
     // Mark that this PID has an active execution thread
+    pthread_mutex_lock(&process_control_mutex);
     is_executing = true;
+    pthread_mutex_unlock(&process_control_mutex);
+
     instructions_cicle(exec_context, exec_pid, segment_table);
+    
     // Execution finished
+    pthread_mutex_lock(&process_control_mutex);
     is_executing = false;
+    pthread_mutex_unlock(&process_control_mutex);
 	
 	free(exec_context);
 	free(exec_args);
+
+    sem_post(&sem_execution_finished);
 	
 	return NULL;
 }

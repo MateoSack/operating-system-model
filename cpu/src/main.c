@@ -18,6 +18,7 @@ sem_t sem_instruction_fetch_ready;
 sem_t sem_instruction_response_ready;
 sem_t sem_eviction_ready;
 sem_t sem_eviction_handled;
+sem_t sem_execution_finished;
 
 t_instruction_response instruction_response = {
 	.instruction = NULL,
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]) {
 	sem_init(&sem_instruction_response_ready, 0, 0); 
 	sem_init(&sem_eviction_ready, 0, 0);
 	sem_init(&sem_eviction_handled, 0, 0);
+	sem_init(&sem_execution_finished, 0, 1);
 
 	/*-------------------Connection with Kernel Scheduler-------------------*/
 	if (connect_kernel_scheduler(logger, config) == EXIT_FAILURE)
@@ -219,6 +221,9 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				pid = uint32_decode(kernel_scheduler->fd);
 				current_pid = pid;
 				log_debug(logger, "PID %d recibido del Kernel Scheduler", pid);
+
+				sem_wait(&sem_execution_finished);
+
 				pthread_mutex_lock(&interrupt_mutex);
     			bool hay_interrupcion = interruptPending;
    				pthread_mutex_unlock(&interrupt_mutex);
@@ -259,9 +264,6 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				pthread_mutex_unlock(&pending_request_mutex);
 
 				if (context == NULL) {
-					free(pending_request->context);
-					list_destroy_and_destroy_elements(pending_request->segment_table, free);
-					free(pending_request);
 					log_error(logger, "Fallo al recibir contexto desde Kernel Memory para PID %d", pid);
 					break;
 				}
@@ -297,7 +299,11 @@ void kernel_scheduler_handler(t_client_info *kernel_scheduler)
 				pthread_mutex_unlock(&interrupt_mutex);
 
 				// If there's no active execution thread, there's nothing to wait on
-				if (!is_executing) {
+				pthread_mutex_lock(&process_control_mutex);
+				bool executing_now = is_executing;
+				pthread_mutex_unlock(&process_control_mutex);
+
+				if (!executing_now) {
 					log_debug(logger, "PROCESS_EVICT recibido pero no hay proceso en ejecucion, confirmando a Kernel Scheduler");
 					pthread_mutex_lock(&interrupt_mutex);
 					interruptPending = false;

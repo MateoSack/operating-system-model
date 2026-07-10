@@ -17,6 +17,7 @@ extern pthread_mutex_t memory_stick_list_mutex;
 extern sem_t sem_instruction_fetch_ready;
 extern sem_t sem_instruction_response_ready;
 extern sem_t sem_eviction_ready;
+extern sem_t sem_execution_finished;
 
 typedef enum {
 	NOOP,
