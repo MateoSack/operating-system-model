@@ -237,50 +237,25 @@ bool send_process_evict (t_client_info *cpu, t_interrupt_reason reason) {
     return true;
 }
 
-typedef struct {
-    t_client_info *cpu;
-    int generation;
-} t_evict_wait_args;
-
 bool evict_process(t_client_info *cpu, t_interrupt_reason reason, bool should_handle_state) {
     if (!send_process_evict(cpu, reason)) return false;
 
-    pthread_mutex_lock(&cpu->internal_mutex);
-    int generation = cpu->dispatch_generation;
-    pthread_mutex_unlock(&cpu->internal_mutex);
-
-    t_evict_wait_args *args = malloc(sizeof(t_evict_wait_args));
-    args->cpu = cpu;
-    args->generation = generation;
-
     pthread_t thread;
     if (should_handle_state) {
-        pthread_create(&thread, NULL, wait_confirmation_thread_and_handle_state, args);
+        pthread_create(&thread, NULL, wait_confirmation_thread_and_handle_state, (void*)cpu);
     } else {
-        pthread_create(&thread, NULL, wait_confirmation_thread, args);
+        pthread_create(&thread, NULL, wait_confirmation_thread, (void*)cpu);
     }
+    
     pthread_detach(thread);
+
     return true;
 }
 
-void *wait_confirmation_thread_and_handle_state (void *arg) {
-    t_evict_wait_args *args = (t_evict_wait_args*)arg;
-    t_client_info *cpu = args->cpu;
-    int generation_at_evict = args->generation;
-    free(args);
+void *wait_confirmation_thread_and_handle_state (void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted and is ready to be sent to the ready queue
+    t_client_info *cpu = (t_client_info*)arg;
 
     sem_wait(&cpu->response_sem);
-
-    pthread_mutex_lock(&cpu->internal_mutex);
-    bool stale = (cpu->dispatch_generation != generation_at_evict);
-    cpu->is_evicting = false;
-    if (!stale) cpu->is_available = true; // si es stale, la CPU YA está ocupada con el redespacho legítimo
-    pthread_mutex_unlock(&cpu->internal_mutex);
-
-    if (stale) {
-        log_debug(logger, "Confirmación de evict obsoleta para CPU %d (el proceso ya fue redespachado por otra vía). Ignorando.", cpu->id);
-        return NULL; // no tocar el proceso ni la ready queue
-    }
 
     pthread_mutex_lock(&scheduler_mutex);
     t_process *process = get_process_from_cpu(cpu);
@@ -289,46 +264,46 @@ void *wait_confirmation_thread_and_handle_state (void *arg) {
         process_set_state(process, READY, logger);
         add_process_to_ready_queue(process);
         process_set_cpu(process, NULL);
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_available = true;
+        cpu->is_evicting = false; // Mark the CPU as not evicting anymore so it can be assigned a new process
+        pthread_mutex_unlock(&cpu->internal_mutex);
+
         pthread_mutex_unlock(&scheduler_mutex);
+
         log_debug(logger, "Proceso %d desalojado y agregado a la cola de ready", process->pid);
     } else {
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_available = true;
+        cpu->is_evicting = false;
+        pthread_mutex_unlock(&cpu->internal_mutex);
         pthread_mutex_unlock(&scheduler_mutex);
-        log_debug(logger, "No se encontró el proceso asociado a la CPU %d", cpu->id);
+
+        log_warning(logger, "No se encontró el proceso asociado a la CPU %d para agregarlo a la cola de listo para ejecutar después de la confirmación de evict", cpu->id);
     }
 
-    sem_post(&short_term_scheduler_sem);
+    sem_post(&short_term_scheduler_sem); // Signal the short term scheduler that a process was evicted and is ready to be scheduled again
+
     return NULL;
 }
 
 void *wait_confirmation_thread(void *arg) { // Wait for a confirmation from the CPU that the process was successfully evicted. State must be handle by caller
-    t_evict_wait_args *args = (t_evict_wait_args*)arg;
-    t_client_info *cpu = args->cpu;
-    int generation_at_evict = args->generation;
-    free(args);
+    t_client_info *cpu = (t_client_info*)arg;
 
     sem_wait(&cpu->response_sem);
-
-    pthread_mutex_lock(&cpu->internal_mutex);
-    bool stale = (cpu->dispatch_generation != generation_at_evict);
-    cpu->is_evicting = false;
-    if (!stale) cpu->is_available = true; // si es stale, la CPU ya está ocupada con el redespacho legítimo
-    pthread_mutex_unlock(&cpu->internal_mutex);
-
-    if (stale) {
-        log_debug(logger, "Confirmación de evict obsoleta para CPU %d (el proceso ya fue redespachado por otra vía). Ignorando.", cpu->id);
-        sem_post(&short_term_scheduler_sem);
-        return NULL;
-    }
 
     pthread_mutex_lock(&scheduler_mutex);
     t_process *process = get_process_from_cpu(cpu);
     if (process != NULL) {
         remove_process_from_list(exec_processes, process);
         process_set_cpu(process, NULL);
+        pthread_mutex_lock(&cpu->internal_mutex);
+        cpu->is_available = true;
+        cpu->is_evicting = false;
+        pthread_mutex_unlock(&cpu->internal_mutex);
         // the caller handles process state
     }
     pthread_mutex_unlock(&scheduler_mutex);
-
     log_debug(logger, "Proceso desalojado y CPU marcada como libre");
     sem_post(&short_term_scheduler_sem);
     return NULL;
@@ -379,10 +354,6 @@ void evict_all_processes (t_interrupt_reason reason) {
 }
 
 void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
-    pthread_mutex_lock(&cpu->internal_mutex);
-    cpu->dispatch_generation++;
-    pthread_mutex_unlock(&cpu->internal_mutex);
-
     t_package *pkg = package_create();
     pkg->op_code = PROCESS_EXECUTE;
     package_add(pkg, &pid, sizeof(uint32_t));

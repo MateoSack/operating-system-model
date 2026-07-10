@@ -428,7 +428,6 @@ t_client_info *create_client_info (int client_fd, uint32_t id) { // Creates a t_
 	client->id = id;
 	client->is_available = true;
 	client->is_evicting = false;
-	client->dispatch_generation = 0;
 	pthread_mutex_init(&client->internal_mutex, NULL);
 	pthread_mutex_init(&client->network_mutex, NULL);
 	sem_init(&client->response_sem, 0, 0);
