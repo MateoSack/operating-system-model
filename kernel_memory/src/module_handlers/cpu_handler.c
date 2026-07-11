@@ -73,6 +73,7 @@ int cpu_handler (t_log *logger, t_client_info *cpu) {
                 t_pcb *pcb = list_find(list_processes, find_by_pid);
                 if (pcb == NULL) {
                     log_error(logger, "Proceso con PID %d no encontrado", pid);
+                    pthread_mutex_unlock(&list_processes_mutex);
                     break;
                 }
                 pthread_mutex_lock(&pcb->mutex);

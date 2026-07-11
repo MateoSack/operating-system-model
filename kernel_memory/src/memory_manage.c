@@ -588,13 +588,6 @@ bool process_suspend(uint32_t pid) {
     return true;
 }
 
-typedef struct {
-    uint32_t segment_id;
-    uint32_t size;
-    uint32_t new_base;
-    void    *data;
-} t_segment_ready;
-
 bool process_desuspend(uint32_t pid) {
     pthread_mutex_lock(&list_suspended_processes_mutex);
     target_suspended_pid = pid;

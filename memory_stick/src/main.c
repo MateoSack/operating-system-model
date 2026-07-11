@@ -28,14 +28,14 @@ int main(int argc, char *argv[]) {
 
 	size = atoi(argv[2]);
     if (size == 0) {
-        fprintf(stderr, "Tamaño inválido: %s\n", argv[2]);
+        log_error(logger, "Tamaño de memoria inválido: %s", argv[2]);
         return EXIT_FAILURE;
     }
 
     // Reservar la memoria que representa este memory stick
     memory = malloc(size);
     if (memory == NULL) {
-        fprintf(stderr, "Error: no se pudo reservar %u bytes\n", size);
+        log_error(logger, "Error: no se pudo reservar %u bytes", size);
         return EXIT_FAILURE;
     }
     memset(memory, 0, size);

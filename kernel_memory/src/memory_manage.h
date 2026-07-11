@@ -41,6 +41,13 @@ typedef struct {
     t_list *suspended_segments; // t_suspended_segment* list
 } t_suspended_pcb;
 
+typedef struct {
+    uint32_t segment_id;
+    uint32_t size;
+    uint32_t new_base;
+    void    *data;
+} t_segment_ready;
+
 t_list *get_free_holes(void);
 t_hole *best_fit(t_list *holes, uint32_t size);
 t_hole *worst_fit(t_list *holes, uint32_t size);
