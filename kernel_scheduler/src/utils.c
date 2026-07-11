@@ -362,6 +362,11 @@ void evict_all_processes (t_interrupt_reason reason) {
 }
 
 void send_pid_to_execute (uint32_t pid, t_client_info *cpu) { // Sends the process execution information to the CPU
+    if (cpu == NULL) {
+        log_warning(logger, "Se intento enviar un PID %d a ejecutar a un CPU = NULL", pid);
+        return;
+    }
+
     pthread_mutex_lock(&cpu->internal_mutex);
     if (cpu->is_evicting) {
         pthread_mutex_unlock(&cpu->internal_mutex);
