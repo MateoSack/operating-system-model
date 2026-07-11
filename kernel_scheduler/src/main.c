@@ -138,7 +138,7 @@ void *client_handler_selector (void *fd_ptr) { // Receives the client fd, perfor
 t_log *start_logger(t_config *config) { // Initializes the logger based on the configuration file
 	char *level_str = config_get_string_value(config, "LOG_LEVEL");
 	t_log_level level = log_level_from_string(level_str);
-	t_log *logger = log_create("log.log", "Kernel_Scheduler", 1, level);
+	t_log *logger = log_create("kernel_scheduler.log", "Kernel_Scheduler", 1, level);
 	return logger;
 }
 
