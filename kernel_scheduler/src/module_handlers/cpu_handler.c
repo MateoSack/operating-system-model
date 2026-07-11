@@ -4,7 +4,7 @@ void cpu_handler (int cpu_fd) {
 	uint32_t id = uint32_receive(cpu_fd);
 
 	t_client_info *cpu = add_client_to_list(list_cpu, cpu_fd, id);
-	log_info(logger, "CPU %d Conectada", id);
+	log_info(logger, "## CPU %d Conectada", id);
 
 	sem_post(&short_term_scheduler_sem);
 
