@@ -57,16 +57,28 @@ void *kernel_memory_handler (void *arg) {
 			}
 
 			case COMPACTION_REQUEST: {
+				int size;
+				void *buffer = buffer_receive(&size, kernel_memory->fd); // does nothing but must do to consume buffer
+				free(buffer);
+
 				compaction_requested();
 				break;
 			}
 
 			case COMPACTION_FINISHED: {
+				int size;
+				void *buffer = buffer_receive(&size, kernel_memory->fd); // does nothing but must do to consume buffer
+				free(buffer);
+
 				sem_post(&compaction_finished_sem);
 				break;
 			}
 
 			case CORRUPTED_MEMORY: {
+				int size;
+				void *buffer = buffer_receive(&size, kernel_memory->fd); // does nothing but must do to consume buffer
+				free(buffer);
+
 				memory_corrupted();
 				break;
 			}

@@ -190,6 +190,10 @@ int kernel_scheduler_handler(t_log *logger, int client_fd, t_config *config) {
             }
 
             case COMPACTION_READY: {
+				int size;
+				void *buffer = buffer_receive(&size, kernel_scheduler->fd); // does nothing but must do to consume buffer
+				free(buffer);
+
                 // Kernel Scheduler notifies that compaction is ready, so we can proceed with it
                 log_debug(logger, "Aviso de COMPACTION_READY recibido");
                 sem_post(&compaction_sem);
