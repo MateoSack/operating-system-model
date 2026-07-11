@@ -62,8 +62,12 @@ void cpu_handler (int cpu_fd) {
 			}
 
 			case MUTEX_CREATE : {
-				char *mutex_name = message_decode(cpu->fd);
-				t_process *process = get_process_from_cpu(cpu);
+				uint32_t pid;
+				char *mutex_name;
+
+				receive_pid_and_name(&pid, &mutex_name, cpu->fd);
+
+				t_process *process = get_process_from_pid(pid);
 
 				log_info(logger, "## (%d) - Solicitó syscall: MUTEX_CREATE", process->pid);
 				log_debug(logger, "Parametros: Nombre del mutex: %s", mutex_name);
@@ -77,9 +81,12 @@ void cpu_handler (int cpu_fd) {
 			}
 
 			case MUTEX_LOCK : {
-				char *mutex_name = message_decode(cpu->fd);
+				uint32_t pid;
+				char *mutex_name;
 
-				t_process *process = get_process_from_cpu(cpu);
+				receive_pid_and_name(&pid, &mutex_name, cpu->fd);
+
+				t_process *process = get_process_from_pid(pid);
 
 				if (process == NULL) {
 					log_error(logger, "Sin procesos asociados a la CPU");
@@ -115,9 +122,12 @@ void cpu_handler (int cpu_fd) {
 			}
 
 			case MUTEX_UNLOCK : {
-				char *mutex_name = message_decode(cpu->fd);
+				uint32_t pid;
+				char *mutex_name;
 
-				t_process *process = get_process_from_cpu(cpu);
+				receive_pid_and_name(&pid, &mutex_name, cpu->fd);
+
+				t_process *process = get_process_from_pid(pid);
 
 				if (process == NULL) {
     				log_error(logger, "Sin procesos asociados a la CPU");
@@ -347,4 +357,16 @@ void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd
 	*reason = t_interrupt_reason_deserialize(buffer, &offset);
 
 	free(buffer);
+}
+
+void receive_pid_and_name (uint32_t *pid, char **name, int client_fd) {
+    int size;
+    int offset = 0;
+    void *buffer = buffer_receive(&size, client_fd);
+    if (buffer == NULL) { *pid = 0; *name = NULL; return; }
+
+    *pid  = uint32_deserialize(buffer, &offset);
+    *name = string_deserialize(buffer, &offset);
+
+    free(buffer);
 }

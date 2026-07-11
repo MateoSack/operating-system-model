@@ -31,5 +31,6 @@ void receive_instruction_process_create (uint32_t *pid, uint32_t *priority, char
 t_client_info *get_available_io_type (t_list *io_list);
 void receive_interruption (uint32_t *pid, t_interrupt_reason *reason, int cpu_fd);
 void receive_instruction_mem_alloc (uint32_t *pid, uint32_t *segment_id, uint32_t *size, int cpu_fd);
+void receive_pid_and_name (uint32_t *pid, char **name, int client_fd);
 
 #endif

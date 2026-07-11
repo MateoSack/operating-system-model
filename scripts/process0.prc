@@ -1,2 +1,2 @@
-INIT_PROC PCP.prc 0
+INIT_PROC PHP.prc 0
 EXIT

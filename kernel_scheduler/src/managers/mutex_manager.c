@@ -65,6 +65,7 @@ void mutex_lock (t_mutex *mutex, t_process *process) { // Lock a mutex for a pro
 
         process_set_state(process, BLOCK, logger);
         process_set_cpu(process, NULL);
+        remove_process_from_list(exec_processes, process);
 
         process->start_block_time = temporal_gettime(system_timer);
         pthread_mutex_lock(&block_processes_mutex);
