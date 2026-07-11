@@ -187,7 +187,7 @@ void *memory_corrupted_thread (void *arg) {
 
     can_schedule_write(false);
 
-    evict_all_processes(CORRUPT_MEMORY);
+    evict_all_processes(BSOD);
 
     log_debug(logger, "Todos los procesos desalojados. Apagando...");
 

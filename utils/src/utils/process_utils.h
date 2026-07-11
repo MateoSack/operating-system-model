@@ -17,7 +17,7 @@ typedef enum {
 typedef enum {
     QUANTUM_EXPIRED,
     PRIORITY_PREEMPTION,
-    CORRUPT_MEMORY,
+    BSOD,
     MEMORY_REQUEST,
     MUTEX_REQUEST,
     MUTEX_LOCKED,
